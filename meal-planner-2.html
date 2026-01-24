@@ -37,7 +37,7 @@
 </head>
 
 <body>
-  <h1>Meal Planner 2</h1>
+  <h1>Meal Planner</h1>
 
   <div id="errorBanner" class="card wide danger" style="display:none;">
     <div class="row" style="justify-content: space-between;">
@@ -58,68 +58,75 @@
     <div id="msg" class="small" style="margin-top: 8px;"></div>
 
   <div class="grid">
-    <div class="card">
-      <h3>Add planned meal</h3>
-      <div class="row">
-        <select id="selPlanMeal"></select>
-        <button class="btn primary" id="btnAddPlanned">Add to planned</button>
-      </div>
-
-      <h3>Add on-hand ingredient</h3>
-      <div class="row">
-        <select id="selOnHand"></select>
-        <button class="btn primary" id="btnAddOnHand">Add on hand</button>
-      </div>
-
-      <h3>Quick rules</h3>
-      <ul class="small muted">
-        <li><span class="mono">done planned</span> adds meal to past, removes first instance from planned, removes its ingredients from on-hand, keeps at most 14 past meals.</li>
-        <li>Favorites and on-hand are treated as sets for add/remove (no duplicates added).</li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h3>Potential meals (can be made now; favorites first)</h3>
-      <div id="potentialMeals"></div>
-
-      <h3>Needed ingredients (planned but not on hand)</h3>
-      <div id="neededIngredients"></div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <h3>Past meals</h3>
-      <div id="pastMeals"></div>
-
-      <h3>Planned meals</h3>
-      <div id="plannedMeals"></div>
-
-      <h3>Favorite meals</h3>
-      <div id="favoriteMeals"></div>
-
-      <h3>On-hand ingredients</h3>
-      <div id="onHand"></div>
-    </div>
-
-    <div class="card">
-      <h2>Cookbok</h2>
-
-      <h3>Meals</h3>
-      <div id="allMeals"></div>
-
-      <h3>Ingredients</h3>
-      <div id="allIngredients"></div>
-    </div>
-  </div>
-
-  <div class="card wide">
     <details>
-        <h2>Debug</h2>
+      <summary>Add planned meal</summary>
+      <div class="card">
+        <div class="row">
+          <select id="selPlanMeal"></select>
+          <button class="btn primary" id="btnAddPlanned">Add to planned</button>
+        </div>
+
+        <h3>Add on-hand ingredient</h3>
+        <div class="row">
+          <select id="selOnHand"></select>
+          <button class="btn primary" id="btnAddOnHand">Add on hand</button>
+        </div>
+
+        <h3>Quick rules</h3>
+        <ul class="small muted">
+          <li><span class="mono">done planned</span> adds meal to past, removes first instance from planned, removes its ingredients from on-hand, keeps at most 14 past meals.</li>
+          <li>Favorites and on-hand are treated as sets for add/remove (no duplicates added).</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Potential meals (can be made now; favorites first)</summary>
+      <div class="card">
+        <h3></h3>
+        <div id="potentialMeals"></div>
+
+        <h3>Needed ingredients (planned but not on hand)</h3>
+        <div id="neededIngredients"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Past Meals</summary>
+      <div id="pastMeals"></div>
+    </details>
+
+    <details>
+      <summary>Planned Meals</summary>
+      <div id="plannedMeals"></div>
+    </details>
+
+    <details>
+      <summary>Favorite Meals</summary>
+      <div id="favoriteMeals"></div>
+    </details>
+
+    <details>
+      <summary>Cookbook</summary>
+      <div class="card">
+        <div id="allMeals"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Ingredients</summary>
+      <div class="card">
+        <div id="allIngredients"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Debug</summary>
+      <div class="card wide">
         <div class="small muted">Raw internal state arrays (meal/ingredient indices) in fixed order: past, planned, favorites, onHand.</div>
         <pre id="debug" class="mono" style="margin:8px 0 0; overflow:auto;"></pre>
+      </div>
     </details>
-  </div>
 
 <script>
 (() => {
@@ -531,22 +538,7 @@ Carrot sticks, 5, carrots`;
     `;
   }
 
-  function renderListOfIngredients(ids) {
-    if (!ids.length) return `<div class="small muted">Empty.</div>`;
-    const lis = ids
-      .slice()
-      .sort((a, b) => ingredients[a].localeCompare(ingredients[b]))
-      .map(iid => {
-        return `
-          <li>
-            <span>${safeText(ingredients[iid])}</span>
-            <span class="muted small mono"> (#${iid})</span>
-            <button class="btn danger" style="margin-left:8px;" data-action="toggleOnHand" data-ing="${iid}">Remove</button>
-          </li>
-        `;
-      }).join("");
-    return `<ul>${lis}</ul>`;
-  }
+
 
   function renderDerived(derived) {
     // Potential meals
@@ -628,12 +620,12 @@ Carrot sticks, 5, carrots`;
       </table>
     `;
 
-    // Ingredients catalog
+    // Ingredients catalog (combined with on-hand status)
     const lis = ingredients.map((name, iid) => {
       const has = app.state.onHand.includes(iid);
       return `
         <li>
-          <span>${safeText(name)}</span> <span class="muted small mono">(#${iid})</span>
+          ${has ? '<span class="pill ok">on hand</span> ' : ''}<span>${safeText(name)}</span> <span class="muted small mono">(#${iid})</span>
           <button class="btn ${has ? "danger" : "primary"}" style="margin-left:8px;" data-action="toggleOnHand" data-ing="${iid}">
             ${has ? "Remove on hand" : "Add on hand"}
           </button>
@@ -662,7 +654,7 @@ Carrot sticks, 5, carrots`;
     $("pastMeals").innerHTML = renderListOfMeals("Past", app.state.past, { allowRemove:false, allowDone:false, listType:"past" });
     $("plannedMeals").innerHTML = renderListOfMeals("Planned", app.state.planned, { allowRemove:true, allowDone:true, listType:"planned" });
     $("favoriteMeals").innerHTML = renderListOfMeals("Favorites", app.state.favorites, { allowRemove:false, allowDone:false, listType:"favorites" });
-    $("onHand").innerHTML = renderListOfIngredients(app.state.onHand);
+
 
     // Derived
     const derived = computeDerived(app.state);
