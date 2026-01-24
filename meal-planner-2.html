@@ -49,21 +49,13 @@
     </div>
   </div>
 
-  <div class="card wide">
     <div class="row" style="justify-content: space-between;">
-      <div class="stack" style="min-width: 260px;">
-        <div><span class="pill ok">State in URL hash</span></div>
-        <div class="small muted">Copy/paste the URL to move the current app state to another browser.</div>
+      <div class="stack" style="min-width: 260px;" hidden>
         <div><span class="mono" id="hashString"></span></div>
         <div class="small muted">Hash length: <span id="hashLen" class="mono"></span></div>
       </div>
-      <div class="row">
-        <button class="btn primary" id="btnCopyUrl">Copy full URL</button>
-        <button class="btn" id="btnCanonicalize">Canonicalize (rewrite hash)</button>
-      </div>
     </div>
     <div id="msg" class="small" style="margin-top: 8px;"></div>
-  </div>
 
   <div class="grid">
     <div class="card">
@@ -130,9 +122,11 @@
   </div>
 
   <div class="card wide">
-    <h2>Debug</h2>
-    <div class="small muted">Raw internal state arrays (meal/ingredient indices) in fixed order: past, planned, favorites, onHand.</div>
-    <pre id="debug" class="mono" style="margin:8px 0 0; overflow:auto;"></pre>
+    <details>
+        <h2>Debug</h2>
+        <div class="small muted">Raw internal state arrays (meal/ingredient indices) in fixed order: past, planned, favorites, onHand.</div>
+        <pre id="debug" class="mono" style="margin:8px 0 0; overflow:auto;"></pre>
+    </details>
   </div>
 
 <script>
@@ -721,33 +715,6 @@
     if (t.id === "btnAddOnHand") {
       const iid = Number($("selOnHand").value);
       toggleOnHand(iid); // toggle acts as add/remove; this is add-focused UI
-      return;
-    }
-    if (t.id === "btnCopyUrl") {
-      const url = location.href;
-      try {
-        await navigator.clipboard.writeText(url);
-        setMessage("Copied URL to clipboard.");
-      } catch {
-        setMessage("Could not copy automatically (clipboard permission). Manually copy from the address bar.", true);
-      }
-      return;
-    }
-    if (t.id === "btnCanonicalize") {
-      try {
-        // If current hash is invalid, keep error until user resets; canonicalize only if current decodes cleanly.
-        const raw = getHashRaw();
-        const decoded = decodeState(raw);
-        if (decoded.error) {
-          setMessage("Cannot canonicalize: current hash is invalid. Use Reset URL to empty, or take an action to generate a valid hash.", true);
-          return;
-        }
-        writeHashFromState(app.state, { push:false });
-        setMessage("Rewrote hash in canonical form.");
-        render();
-      } catch (err) {
-        setMessage(String(err && err.message ? err.message : err), true);
-      }
       return;
     }
     if (t.id === "btnClearToEmpty") {
