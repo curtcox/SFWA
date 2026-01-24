@@ -19,6 +19,7 @@
     .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(127,127,127,.35); font-size: 12px; }
     .danger { border-color: rgba(200,0,0,.55); background: rgba(200,0,0,.08); }
     .ok { border-color: rgba(0,120,0,.55); background: rgba(0,120,0,.08); }
+    .primary { border-color: rgba(0,90,200,.6); background: rgba(0,90,200,.08); }
     .btn { cursor: pointer; border: 1px solid rgba(127,127,127,.45); background: transparent; border-radius: 8px; padding: 6px 10px; font-size: 12px; }
     .btn:hover { background: rgba(127,127,127,.10); }
     .btn.primary { border-color: rgba(0,90,200,.6); }
@@ -582,7 +583,7 @@ Carrot sticks, 5, carrots`;
     if (!derived.needed.length) {
       $("neededIngredients").innerHTML = `<div class="small muted">None (all planned meal ingredients are on hand).</div>`;
     } else {
-      const lis = derived.needed.map(iid => `<li>${safeText(ingredients[iid])} <span class="muted small mono">(#${iid})</span></li>`).join("");
+      const lis = derived.needed.map(iid => `<li>${safeText(ingredients[iid])}</li>`).join("");
       $("neededIngredients").innerHTML = `<ul>${lis}</ul>`;
     }
   }
@@ -624,11 +625,20 @@ Carrot sticks, 5, carrots`;
     `;
 
     // Ingredients catalog (combined with on-hand status)
+    // Calculate which ingredients are needed for planned meals
+    const neededForPlannedSet = new Set();
+    for (const mid of app.state.planned) {
+      for (const iid of mealIngredientIds(mid)) {
+        neededForPlannedSet.add(iid);
+      }
+    }
+    
     const lis = ingredients.map((name, iid) => {
       const has = app.state.onHand.includes(iid);
+      const neededForPlanned = neededForPlannedSet.has(iid);
       return `
         <li>
-          ${has ? '<span class="pill ok">on hand</span> ' : ''}<span>${safeText(name)}</span> <span class="muted small mono">(#${iid})</span>
+          ${has ? '<span class="pill ok">on hand</span> ' : ''}${neededForPlanned ? '<span class="pill primary">needed for planned</span> ' : ''}<span>${safeText(name)}</span>
           <button class="btn ${has ? "danger" : "primary"}" style="margin-left:8px;" data-action="toggleOnHand" data-ing="${iid}">
             ${has ? "Remove on hand" : "Add on hand"}
           </button>
@@ -683,14 +693,14 @@ Carrot sticks, 5, carrots`;
     // Planned meal select
     const planSel = $("selPlanMeal");
     if (!planSel.dataset.filled) {
-      planSel.innerHTML = meals.map((m, mid) => `<option value="${mid}">${safeText(m.name)} (meal #${mid})</option>`).join("");
+      planSel.innerHTML = meals.map((m, mid) => `<option value="${mid}">${safeText(m.name)}</option>`).join("");
       planSel.dataset.filled = "1";
     }
 
     // Ingredient select for on-hand
     const ingSel = $("selOnHand");
     if (!ingSel.dataset.filled) {
-      ingSel.innerHTML = ingredients.map((name, iid) => `<option value="${iid}">${safeText(name)} (ingredient #${iid})</option>`).join("");
+      ingSel.innerHTML = ingredients.map((name, iid) => `<option value="${iid}">${safeText(name)}</option>`).join("");
       ingSel.dataset.filled = "1";
     }
   }
