@@ -162,13 +162,8 @@
   // ---------------------------
   // Constants (as requested)
   // ---------------------------
-  const ingredients = [
-    "ground beef", "carrots", "onions", "apples", "oranges", "bread", "hamburger buns",
-    "cheddar cheese", "potatoes", "tortillas", "lettuce", "tomatoes", "salsa", "rotel",
-    "olive oil", "green onions", "canned tomato soup", "butter", "salt", "pepper", "garlic",
-    "chicken breast", "rice", "black beans", "taco seasoning", "pickles", "ketchup", "mustard",
-    "milk", "eggs", "broccoli", "soy sauce", "ginger", "pasta", "marinara sauce", "parmesan"
-  ];
+  const ingredientsCsv = "ground beef, carrots, onions, apples, oranges, bread, hamburger buns, cheddar cheese, potatoes, tortillas, lettuce, tomatoes, salsa, rotel, olive oil, green onions, canned tomato soup, butter, salt, pepper, garlic, chicken breast, rice, black beans, taco seasoning, pickles, ketchup, mustard, milk, eggs, broccoli, soy sauce, ginger, pasta, marinara sauce, parmesan";
+  const ingredients = ingredientsCsv.split(",").map(s => s.trim());
 
   function ingId(name) {
     const i = ingredients.indexOf(name);
@@ -176,25 +171,38 @@
     return i;
   }
 
+  // Helper function to parse dish definition from CSV line
+  function parseDish(line, type) {
+    const parts = line.split(",").map(s => s.trim());
+    const name = parts[0];
+    const prepMin = parseInt(parts[1], 10);
+    const ingredientNames = parts.slice(2);
+    const ingredientIds = ingredientNames.map(ingName => ingId(ingName));
+    return { type, name, prepMin, ingredients: ingredientIds };
+  }
+
+  // Main dishes (name, minutes, ingredient 1, ingredient 2, etc...)
+  const mainDishesCsv = `Burgers, 30, ground beef, cheddar cheese, hamburger buns, onions, salt, pepper
+Tacos, 25, ground beef, tortillas, lettuce, tomatoes, cheddar cheese, taco seasoning, onions
+Tomato soup, 10, canned tomato soup, milk, butter
+Grilled cheese, 10, bread, cheddar cheese, butter
+Chicken stir-fry, 25, chicken breast, broccoli, soy sauce, garlic, ginger, olive oil
+Pasta marinara, 25, pasta, marinara sauce, olive oil, garlic, parmesan
+Scrambled eggs, 10, eggs, milk, butter, salt, pepper`;
+
+  // Side dishes (name, minutes, ingredient 1, ingredient 2, etc...)
+  const sidesDishesCsv = `Fries, 25, potatoes, olive oil, salt
+Rotel salsa, 5, rotel, green onions, salsa
+Simple salad, 8, lettuce, tomatoes, onions, olive oil, salt
+Rice, 20, rice, salt, butter
+Black beans, 15, black beans, onions, garlic, olive oil, salt
+Fruit bowl, 5, apples, oranges
+Carrot sticks, 5, carrots`;
+
   // Dishes (main + side) with ingredients + prep time
   const dishes = [
-    // Main dishes
-    { type: "main", name: "Burgers", prepMin: 30, ingredients: [ingId("ground beef"), ingId("cheddar cheese"), ingId("hamburger buns"), ingId("onions"), ingId("salt"), ingId("pepper")] },
-    { type: "main", name: "Tacos", prepMin: 25, ingredients: [ingId("ground beef"), ingId("tortillas"), ingId("lettuce"), ingId("tomatoes"), ingId("cheddar cheese"), ingId("taco seasoning"), ingId("onions")] },
-    { type: "main", name: "Tomato soup", prepMin: 10, ingredients: [ingId("canned tomato soup"), ingId("milk"), ingId("butter")] },
-    { type: "main", name: "Grilled cheese", prepMin: 10, ingredients: [ingId("bread"), ingId("cheddar cheese"), ingId("butter")] },
-    { type: "main", name: "Chicken stir-fry", prepMin: 25, ingredients: [ingId("chicken breast"), ingId("broccoli"), ingId("soy sauce"), ingId("garlic"), ingId("ginger"), ingId("olive oil")] },
-    { type: "main", name: "Pasta marinara", prepMin: 25, ingredients: [ingId("pasta"), ingId("marinara sauce"), ingId("olive oil"), ingId("garlic"), ingId("parmesan")] },
-    { type: "main", name: "Scrambled eggs", prepMin: 10, ingredients: [ingId("eggs"), ingId("milk"), ingId("butter"), ingId("salt"), ingId("pepper")] },
-
-    // Side dishes
-    { type: "side", name: "Fries", prepMin: 25, ingredients: [ingId("potatoes"), ingId("olive oil"), ingId("salt")] },
-    { type: "side", name: "Rotel salsa", prepMin: 5, ingredients: [ingId("rotel"), ingId("green onions"), ingId("salsa")] },
-    { type: "side", name: "Simple salad", prepMin: 8, ingredients: [ingId("lettuce"), ingId("tomatoes"), ingId("onions"), ingId("olive oil"), ingId("salt")] },
-    { type: "side", name: "Rice", prepMin: 20, ingredients: [ingId("rice"), ingId("salt"), ingId("butter")] },
-    { type: "side", name: "Black beans", prepMin: 15, ingredients: [ingId("black beans"), ingId("onions"), ingId("garlic"), ingId("olive oil"), ingId("salt")] },
-    { type: "side", name: "Fruit bowl", prepMin: 5, ingredients: [ingId("apples"), ingId("oranges")] },
-    { type: "side", name: "Carrot sticks", prepMin: 5, ingredients: [ingId("carrots")] }
+    ...mainDishesCsv.split("\n").filter(line => line.trim()).map(line => parseDish(line, "main")),
+    ...sidesDishesCsv.split("\n").filter(line => line.trim()).map(line => parseDish(line, "side"))
   ];
 
   // Meals: lists of dishes
