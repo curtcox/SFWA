@@ -59,8 +59,6 @@
 
   <div class="grid">
     <div class="card">
-      <h2>Actions</h2>
-
       <h3>Add planned meal</h3>
       <div class="row">
         <select id="selPlanMeal"></select>
@@ -77,13 +75,10 @@
       <ul class="small muted">
         <li><span class="mono">done planned</span> adds meal to past, removes first instance from planned, removes its ingredients from on-hand, keeps at most 14 past meals.</li>
         <li>Favorites and on-hand are treated as sets for add/remove (no duplicates added).</li>
-        <li>Encoding limits: each list length ≤ 61; each item index ≤ 3843.</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>Derived</h2>
-
       <h3>Potential meals (can be made now; favorites first)</h3>
       <div id="potentialMeals"></div>
 
@@ -94,9 +89,7 @@
 
   <div class="grid">
     <div class="card">
-      <h2>State</h2>
-
-      <h3>Past meals (max 14)</h3>
+      <h3>Past meals</h3>
       <div id="pastMeals"></div>
 
       <h3>Planned meals</h3>
@@ -110,8 +103,7 @@
     </div>
 
     <div class="card">
-      <h2>Catalog</h2>
-      <div class="small muted">Constants embedded in this single file.</div>
+      <h2>Cookbok</h2>
 
       <h3>Meals</h3>
       <div id="allMeals"></div>
