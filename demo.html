@@ -1,0 +1,68 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Single-file, hash-state app</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; }
+  button { margin-right: 8px; }
+  pre { background: #f6f6f6; padding: 12px; border-radius: 8px; }
+</style>
+
+<h1>Hash State Demo</h1>
+<div>
+  <button id="dec">-</button>
+  <button id="inc">+</button>
+</div>
+<p>Copy the URL (including the #...) into another browser to reproduce state.</p>
+<pre id="view"></pre>
+
+<script>
+  const DEFAULT_STATE = { counter: 0 };
+
+  function decodeHash() {
+    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+    if (!raw) return { ...DEFAULT_STATE };
+    try {
+      return JSON.parse(decodeURIComponent(raw));
+    } catch {
+      return { ...DEFAULT_STATE };
+    }
+  }
+
+  function encodeHash(state) {
+    return "#" + encodeURIComponent(JSON.stringify(state));
+  }
+
+  function setHash(state, { replace = true } = {}) {
+    const url = encodeHash(state);
+    if (replace) history.replaceState(null, "", url);
+    else history.pushState(null, "", url);
+  }
+
+  let state = decodeHash();
+
+  function render() {
+    document.getElementById("view").textContent =
+      JSON.stringify({ state, hash: location.hash }, null, 2);
+  }
+
+  function update(mutator, { milestone = false } = {}) {
+    state = mutator({ ...state });
+    setHash(state, { replace: !milestone });
+    render();
+  }
+
+  document.getElementById("dec").onclick = () =>
+    update(s => (s.counter--, s), { milestone: true });
+
+  document.getElementById("inc").onclick = () =>
+    update(s => (s.counter++, s), { milestone: true });
+
+  window.addEventListener("hashchange", () => {
+    state = decodeHash();
+    render();
+  });
+
+  // Canonicalize hash on first load
+  setHash(state, { replace: true });
+  render();
+</script>
