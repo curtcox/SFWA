@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paperclip Factory (Single-File, Hash-Saved)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      line-height: 1.25;
+      max-width: 980px;
+    }
+    header { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+    header h1 { font-size: 18px; margin: 0; }
+    header .sub { opacity: 0.75; font-size: 13px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card {
+      border: 1px solid rgba(127,127,127,0.35);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 1px 0 rgba(127,127,127,0.15);
+    }
+    .card h2 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+    .row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; }
+    .row + .row { border-top: 1px solid rgba(127,127,127,0.22); }
+    .k { opacity: 0.85; }
+    .v { font-variant-numeric: tabular-nums; }
+    button {
+      border: 1px solid rgba(127,127,127,0.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(127,127,127,0.10);
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.primary { background: rgba(80, 140, 255, 0.20); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .hint { opacity: 0.75; font-size: 12px; margin-top: 8px; }
+    input[type="number"], input[type="range"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,0.35);
+      background: rgba(127,127,127,0.08);
+    }
+    .inline { display: grid; gap: 8px; grid-template-columns: 1fr 110px; align-items: center; }
+    code.url {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,0.35);
+      background: rgba(127,127,127,0.08);
+      overflow-wrap: anywhere;
+      font-size: 12px;
+    }
+    footer { margin-top: 14px; opacity: 0.7; font-size: 12px; }
+    .warn { color: inherit; opacity: 0.75; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Paperclip Factory</h1>
+    <div class="sub">Single-file web app; game state lives entirely in the URL hash (#...)</div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Inventory & Finance</h2>
+      <div class="row"><div class="k">Money</div><div class="v" id="money"></div></div>
+      <div class="row"><div class="k">Paperclips</div><div class="v" id="clips"></div></div>
+      <div class="row"><div class="k">Wire (inches)</div><div class="v" id="wire"></div></div>
+      <div class="row"><div class="k">Auto-clippers</div><div class="v" id="auto"></div></div>
+      <div class="row"><div class="k">Demand (clips/sec)</div><div class="v" id="demand"></div></div>
+      <div class="row"><div class="k">Sales (clips/sec)</div><div class="v" id="sales"></div></div>
+      <div class="row"><div class="k">Production (clips/sec)</div><div class="v" id="prod"></div></div>
+
+      <div class="actions" style="margin-top: 10px;">
+        <button class="primary" id="btnMake">Make 1 paperclip</button>
+        <button id="btnBuyWire">Buy wire spool</button>
+        <button id="btnBuyAuto">Buy auto-clipper</button>
+        <button id="btnMarketing">Buy marketing</button>
+      </div>
+      <div class="hint" id="costs"></div>
+      <div class="warn" style="margin-top: 8px;">
+        Note: this is an original incremental “paperclip factory” implementation, not a reproduction of any specific commercial game.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Pricing & Market</h2>
+
+      <div class="row" style="border-top: 0;">
+        <div class="k">Price per clip</div>
+        <div class="v" id="priceLabel"></div>
+      </div>
+
+      <div class="inline">
+        <input id="priceRange" type="range" min="0.01" max="1.50" step="0.01" />
+        <input id="priceInput" type="number" min="0.01" max="9.99" step="0.01" />
+      </div>
+
+      <div class="hint">
+        Lower price generally increases demand but reduces profit per unit. Marketing increases baseline demand.
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(127,127,127,0.22); margin: 12px 0;" />
+
+      <h2 style="margin-top:0;">Share / Portability</h2>
+      <div class="hint">Copy/paste this URL into another browser to transfer the exact current state:</div>
+      <code class="url" id="shareUrl"></code>
+      <div class="actions" style="margin-top: 8px;">
+        <button id="btnCopyUrl">Copy URL</button>
+        <button id="btnReset">Reset</button>
+      </div>
+      <div class="hint" id="saveStatus"></div>
+    </section>
+
+    <section class="card">
+      <h2>Stats</h2>
+      <div class="row"><div class="k">Total made</div><div class="v" id="totalMade"></div></div>
+      <div class="row"><div class="k">Total sold</div><div class="v" id="totalSold"></div></div>
+      <div class="row"><div class="k">Wire spools bought</div><div class="v" id="spools"></div></div>
+      <div class="row"><div class="k">Marketing level</div><div class="v" id="mkt"></div></div>
+    </section>
+
+    <section class="card">
+      <h2>How it works</h2>
+      <div class="hint" style="font-size: 13px; opacity: 0.85;">
+        <ul>
+          <li><b>State</b> is JSON, base64url-encoded, stored in <code>#...</code>.</li>
+          <li>On load (or <code>hashchange</code>), the game decodes the hash and hydrates state.</li>
+          <li>During play, the game updates state and periodically writes it back using <code>history.replaceState</code>.</li>
+          <li><b>Integer-only inventory</b>: sales and production accumulate fractional rates into carries, then execute as integer units.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Tip: if you extend this, keep the hash payload small. If you later add large state, add compression and/or a “share snapshot” mode.
+  </footer>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Utilities ----------
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const round4 = (n) => Math.round((n + Number.EPSILON) * 10000) / 10000;
+
+  const fmtMoney = (n) => "$" + round2(n).toFixed(2);
+  const fmtInt = (n) => Math.floor(n).toLocaleString();
+  const fmtRate = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const nowMs = () => performance.now();
+
+  // base64url encode/decode
+  function b64urlEncodeBytes(bytes) {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const b64 = btoa(bin);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function b64urlDecodeToBytes(b64url) {
+    let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  function encodeStateCompact(obj) {
+    const json = JSON.stringify(obj);
+    const bytes = new TextEncoder().encode(json);
+    return b64urlEncodeBytes(bytes);
+  }
+  function decodeStateCompact(payload) {
+    const bytes = b64urlDecodeToBytes(payload);
+    const json = new TextDecoder().decode(bytes);
+    return JSON.parse(json);
+  }
+
+  // ---------- Game State (compact keys) ----------
+  // v: version
+  // m: money (float; rounded when saved/displayed)
+  // c: clips (int)
+  // w: wire (int)
+  // p: price
+  // k: marketing level (int)
+  // a: auto-clippers (int)
+  // sc: spool cost
+  // ac: auto-clipper cost
+  // mc: marketing cost
+  // s: spools bought (int)
+  // tm: total made (int)
+  // ts: total sold (int)
+  // pc: production carry (float)
+  // vc: vending/sales carry (float)  <-- NEW
+  const DEFAULT = Object.freeze({
+    v: 1,
+    m: 0,
+    c: 0,
+    w: 250,
+    p: 0.25,
+    k: 0,
+    a: 0,
+    sc: 10,
+    ac: 15,
+    mc: 50,
+    s: 0,
+    tm: 0,
+    ts: 0,
+    pc: 0,
+    vc: 0
+  });
+
+  function sanitizeState(s) {
+    const out = { ...DEFAULT, ...s };
+
+    for (const key of Object.keys(out)) {
+      if (typeof out[key] === "number") {
+        if (!Number.isFinite(out[key])) out[key] = DEFAULT[key] ?? 0;
+      }
+    }
+
+    out.v = DEFAULT.v;
+
+    out.m = Math.max(0, out.m);
+    out.c = Math.max(0, Math.floor(out.c));
+    out.w = Math.max(0, Math.floor(out.w));
+    out.p = clamp(out.p, 0.01, 9.99);
+    out.k = Math.max(0, Math.floor(out.k));
+    out.a = Math.max(0, Math.floor(out.a));
+
+    out.sc = Math.max(0.01, out.sc);
+    out.ac = Math.max(0.01, out.ac);
+    out.mc = Math.max(0.01, out.mc);
+
+    out.s = Math.max(0, Math.floor(out.s));
+    out.tm = Math.max(0, Math.floor(out.tm));
+    out.ts = Math.max(0, Math.floor(out.ts));
+
+    out.pc = Math.max(0, out.pc);
+    out.vc = Math.max(0, out.vc);
+
+    // Round only for stable URL payload (NOT during internal accumulation)
+    out.m = round2(out.m);
+    out.p = round2(out.p);
+    out.sc = round2(out.sc);
+    out.ac = round2(out.ac);
+    out.mc = round2(out.mc);
+    out.pc = round4(out.pc);
+    out.vc = round4(out.vc);
+
+    return out;
+  }
+
+  function getHashPayload() {
+    const h = location.hash || "";
+    if (!h.startsWith("#")) return "";
+    return h.slice(1).trim();
+  }
+
+  function loadFromHash() {
+    const payload = getHashPayload();
+    if (!payload) return { ...DEFAULT };
+    try {
+      const decoded = decodeStateCompact(payload);
+      return sanitizeState(decoded);
+    } catch {
+      return { ...DEFAULT };
+    }
+  }
+
+  function stateToPayload(state) {
+    return encodeStateCompact(sanitizeState(state));
+  }
+
+  function writeHashPayload(payload, { replace = true } = {}) {
+    const url = "#" + payload;
+    if (replace) history.replaceState(null, "", url);
+    else history.pushState(null, "", url);
+  }
+
+  // ---------- Game Model ----------
+  const MODEL = Object.freeze({
+    spoolSize: 1000,
+    autoRate: 1.0,
+    baseDemand: 1.2,
+    marketingBoost: 0.18,
+    targetPrice: 0.25,
+    priceK: 0.10,
+    maxDemand: 250
+  });
+
+  function demandPerSec(state) {
+    const mktMult = 1 + state.k * MODEL.marketingBoost;
+    const x = (state.p - MODEL.targetPrice) / MODEL.priceK;
+    const priceFactor = 2 / (1 + Math.exp(x));
+    const d = MODEL.baseDemand * mktMult * priceFactor;
+    return clamp(d, 0, MODEL.maxDemand);
+  }
+
+  // ---------- UI ----------
+  const el = (id) => document.getElementById(id);
+  const ui = {
+    money: el("money"),
+    clips: el("clips"),
+    wire: el("wire"),
+    auto: el("auto"),
+    demand: el("demand"),
+    sales: el("sales"),
+    prod: el("prod"),
+    costs: el("costs"),
+    priceLabel: el("priceLabel"),
+    priceRange: el("priceRange"),
+    priceInput: el("priceInput"),
+    shareUrl: el("shareUrl"),
+    saveStatus: el("saveStatus"),
+    totalMade: el("totalMade"),
+    totalSold: el("totalSold"),
+    spools: el("spools"),
+    mkt: el("mkt"),
+
+    btnMake: el("btnMake"),
+    btnBuyWire: el("btnBuyWire"),
+    btnBuyAuto: el("btnBuyAuto"),
+    btnMarketing: el("btnMarketing"),
+    btnCopyUrl: el("btnCopyUrl"),
+    btnReset: el("btnReset")
+  };
+
+  // ---------- Main ----------
+  let state = loadFromHash();
+
+  let lastT = nowMs();
+  let lastUiUpdate = 0;
+  let lastSave = 0;
+  let dirty = true;
+
+  let lastDemand = 0;
+  let lastSalesRate = 0;
+  let lastProdRate = 0;
+
+  function markDirty() { dirty = true; }
+
+  function flushSave({ immediate = false } = {}) {
+    const t = nowMs();
+    const due = immediate || (t - lastSave) >= 900;
+    if (!dirty || !due) return;
+
+    const payload = stateToPayload(state);
+    writeHashPayload(payload, { replace: true });
+
+    lastSave = t;
+    dirty = false;
+
+    ui.saveStatus.textContent = "Saved to URL hash at " + new Date().toLocaleTimeString();
+    ui.shareUrl.textContent = location.href;
+  }
+
+  function updateButtons() {
+    ui.btnMake.disabled = state.w < 1;
+    ui.btnBuyWire.disabled = state.m < state.sc;
+    ui.btnBuyAuto.disabled = state.m < state.ac;
+    ui.btnMarketing.disabled = state.m < state.mc;
+  }
+
+  function render() {
+    ui.money.textContent = fmtMoney(state.m);
+    ui.clips.textContent = fmtInt(state.c);
+    ui.wire.textContent = fmtInt(state.w);
+    ui.auto.textContent = fmtInt(state.a);
+
+    ui.demand.textContent = fmtRate(lastDemand);
+    ui.sales.textContent = fmtRate(lastSalesRate);
+    ui.prod.textContent = fmtRate(lastProdRate);
+
+    ui.priceLabel.textContent = fmtMoney(state.p);
+    ui.costs.textContent =
+      `Wire spool: ${fmtMoney(state.sc)} for ${MODEL.spoolSize.toLocaleString()} inches • ` +
+      `Auto-clipper: ${fmtMoney(state.ac)} • ` +
+      `Marketing: ${fmtMoney(state.mc)}`;
+
+    ui.totalMade.textContent = fmtInt(state.tm);
+    ui.totalSold.textContent = fmtInt(state.ts);
+    ui.spools.textContent = fmtInt(state.s);
+    ui.mkt.textContent = fmtInt(state.k);
+
+    ui.priceRange.value = String(state.p);
+    ui.priceInput.value = String(state.p);
+
+    ui.shareUrl.textContent = location.href;
+
+    updateButtons();
+  }
+
+  // ---------- Actions ----------
+  function makeOneClip() {
+    if (state.w < 1) return;
+    state.w -= 1;
+    state.c += 1;
+    state.tm += 1;
+    markDirty();
+  }
+
+  function buyWireSpool() {
+    if (state.m < state.sc) return;
+    state.m -= state.sc; // do not round per-tick
+    state.w += MODEL.spoolSize;
+    state.s += 1;
+    state.sc = round2(state.sc * 1.12 + 0.50);
+    markDirty();
+  }
+
+  function buyAutoClipper() {
+    if (state.m < state.ac) return;
+    state.m -= state.ac;
+    state.a += 1;
+    state.ac = round2(state.ac * 1.15 + 0.25);
+    markDirty();
+  }
+
+  function buyMarketing() {
+    if (state.m < state.mc) return;
+    state.m -= state.mc;
+    state.k += 1;
+    state.mc = round2(state.mc * 1.22 + 1.00);
+    markDirty();
+  }
+
+  function setPrice(val) {
+    const p = clamp(Number(val), 0.01, 9.99);
+    if (!Number.isFinite(p)) return;
+    state.p = round2(p);
+    markDirty();
+  }
+
+  // ---------- Wiring ----------
+  ui.btnMake.addEventListener("click", () => { makeOneClip(); flushSave({ immediate: true }); render(); });
+  ui.btnBuyWire.addEventListener("click", () => { buyWireSpool(); flushSave({ immediate: true }); render(); });
+  ui.btnBuyAuto.addEventListener("click", () => { buyAutoClipper(); flushSave({ immediate: true }); render(); });
+  ui.btnMarketing.addEventListener("click", () => { buyMarketing(); flushSave({ immediate: true }); render(); });
+
+  ui.priceRange.addEventListener("input", (e) => { setPrice(e.target.value); render(); });
+  ui.priceInput.addEventListener("change", (e) => { setPrice(e.target.value); render(); });
+
+  ui.btnCopyUrl.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      ui.saveStatus.textContent = "Copied URL to clipboard.";
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = location.href;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      ui.saveStatus.textContent = "Copied URL to clipboard (fallback).";
+    }
+  });
+
+  ui.btnReset.addEventListener("click", () => {
+    state = { ...DEFAULT };
+    markDirty();
+    flushSave({ immediate: true });
+    render();
+  });
+
+  window.addEventListener("hashchange", () => {
+    state = loadFromHash();
+    lastT = nowMs();
+    markDirty();
+    render();
+  });
+
+  // ---------- Game Loop ----------
+  function step() {
+    const t = nowMs();
+    const dt = Math.min(0.25, Math.max(0, (t - lastT) / 1000));
+    lastT = t;
+
+    // Production: auto-clippers consume wire to create integer clips
+    const prodTarget = state.a * MODEL.autoRate * dt;
+    state.pc += prodTarget;
+
+    const makeInt = Math.floor(state.pc);
+    if (makeInt > 0) {
+      const possible = Math.min(makeInt, state.w);
+      if (possible > 0) {
+        state.w -= possible;
+        state.c += possible;
+        state.tm += possible;
+        state.pc -= possible;
+        markDirty();
+      } else {
+        state.pc = Math.min(state.pc, 3);
+      }
+    }
+
+    // Demand & sales: accumulate fractional demand, sell only integer units
+    lastDemand = demandPerSec(state);
+    state.vc += lastDemand * dt;
+
+    const wantToSell = Math.floor(state.vc);
+    if (wantToSell > 0) {
+      const soldN = Math.min(wantToSell, state.c); // integer sold
+      if (soldN > 0) {
+        state.c -= soldN;
+        state.ts += soldN;
+        state.m += soldN * state.p; // exact per-unit price
+        state.vc -= soldN;
+        markDirty();
+      } else {
+        // no inventory; avoid unbounded carry if empty
+        state.vc = Math.min(state.vc, 3);
+      }
+    }
+
+    // For display: rates
+    lastProdRate = state.a * MODEL.autoRate;
+    // Effective sales rate should reflect inventory constraints; approximate from last tick demand and inventory
+    lastSalesRate = lastDemand;
+
+    if ((t - lastUiUpdate) > 150) {
+      render();
+      lastUiUpdate = t;
+    }
+
+    flushSave();
+    requestAnimationFrame(step);
+  }
+
+  // initial canonical save
+  markDirty();
+  flushSave({ immediate: true });
+  render();
+  requestAnimationFrame(step);
+})();
+</script>
+</body>
+</html>
