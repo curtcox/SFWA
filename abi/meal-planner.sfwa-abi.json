@@ -1,0 +1,176 @@
+{
+  "abi": "sfwa-abi-1",
+  "contractId": "curtcox.sfwa.meal-planner",
+  "source": {
+    "repo": "curtcox/SFWA",
+    "path": "meal-planner.html",
+    "ref": "main",
+    "url": "https://github.com/curtcox/SFWA/blob/main/meal-planner.html",
+    "retrievedAt": "2026-01-25"
+  },
+  "state": {
+    "location": "hash",
+    "codec": {
+      "type": "base62-4lists-v1",
+      "notes": "Hash payload is a base62 string: first char encodes number of lists (must be '4'); then for each list: 1 base62 length (0..61) + 2 base62 chars per item (0..3843). Lists are in fixed order: past, planned, favorites, onHand."
+    },
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "past": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "maxItems": 61
+        },
+        "planned": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "maxItems": 61
+        },
+        "favorites": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "maxItems": 61
+        },
+        "onHand": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 35
+          },
+          "maxItems": 61
+        }
+      },
+      "required": [
+        "past",
+        "planned",
+        "favorites",
+        "onHand"
+      ],
+      "additionalProperties": false
+    },
+    "canonicalization": {
+      "writesOnBoot": true,
+      "writeMethod": "history.replaceState",
+      "pushUsedForMilestones": false
+    }
+  },
+  "html": {
+    "requires": {
+      "ids": [
+        "errorBanner",
+        "errorText",
+        "btnClearToEmpty",
+        "hashString",
+        "hashLen",
+        "btnCopyUrl",
+        "btnCanonicalize",
+        "msg",
+        "selPlanMeal",
+        "btnAddPlanned",
+        "selOnHand",
+        "btnAddOnHand",
+        "potentialMeals",
+        "neededIngredients",
+        "pastMeals",
+        "plannedMeals",
+        "favoriteMeals",
+        "onHand",
+        "allMeals",
+        "allIngredients",
+        "debug"
+      ],
+      "selectors": [
+        "meta[charset]",
+        "meta[name='viewport']",
+        "title"
+      ],
+      "dataAttributes": [
+        {
+          "name": "data-action",
+          "values": []
+        }
+      ]
+    },
+    "notes": "Many buttons with data-action are generated dynamically by JS via innerHTML; HTML-only compliance should validate only the static IDs above (not dynamic action buttons)."
+  },
+  "js": {
+    "requires": {
+      "domIds": [
+        "errorBanner",
+        "errorText",
+        "btnClearToEmpty",
+        "hashString",
+        "hashLen",
+        "btnCopyUrl",
+        "btnCanonicalize",
+        "msg",
+        "selPlanMeal",
+        "btnAddPlanned",
+        "selOnHand",
+        "btnAddOnHand",
+        "potentialMeals",
+        "neededIngredients",
+        "pastMeals",
+        "plannedMeals",
+        "favoriteMeals",
+        "onHand",
+        "allMeals",
+        "allIngredients",
+        "debug"
+      ],
+      "events": [
+        {
+          "target": "document",
+          "type": "click"
+        },
+        {
+          "target": "window",
+          "type": "hashchange"
+        }
+      ],
+      "hashIO": {
+        "readsLocationHash": true,
+        "writesHash": true,
+        "writeMethods": [
+          "history.replaceState",
+          "history.pushState"
+        ]
+      },
+      "markers": [
+        "BASE62",
+        "enc62",
+        "dec62",
+        "encodeState",
+        "decodeState",
+        "history.replaceState",
+        "location.hash",
+        "hashchange",
+        "data-action",
+        "structuredClone"
+      ],
+      "generatedDataActionValues": [
+        "fav",
+        "plan",
+        "removePlanned",
+        "donePlanned",
+        "toggleOnHand"
+      ]
+    },
+    "notes": "Uses delegated click handling plus dynamically generated markup. JS-side compliance is best verified with runtime instrumentation (observe hash codec + required DOM ids + required event listeners)."
+  }
+}

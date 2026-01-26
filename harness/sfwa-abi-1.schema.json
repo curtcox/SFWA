@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sfwa.example/sfwa-abi-1.schema.json",
+  "title": "SFWA-ABI v1 (Single-File Web App, hash-state)",
+  "type": "object",
+  "required": [
+    "abi",
+    "contractId",
+    "source",
+    "state",
+    "html",
+    "js"
+  ],
+  "properties": {
+    "abi": {
+      "type": "string",
+      "const": "sfwa-abi-1"
+    },
+    "contractId": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "repo",
+        "path",
+        "ref",
+        "url"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "retrievedAt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "location",
+        "codec",
+        "schema"
+      ],
+      "properties": {
+        "location": {
+          "type": "string",
+          "enum": [
+            "hash"
+          ]
+        },
+        "codec": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "json-uri",
+                "json-base64url",
+                "base62-4lists-v1"
+              ]
+            },
+            "notes": {
+              "type": "string"
+            },
+            "hashPayloadExample": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "schema": {
+          "type": "object"
+        },
+        "canonicalization": {
+          "type": "object",
+          "properties": {
+            "writesOnBoot": {
+              "type": "boolean"
+            },
+            "writeMethod": {
+              "type": "string",
+              "enum": [
+                "history.replaceState",
+                "history.pushState",
+                "location.hash"
+              ]
+            },
+            "pushUsedForMilestones": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "html": {
+      "type": "object",
+      "required": [
+        "requires"
+      ],
+      "properties": {
+        "requires": {
+          "type": "object",
+          "required": [
+            "ids"
+          ],
+          "properties": {
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "selectors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "dataAttributes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "values": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "js": {
+      "type": "object",
+      "required": [
+        "requires"
+      ],
+      "properties": {
+        "requires": {
+          "type": "object",
+          "required": [
+            "domIds",
+            "events",
+            "hashIO",
+            "markers"
+          ],
+          "properties": {
+            "domIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "target",
+                  "type"
+                ],
+                "properties": {
+                  "target": {
+                    "type": "string",
+                    "enum": [
+                      "window",
+                      "document",
+                      "element"
+                    ]
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "hashIO": {
+              "type": "object",
+              "required": [
+                "readsLocationHash",
+                "writesHash",
+                "writeMethods"
+              ],
+              "properties": {
+                "readsLocationHash": {
+                  "type": "boolean"
+                },
+                "writesHash": {
+                  "type": "boolean"
+                },
+                "writeMethods": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "markers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "generatedDataActionValues": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

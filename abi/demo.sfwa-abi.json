@@ -1,0 +1,83 @@
+{
+  "abi": "sfwa-abi-1",
+  "contractId": "curtcox.sfwa.demo",
+  "source": {
+    "repo": "curtcox/SFWA",
+    "path": "demo.html",
+    "ref": "main",
+    "url": "https://github.com/curtcox/SFWA/blob/main/demo.html",
+    "retrievedAt": "2026-01-25"
+  },
+  "state": {
+    "location": "hash",
+    "codec": {
+      "type": "json-uri",
+      "notes": "Hash payload is encodeURIComponent(JSON.stringify(state)); full hash is '#'+payload."
+    },
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "counter": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "counter"
+      ],
+      "additionalProperties": false
+    },
+    "canonicalization": {
+      "writesOnBoot": true,
+      "writeMethod": "history.replaceState",
+      "pushUsedForMilestones": true
+    }
+  },
+  "html": {
+    "requires": {
+      "ids": [
+        "dec",
+        "inc",
+        "view"
+      ],
+      "selectors": [
+        "meta[charset]",
+        "title"
+      ]
+    },
+    "notes": "No explicit mount element; JS directly targets specific IDs."
+  },
+  "js": {
+    "requires": {
+      "domIds": [
+        "dec",
+        "inc",
+        "view"
+      ],
+      "events": [
+        {
+          "target": "window",
+          "type": "hashchange"
+        }
+      ],
+      "hashIO": {
+        "readsLocationHash": true,
+        "writesHash": true,
+        "writeMethods": [
+          "history.replaceState",
+          "history.pushState"
+        ]
+      },
+      "markers": [
+        "decodeURIComponent",
+        "encodeURIComponent",
+        "JSON.parse",
+        "JSON.stringify",
+        "location.hash",
+        "history.replaceState",
+        "history.pushState"
+      ]
+    },
+    "notes": "JS is inline and non-exported (no global runtime object). Strong JS-side compliance checking requires dynamic instrumentation rather than direct function calls."
+  }
+}

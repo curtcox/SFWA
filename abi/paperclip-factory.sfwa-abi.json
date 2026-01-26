@@ -1,0 +1,211 @@
+{
+  "abi": "sfwa-abi-1",
+  "contractId": "curtcox.sfwa.paperclip-factory",
+  "source": {
+    "repo": "curtcox/SFWA",
+    "path": "paperclip-factory.html",
+    "ref": "main",
+    "url": "https://github.com/curtcox/SFWA/blob/main/paperclip-factory.html",
+    "retrievedAt": "2026-01-25"
+  },
+  "state": {
+    "location": "hash",
+    "codec": {
+      "type": "json-base64url",
+      "notes": "Hash payload is base64url(TextEncoder.encode(JSON.stringify(sanitizeState(state)))).",
+      "hashPayloadExample": "eyJ2IjoxLCJtIjowLCJjIjowLCJ3IjoyNTAsInAiOjAuMjUsImsiOjAsImEiOjAsInNjIjoxMCwiYWMiOjE1LCJtYyI6NTAsInMiOjAsInRtIjowLCJ0cyI6MCwicGMiOjAsInZjIjowfQ"
+    },
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "integer",
+          "const": 1
+        },
+        "m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "c": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "w": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 9.99
+        },
+        "k": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "a": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sc": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "ac": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "mc": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pc": {
+          "type": "number",
+          "minimum": 0
+        },
+        "vc": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "v",
+        "m",
+        "c",
+        "w",
+        "p",
+        "k",
+        "a",
+        "sc",
+        "ac",
+        "mc",
+        "s",
+        "tm",
+        "ts",
+        "pc",
+        "vc"
+      ],
+      "additionalProperties": false
+    },
+    "canonicalization": {
+      "writesOnBoot": true,
+      "writeMethod": "history.replaceState",
+      "pushUsedForMilestones": false
+    }
+  },
+  "html": {
+    "requires": {
+      "ids": [
+        "money",
+        "clips",
+        "wire",
+        "auto",
+        "demand",
+        "sales",
+        "prod",
+        "costs",
+        "priceLabel",
+        "priceRange",
+        "priceInput",
+        "shareUrl",
+        "saveStatus",
+        "totalMade",
+        "totalSold",
+        "spools",
+        "mkt",
+        "btnMake",
+        "btnBuyWire",
+        "btnBuyAuto",
+        "btnMarketing",
+        "btnCopyUrl",
+        "btnReset"
+      ],
+      "selectors": [
+        "meta[charset]",
+        "meta[name='viewport']",
+        "title"
+      ]
+    },
+    "notes": "JS binds to a fixed set of IDs and expects range+number inputs for price controls."
+  },
+  "js": {
+    "requires": {
+      "domIds": [
+        "money",
+        "clips",
+        "wire",
+        "auto",
+        "demand",
+        "sales",
+        "prod",
+        "costs",
+        "priceLabel",
+        "priceRange",
+        "priceInput",
+        "shareUrl",
+        "saveStatus",
+        "totalMade",
+        "totalSold",
+        "spools",
+        "mkt",
+        "btnMake",
+        "btnBuyWire",
+        "btnBuyAuto",
+        "btnMarketing",
+        "btnCopyUrl",
+        "btnReset"
+      ],
+      "events": [
+        {
+          "target": "window",
+          "type": "hashchange"
+        },
+        {
+          "target": "element",
+          "type": "click"
+        },
+        {
+          "target": "element",
+          "type": "input"
+        },
+        {
+          "target": "element",
+          "type": "change"
+        }
+      ],
+      "hashIO": {
+        "readsLocationHash": true,
+        "writesHash": true,
+        "writeMethods": [
+          "history.replaceState",
+          "history.pushState"
+        ]
+      },
+      "markers": [
+        "TextEncoder",
+        "TextDecoder",
+        "btoa",
+        "atob",
+        "JSON.stringify",
+        "JSON.parse",
+        "history.replaceState",
+        "hashchange",
+        "requestAnimationFrame"
+      ]
+    },
+    "notes": "State save throttling (flush every ~900ms) is an implementation detail; ABI requirement is only that state is stored in hash and loadFromHash hydrates it."
+  }
+}

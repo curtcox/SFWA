@@ -1,0 +1,170 @@
+{
+  "abi": "sfwa-abi-1",
+  "contractId": "curtcox.sfwa.meal-planner-2",
+  "source": {
+    "repo": "curtcox/SFWA",
+    "path": "meal-planner-2.html",
+    "ref": "main",
+    "url": "https://github.com/curtcox/SFWA/blob/main/meal-planner-2.html",
+    "retrievedAt": "2026-01-25"
+  },
+  "state": {
+    "location": "hash",
+    "codec": {
+      "type": "base62-4lists-v1",
+      "notes": "Same base62 4-list encoding as meal-planner.html. State includes onHand but this UI does not render a dedicated on-hand section; onHand is managed through ingredient list buttons."
+    },
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "past": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "maxItems": 61
+        },
+        "planned": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "maxItems": 61
+        },
+        "favorites": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "maxItems": 61
+        },
+        "onHand": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 35
+          },
+          "maxItems": 61
+        }
+      },
+      "required": [
+        "past",
+        "planned",
+        "favorites",
+        "onHand"
+      ],
+      "additionalProperties": false
+    },
+    "canonicalization": {
+      "writesOnBoot": true,
+      "writeMethod": "history.replaceState",
+      "pushUsedForMilestones": false
+    }
+  },
+  "html": {
+    "requires": {
+      "ids": [
+        "errorBanner",
+        "errorText",
+        "btnClearToEmpty",
+        "hashString",
+        "hashLen",
+        "msg",
+        "selPlanMeal",
+        "btnAddPlanned",
+        "selOnHand",
+        "btnAddOnHand",
+        "potentialMeals",
+        "neededIngredients",
+        "pastMeals",
+        "plannedMeals",
+        "favoriteMeals",
+        "allMeals",
+        "allIngredients",
+        "debug"
+      ],
+      "selectors": [
+        "meta[charset]",
+        "meta[name='viewport']",
+        "title"
+      ],
+      "dataAttributes": [
+        {
+          "name": "data-action",
+          "values": []
+        }
+      ]
+    },
+    "notes": "UI structure differs (uses <details> sections). As in meal-planner.html, data-action elements are predominantly JS-generated."
+  },
+  "js": {
+    "requires": {
+      "domIds": [
+        "errorBanner",
+        "errorText",
+        "btnClearToEmpty",
+        "hashString",
+        "hashLen",
+        "msg",
+        "selPlanMeal",
+        "btnAddPlanned",
+        "selOnHand",
+        "btnAddOnHand",
+        "potentialMeals",
+        "neededIngredients",
+        "pastMeals",
+        "plannedMeals",
+        "favoriteMeals",
+        "allMeals",
+        "allIngredients",
+        "debug"
+      ],
+      "events": [
+        {
+          "target": "document",
+          "type": "click"
+        },
+        {
+          "target": "window",
+          "type": "hashchange"
+        }
+      ],
+      "hashIO": {
+        "readsLocationHash": true,
+        "writesHash": true,
+        "writeMethods": [
+          "history.replaceState",
+          "history.pushState"
+        ]
+      },
+      "markers": [
+        "BASE62",
+        "enc62",
+        "dec62",
+        "encodeState",
+        "decodeState",
+        "history.replaceState",
+        "location.hash",
+        "hashchange",
+        "data-action",
+        "structuredClone"
+      ],
+      "generatedDataActionValues": [
+        "fav",
+        "plan",
+        "removePlanned",
+        "donePlanned",
+        "toggleOnHand"
+      ]
+    },
+    "notes": "Note: this file omits URL copy/canonicalize buttons; accordingly those IDs are not required."
+  }
+}
