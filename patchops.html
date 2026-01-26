@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PatchOps - CVE Management Simulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent-blue: #58a6ff;
+      --accent-green: #3fb950;
+      --accent-yellow: #d29922;
+      --accent-orange: #db6d28;
+      --accent-red: #f85149;
+      --accent-purple: #a371f7;
+      --severity-critical: #f85149;
+      --severity-high: #db6d28;
+      --severity-medium: #d29922;
+      --severity-low: #3fb950;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo::before {
+      content: '🛡️';
+    }
+
+    .time-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .game-date {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .speed-controls {
+      display: flex;
+      gap: 4px;
+    }
+
+    .speed-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      transition: all 0.15s;
+    }
+
+    .speed-btn:hover { background: var(--border); }
+    .speed-btn.active { background: var(--accent-blue); color: var(--bg-primary); border-color: var(--accent-blue); }
+    .speed-btn:first-child { border-radius: 4px 0 0 4px; }
+    .speed-btn:last-child { border-radius: 0 4px 4px 0; }
+
+    .metrics-bar {
+      display: flex;
+      gap: 24px;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 80px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .metric-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .metric-value.money { color: var(--accent-green); }
+    .metric-value.reputation { color: var(--accent-blue); }
+    .metric-value.morale { color: var(--accent-purple); }
+    .metric-value.satisfaction { color: var(--accent-yellow); }
+
+    /* Main Layout */
+    .main-container {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      height: calc(100vh - 57px);
+    }
+
+    /* Sidebar - Systems */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .system-card {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .system-card:hover { background: var(--bg-tertiary); }
+    .system-card.selected { background: var(--bg-tertiary); border-left: 3px solid var(--accent-blue); }
+
+    .system-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .system-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .system-status.online { background: var(--accent-green); }
+    .system-status.degraded { background: var(--accent-yellow); }
+    .system-status.offline { background: var(--accent-red); }
+    .system-status.compromised { background: var(--accent-red); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .system-type {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .system-vulns {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .vuln-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .vuln-badge.critical { background: rgba(248, 81, 73, 0.2); color: var(--severity-critical); }
+    .vuln-badge.high { background: rgba(219, 109, 40, 0.2); color: var(--severity-high); }
+    .vuln-badge.medium { background: rgba(210, 153, 34, 0.2); color: var(--severity-medium); }
+    .vuln-badge.low { background: rgba(63, 185, 80, 0.2); color: var(--severity-low); }
+
+    /* Center Panel */
+    .center-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+    .tab-badge {
+      background: var(--accent-red);
+      color: white;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 8px;
+      margin-left: 6px;
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Dashboard */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .dash-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    .dash-card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .threat-level {
+      font-size: 48px;
+      font-weight: 700;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .threat-level.low { color: var(--accent-green); }
+    .threat-level.medium { color: var(--accent-yellow); }
+    .threat-level.high { color: var(--accent-orange); }
+    .threat-level.critical { color: var(--accent-red); }
+
+    /* Email Inbox */
+    .email-list { }
+
+    .email-item {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .email-item:hover { background: var(--bg-secondary); }
+    .email-item.unread { border-left: 3px solid var(--accent-blue); }
+
+    .email-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .email-from {
+      font-weight: 500;
+      font-size: 13px;
+    }
+
+    .email-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .email-subject {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .email-priority {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .email-priority.urgent { background: var(--accent-red); }
+    .email-priority.high { background: var(--accent-orange); }
+    .email-priority.normal { background: var(--accent-blue); }
+
+    /* Calendar */
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .calendar-month {
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .calendar-day-header {
+      text-align: center;
+      font-size: 10px;
+      color: var(--text-muted);
+      padding: 8px;
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .calendar-day:hover { border-color: var(--accent-blue); }
+    .calendar-day.today { border-color: var(--accent-blue); background: rgba(88, 166, 255, 0.1); }
+    .calendar-day.other-month { opacity: 0.4; }
+
+    .calendar-event {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-top: 2px;
+    }
+
+    .calendar-event.maintenance { background: var(--accent-yellow); }
+    .calendar-event.deadline { background: var(--accent-red); }
+    .calendar-event.meeting { background: var(--accent-purple); }
+
+    /* Staff Panel */
+    .staff-panel {
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+    }
+
+    .staff-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .staff-card {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .staff-name {
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .staff-role {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .staff-status {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .staff-status.available { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+    .staff-status.busy { background: rgba(210, 153, 34, 0.2); color: var(--accent-yellow); }
+    .staff-status.unavailable { background: rgba(248, 81, 73, 0.2); color: var(--accent-red); }
+
+    .staff-assignment {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-blue);
+      transition: width 0.3s;
+    }
+
+    /* CVE Detail Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .cve-severity {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .cve-severity.critical { background: var(--severity-critical); color: white; }
+    .cve-severity.high { background: var(--severity-high); color: white; }
+    .cve-severity.medium { background: var(--severity-medium); color: white; }
+    .cve-severity.low { background: var(--severity-low); color: white; }
+
+    .cve-description {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .cve-meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .cve-meta-item {
+      background: var(--bg-tertiary);
+      padding: 12px;
+      border-radius: 4px;
+    }
+
+    .cve-meta-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .cve-meta-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:hover { background: #4393e6; }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--border); }
+
+    .btn-danger {
+      background: var(--accent-red);
+      color: white;
+    }
+
+    /* Notifications */
+    .notifications {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .notification {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      min-width: 300px;
+      animation: slideIn 0.3s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .notification-icon {
+      font-size: 18px;
+    }
+
+    .notification-content {
+      flex: 1;
+    }
+
+    .notification-title {
+      font-weight: 500;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .notification-message {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .notification.critical { border-left: 3px solid var(--accent-red); }
+    .notification.warning { border-left: 3px solid var(--accent-yellow); }
+    .notification.info { border-left: 3px solid var(--accent-blue); }
+    .notification.success { border-left: 3px solid var(--accent-green); }
+
+    /* Game Over Modal */
+    .game-over-modal {
+      text-align: center;
+    }
+
+    .game-over-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .final-score {
+      font-size: 64px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 20px;
+    }
+
+    .score-breakdown {
+      text-align: left;
+      margin-bottom: 20px;
+    }
+
+    .score-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Start Screen */
+    .start-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .start-screen.hidden { display: none; }
+
+    .start-title {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 8px;
+    }
+
+    .start-subtitle {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+    }
+
+    .difficulty-select {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .difficulty-option {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 30px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      min-width: 140px;
+    }
+
+    .difficulty-option:hover { border-color: var(--accent-blue); }
+    .difficulty-option.selected { border-color: var(--accent-blue); background: rgba(88, 166, 255, 0.1); }
+
+    .difficulty-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .difficulty-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .start-btn {
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 16px 48px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .start-btn:hover { background: #4393e6; }
+
+    .seed-input {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .seed-input label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .seed-input input {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: 'IBM Plex Mono', monospace;
+      width: 120px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Start Screen -->
+  <div class="start-screen" id="startScreen">
+    <div class="start-title">🛡️ PatchOps</div>
+    <div class="start-subtitle">CVE Management Simulator</div>
+    
+    <div class="difficulty-select">
+      <div class="difficulty-option selected" data-difficulty="easy">
+        <div class="difficulty-name">Easy</div>
+        <div class="difficulty-desc">More budget, fewer CVEs</div>
+      </div>
+      <div class="difficulty-option" data-difficulty="normal">
+        <div class="difficulty-name">Normal</div>
+        <div class="difficulty-desc">Balanced challenge</div>
+      </div>
+      <div class="difficulty-option" data-difficulty="hard">
+        <div class="difficulty-name">Hard</div>
+        <div class="difficulty-desc">Tight budget, more threats</div>
+      </div>
+    </div>
+
+    <button class="start-btn" id="startBtn">Start Year</button>
+
+    <div class="seed-input">
+      <label>Seed:</label>
+      <input type="text" id="seedInput" placeholder="random">
+    </div>
+  </div>
+
+  <!-- Main Game UI -->
+  <div class="top-bar">
+    <div class="logo">PatchOps</div>
+    
+    <div class="time-controls">
+      <div class="game-date" id="gameDate">Jan 1, 2025</div>
+      <div class="speed-controls">
+        <button class="speed-btn" data-speed="0">⏸</button>
+        <button class="speed-btn active" data-speed="1">1×</button>
+        <button class="speed-btn" data-speed="2">2×</button>
+        <button class="speed-btn" data-speed="4">4×</button>
+      </div>
+    </div>
+
+    <div class="metrics-bar">
+      <div class="metric">
+        <div class="metric-label">Budget</div>
+        <div class="metric-value money" id="metricMoney">$500,000</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Reputation</div>
+        <div class="metric-value reputation" id="metricReputation">100</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Morale</div>
+        <div class="metric-value morale" id="metricMorale">100</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Satisfaction</div>
+        <div class="metric-value satisfaction" id="metricSatisfaction">100</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <!-- Systems Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">Systems</div>
+      <div id="systemsList"></div>
+    </div>
+
+    <!-- Center Panel -->
+    <div class="center-panel">
+      <div class="tabs">
+        <div class="tab active" data-tab="dashboard">Dashboard</div>
+        <div class="tab" data-tab="inbox">Inbox <span class="tab-badge" id="inboxBadge">0</span></div>
+        <div class="tab" data-tab="calendar">Calendar</div>
+        <div class="tab" data-tab="cves">CVEs <span class="tab-badge" id="cveBadge">0</span></div>
+      </div>
+
+      <div class="tab-content">
+        <div class="tab-panel active" id="dashboardPanel">
+          <div class="dashboard-grid">
+            <div class="dash-card">
+              <div class="dash-card-title">Overall Threat Level</div>
+              <div class="threat-level low" id="threatLevel">LOW</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-card-title">Active Vulnerabilities</div>
+              <div id="vulnSummary"></div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-card-title">Systems Status</div>
+              <div id="systemsSummary"></div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-card-title">Staff Utilization</div>
+              <div id="staffSummary"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="inboxPanel">
+          <div class="email-list" id="emailList"></div>
+        </div>
+
+        <div class="tab-panel" id="calendarPanel">
+          <div class="calendar-header">
+            <button class="btn btn-secondary" id="prevMonth">←</button>
+            <div class="calendar-month" id="calendarMonth">January 2025</div>
+            <button class="btn btn-secondary" id="nextMonth">→</button>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <div class="tab-panel" id="cvesPanel">
+          <div id="cveList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Staff Panel -->
+    <div class="staff-panel">
+      <div class="staff-header">
+        IT Staff
+        <button class="btn btn-secondary" style="float: right; padding: 4px 8px; font-size: 11px;" id="hireBtn">+ Hire</button>
+      </div>
+      <div id="staffList"></div>
+    </div>
+  </div>
+
+  <!-- Notifications Container -->
+  <div class="notifications" id="notifications"></div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script>
+    // ============================================
+    // EXTERNAL RESOURCE OPPORTUNITIES:
+    // --------------------------------------------
+    // 1. CVE_DATABASE: Could fetch from real CVE API (NVD, MITRE)
+    //    for realistic vulnerability descriptions and CVSS scores
+    // 2. COMPANY_NAMES: LLM could generate realistic department emails
+    //    and negotiation dialogues
+    // 3. SYSTEM_CONFIGS: Data file with realistic enterprise system
+    //    configurations, dependencies, and maintenance windows
+    // 4. NEWS_FEED: API for security news that could trigger events
+    // 5. PATCH_NOTES: LLM-generated realistic patch descriptions
+    // 6. EMAIL_GENERATOR: LLM for dynamic email content based on
+    //    game state and personality types
+    // ============================================
+
+    // Seeded Random Number Generator
+    class SeededRandom {
+      constructor(seed) {
+        this.seed = seed;
+      }
+      
+      next() {
+        this.seed = (this.seed * 1103515245 + 12345) & 0x7fffffff;
+        return this.seed / 0x7fffffff;
+      }
+      
+      nextInt(min, max) {
+        return Math.floor(this.next() * (max - min + 1)) + min;
+      }
+      
+      pick(arr) {
+        return arr[this.nextInt(0, arr.length - 1)];
+      }
+    }
+
+    // Game State
+    const GameState = {
+      seed: 0,
+      rng: null,
+      difficulty: 'normal',
+      paused: true,
+      speed: 1,
+      
+      // Time
+      startDate: new Date(2025, 0, 1),
+      currentDate: new Date(2025, 0, 1),
+      daysPassed: 0,
+      
+      // Metrics
+      money: 500000,
+      startingMoney: 500000,
+      reputation: 100,
+      morale: 100,
+      satisfaction: 100,
+      
+      // History for graphs
+      history: {
+        money: [],
+        reputation: [],
+        morale: [],
+        satisfaction: []
+      },
+      
+      // Entities
+      systems: [],
+      staff: [],
+      cves: [],
+      emails: [],
+      events: [],
+      breaches: [],
+      
+      // Calendar
+      calendarMonth: 0,
+      calendarYear: 2025
+    };
+
+    // CVE Templates (EXTERNAL: Could be fetched from real CVE database)
+    const CVE_TEMPLATES = [
+      { type: 'rce', name: 'Remote Code Execution', severity: 'critical', exploitChance: 0.15, patchDays: 3 },
+      { type: 'sqli', name: 'SQL Injection', severity: 'critical', exploitChance: 0.12, patchDays: 2 },
+      { type: 'auth_bypass', name: 'Authentication Bypass', severity: 'critical', exploitChance: 0.10, patchDays: 4 },
+      { type: 'priv_esc', name: 'Privilege Escalation', severity: 'high', exploitChance: 0.08, patchDays: 3 },
+      { type: 'xss', name: 'Cross-Site Scripting', severity: 'medium', exploitChance: 0.05, patchDays: 1 },
+      { type: 'ssrf', name: 'Server-Side Request Forgery', severity: 'high', exploitChance: 0.07, patchDays: 2 },
+      { type: 'dos', name: 'Denial of Service', severity: 'medium', exploitChance: 0.06, patchDays: 2 },
+      { type: 'info_disc', name: 'Information Disclosure', severity: 'low', exploitChance: 0.03, patchDays: 1 },
+      { type: 'csrf', name: 'Cross-Site Request Forgery', severity: 'medium', exploitChance: 0.04, patchDays: 1 },
+      { type: 'buffer_overflow', name: 'Buffer Overflow', severity: 'critical', exploitChance: 0.11, patchDays: 5 }
+    ];
+
+    // System Templates (EXTERNAL: Could be loaded from config file)
+    const SYSTEM_TEMPLATES = [
+      { 
+        id: 'prod_db', 
+        name: 'Production Database', 
+        type: 'Database Server',
+        criticality: 'critical',
+        department: 'Engineering',
+        downtimeCost: 5000, // per hour
+        users: 150
+      },
+      { 
+        id: 'hr_portal', 
+        name: 'HR Portal', 
+        type: 'Web Application',
+        criticality: 'high',
+        department: 'HR',
+        downtimeCost: 1000,
+        users: 200
+      },
+      { 
+        id: 'finance_sys', 
+        name: 'Finance System', 
+        type: 'ERP Module',
+        criticality: 'critical',
+        department: 'Finance',
+        downtimeCost: 8000,
+        users: 50
+      },
+      { 
+        id: 'dev_servers', 
+        name: 'Development Servers', 
+        type: 'Development Environment',
+        criticality: 'medium',
+        department: 'Engineering',
+        downtimeCost: 2000,
+        users: 75
+      },
+      { 
+        id: 'email_server', 
+        name: 'Email Server', 
+        type: 'Mail Server',
+        criticality: 'high',
+        department: 'IT',
+        downtimeCost: 3000,
+        users: 500
+      }
+    ];
+
+    // Staff Templates
+    const STAFF_TEMPLATES = [
+      { name: 'Alex Chen', role: 'Senior Security Engineer', skill: 0.9, salary: 8000 },
+      { name: 'Jordan Smith', role: 'Systems Administrator', skill: 0.7, salary: 6000 },
+      { name: 'Sam Wilson', role: 'Junior Security Analyst', skill: 0.5, salary: 4500 }
+    ];
+
+    // Department Contacts (EXTERNAL: LLM could generate personalities)
+    const DEPARTMENTS = {
+      'Finance': { contact: 'Patricia Morrison', title: 'CFO', personality: 'demanding' },
+      'HR': { contact: 'Michael Torres', title: 'HR Director', personality: 'understanding' },
+      'Engineering': { contact: 'Lisa Park', title: 'VP Engineering', personality: 'technical' },
+      'IT': { contact: 'David Kumar', title: 'CIO', personality: 'supportive' },
+      'Executive': { contact: 'Robert Hayes', title: 'CEO', personality: 'results-focused' }
+    };
+
+    // Blocked Dates (Finance quarter-end, etc.)
+    const BLOCKED_DATES = [
+      { start: new Date(2025, 2, 28), end: new Date(2025, 3, 5), dept: 'Finance', reason: 'Q1 Close' },
+      { start: new Date(2025, 5, 28), end: new Date(2025, 6, 5), dept: 'Finance', reason: 'Q2 Close' },
+      { start: new Date(2025, 8, 28), end: new Date(2025, 9, 5), dept: 'Finance', reason: 'Q3 Close' },
+      { start: new Date(2025, 11, 15), end: new Date(2025, 11, 31), dept: 'Finance', reason: 'Year-End Close' },
+      { start: new Date(2025, 3, 14), end: new Date(2025, 3, 16), dept: 'HR', reason: 'Benefits Enrollment' },
+      { start: new Date(2025, 7, 1), end: new Date(2025, 7, 7), dept: 'Engineering', reason: 'Product Launch' }
+    ];
+
+    // Difficulty Settings
+    const DIFFICULTY = {
+      easy: { money: 750000, cveFrequency: 0.7, exploitMultiplier: 0.5, staffCost: 0.8 },
+      normal: { money: 500000, cveFrequency: 1.0, exploitMultiplier: 1.0, staffCost: 1.0 },
+      hard: { money: 350000, cveFrequency: 1.5, exploitMultiplier: 1.5, staffCost: 1.2 }
+    };
+
+    // Initialize Game
+    function initGame() {
+      const seedInput = document.getElementById('seedInput').value;
+      GameState.seed = seedInput ? hashString(seedInput) : Date.now();
+      GameState.rng = new SeededRandom(GameState.seed);
+      
+      const diff = DIFFICULTY[GameState.difficulty];
+      GameState.money = diff.money;
+      GameState.startingMoney = diff.money;
+      
+      // Initialize systems
+      GameState.systems = SYSTEM_TEMPLATES.map(t => ({
+        ...t,
+        status: 'online',
+        vulnerabilities: [],
+        mitigations: [],
+        lastPatchDate: null
+      }));
+      
+      // Initialize staff
+      GameState.staff = STAFF_TEMPLATES.map((t, i) => ({
+        ...t,
+        id: i,
+        status: 'available',
+        assignment: null,
+        progress: 0,
+        morale: 100
+      }));
+      
+      // Generate initial emails
+      generateWelcomeEmails();
+      
+      // Pre-generate some blocked date warnings
+      generateBlockedDateEmails();
+      
+      // Start game loop
+      GameState.paused = false;
+      document.getElementById('startScreen').classList.add('hidden');
+      updateUI();
+      gameLoop();
+    }
+
+    function hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    // Game Loop
+    let lastTick = 0;
+    function gameLoop(timestamp) {
+      if (!GameState.paused) {
+        const elapsed = timestamp - lastTick;
+        if (elapsed > 1000 / GameState.speed) {
+          tick();
+          lastTick = timestamp;
+        }
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
+    function tick() {
+      // Advance time (1 tick = 1 day)
+      GameState.currentDate.setDate(GameState.currentDate.getDate() + 1);
+      GameState.daysPassed++;
+      
+      // Check for game end
+      if (GameState.daysPassed >= 365) {
+        endGame(true);
+        return;
+      }
+      
+      // Check bankruptcy
+      if (GameState.money <= 0) {
+        endGame(false, 'bankruptcy');
+        return;
+      }
+      
+      // Check catastrophic breach
+      const criticalBreach = GameState.breaches.find(b => b.severity === 'catastrophic' && !b.contained);
+      if (criticalBreach) {
+        endGame(false, 'breach');
+        return;
+      }
+      
+      // Generate CVEs
+      generateCVEs();
+      
+      // Process staff work
+      processStaffWork();
+      
+      // Check for exploits
+      checkExploits();
+      
+      // Process breaches
+      processBreaches();
+      
+      // Daily costs
+      processDailyCosts();
+      
+      // Generate random events/emails
+      generateDailyEvents();
+      
+      // Decay metrics slightly
+      processMetricDecay();
+      
+      // Record history
+      recordHistory();
+      
+      // Update URL hash with game state
+      saveToHash();
+      
+      updateUI();
+    }
+
+    function generateCVEs() {
+      const diff = DIFFICULTY[GameState.difficulty];
+      // Average 2-3 CVEs per week, adjusted by difficulty
+      if (GameState.rng.next() < 0.3 * diff.cveFrequency) {
+        const template = GameState.rng.pick(CVE_TEMPLATES);
+        const affectedSystems = GameState.systems.filter(() => GameState.rng.next() < 0.4);
+        
+        if (affectedSystems.length > 0) {
+          const cve = {
+            id: `CVE-2025-${String(GameState.cves.length + 1000).padStart(4, '0')}`,
+            ...template,
+            affectedSystems: affectedSystems.map(s => s.id),
+            discovered: new Date(GameState.currentDate),
+            patchAvailable: GameState.rng.next() > 0.3, // 70% have patch ready
+            patchETA: null,
+            status: 'open',
+            daysOpen: 0
+          };
+          
+          if (!cve.patchAvailable) {
+            cve.patchETA = GameState.rng.nextInt(1, 7);
+          }
+          
+          GameState.cves.push(cve);
+          
+          // Add vulnerability to affected systems
+          affectedSystems.forEach(sys => {
+            const system = GameState.systems.find(s => s.id === sys.id);
+            system.vulnerabilities.push(cve.id);
+          });
+          
+          // Notification
+          showNotification(
+            cve.severity,
+            `New CVE: ${cve.id}`,
+            `${cve.name} affecting ${affectedSystems.length} system(s)`
+          );
+          
+          // Generate email about CVE
+          generateCVEEmail(cve);
+        }
+      }
+    }
+
+    function processStaffWork() {
+      GameState.staff.forEach(staff => {
+        if (staff.assignment) {
+          staff.progress += staff.skill * 10;
+          
+          if (staff.progress >= 100) {
+            completeAssignment(staff);
+          }
+        }
+      });
+    }
+
+    function completeAssignment(staff) {
+      const { type, target, cveId, systemId } = staff.assignment;
+      
+      if (type === 'assess') {
+        // Assessment complete - now we know if system is vulnerable
+        showNotification('info', 'Assessment Complete', `${staff.name} finished assessing ${target}`);
+      } else if (type === 'patch') {
+        // Patching complete
+        const cve = GameState.cves.find(c => c.id === cveId);
+        const system = GameState.systems.find(s => s.id === systemId);
+        
+        if (cve && system) {
+          system.vulnerabilities = system.vulnerabilities.filter(v => v !== cveId);
+          system.lastPatchDate = new Date(GameState.currentDate);
+          
+          // Check if CVE is fully patched
+          const stillVulnerable = GameState.systems.some(s => s.vulnerabilities.includes(cveId));
+          if (!stillVulnerable) {
+            cve.status = 'resolved';
+          }
+          
+          showNotification('success', 'Patch Applied', `${cve.id} patched on ${system.name}`);
+          
+          // Small satisfaction hit from downtime
+          GameState.satisfaction = Math.max(0, GameState.satisfaction - 2);
+        }
+      } else if (type === 'mitigate') {
+        // Mitigation applied
+        const system = GameState.systems.find(s => s.id === systemId);
+        if (system) {
+          system.mitigations.push(staff.assignment.mitigation);
+          showNotification('info', 'Mitigation Applied', `${staff.assignment.mitigation} on ${system.name}`);
+        }
+      }
+      
+      // Morale boost from completing work
+      staff.morale = Math.min(100, staff.morale + 5);
+      
+      staff.status = 'available';
+      staff.assignment = null;
+      staff.progress = 0;
+    }
+
+    function checkExploits() {
+      const diff = DIFFICULTY[GameState.difficulty];
+      
+      GameState.cves.filter(c => c.status === 'open').forEach(cve => {
+        cve.daysOpen++;
+        
+        // Exploit probability increases over time
+        const baseChance = cve.exploitChance * diff.exploitMultiplier;
+        const timeMultiplier = 1 + (cve.daysOpen / 30);
+        const exploitChance = baseChance * timeMultiplier / 100;
+        
+        if (GameState.rng.next() < exploitChance) {
+          // Check if any vulnerable system has mitigations
+          const vulnerableSystems = GameState.systems.filter(s => 
+            s.vulnerabilities.includes(cve.id) && s.mitigations.length === 0
+          );
+          
+          if (vulnerableSystems.length > 0) {
+            const targetSystem = GameState.rng.pick(vulnerableSystems);
+            createBreach(cve, targetSystem);
+          }
+        }
+      });
+    }
+
+    function createBreach(cve, system) {
+      const severity = cve.severity === 'critical' ? 'major' : 
+                       cve.severity === 'high' ? 'moderate' : 'minor';
+      
+      const breach = {
+        id: GameState.breaches.length,
+        cveId: cve.id,
+        systemId: system.id,
+        severity,
+        detected: GameState.rng.next() < 0.6, // 60% detected immediately
+        contained: false,
+        discoveredDate: new Date(GameState.currentDate),
+        damage: 0
+      };
+      
+      GameState.breaches.push(breach);
+      system.status = breach.detected ? 'compromised' : 'degraded';
+      
+      if (breach.detected) {
+        showNotification('critical', 'SECURITY BREACH', 
+          `${system.name} compromised via ${cve.id}!`);
+        GameState.reputation -= 10;
+        
+        // Generate urgent email
+        generateBreachEmail(breach, system);
+      }
+    }
+
+    function processBreaches() {
+      GameState.breaches.filter(b => !b.contained).forEach(breach => {
+        const system = GameState.systems.find(s => s.id === breach.systemId);
+        
+        // Accumulate damage
+        breach.damage += system.downtimeCost / 24; // Hourly damage
+        GameState.money -= system.downtimeCost / 24;
+        
+        // Undetected breaches might spread or escalate
+        if (!breach.detected && GameState.rng.next() < 0.1) {
+          breach.detected = true;
+          breach.severity = 'catastrophic';
+          system.status = 'compromised';
+          
+          showNotification('critical', 'BREACH ESCALATION', 
+            `Undetected breach on ${system.name} has escalated!`);
+          GameState.reputation -= 25;
+        }
+      });
+    }
+
+    function processDailyCosts() {
+      // Staff salaries (monthly, paid daily)
+      const dailyStaffCost = GameState.staff.reduce((sum, s) => sum + s.salary, 0) / 30;
+      GameState.money -= dailyStaffCost;
+      
+      // System maintenance (simplified)
+      GameState.money -= GameState.systems.length * 100;
+    }
+
+    function generateDailyEvents() {
+      // Random emails from departments (EXTERNAL: LLM could generate these)
+      if (GameState.rng.next() < 0.15) {
+        const dept = GameState.rng.pick(Object.keys(DEPARTMENTS));
+        const contact = DEPARTMENTS[dept];
+        
+        const emailTypes = [
+          { subject: 'System Performance Concerns', priority: 'normal' },
+          { subject: 'Upcoming Maintenance Window Request', priority: 'normal' },
+          { subject: 'User Complaints About Downtime', priority: 'high' },
+          { subject: 'Budget Review Meeting', priority: 'normal' }
+        ];
+        
+        const emailType = GameState.rng.pick(emailTypes);
+        
+        generateEmail({
+          from: `${contact.contact} (${contact.title})`,
+          dept,
+          subject: emailType.subject,
+          priority: emailType.priority,
+          body: `This is a placeholder email. EXTERNAL: LLM could generate contextual content based on game state.`
+        });
+      }
+    }
+
+    function processMetricDecay() {
+      // Slight daily decay to create pressure
+      GameState.reputation = Math.max(0, GameState.reputation - 0.1);
+      GameState.morale = Math.max(0, GameState.morale - 0.1);
+      
+      // Satisfaction affected by open vulnerabilities
+      const openCritical = GameState.cves.filter(c => c.status === 'open' && c.severity === 'critical').length;
+      GameState.satisfaction = Math.max(0, GameState.satisfaction - openCritical * 0.2);
+    }
+
+    function recordHistory() {
+      // Record every 7 days
+      if (GameState.daysPassed % 7 === 0) {
+        GameState.history.money.push({ day: GameState.daysPassed, value: GameState.money });
+        GameState.history.reputation.push({ day: GameState.daysPassed, value: GameState.reputation });
+        GameState.history.morale.push({ day: GameState.daysPassed, value: GameState.morale });
+        GameState.history.satisfaction.push({ day: GameState.daysPassed, value: GameState.satisfaction });
+      }
+    }
+
+    // Email Generation
+    function generateWelcomeEmails() {
+      generateEmail({
+        from: 'David Kumar (CIO)',
+        dept: 'IT',
+        subject: 'Welcome to the Team - Year Objectives',
+        priority: 'normal',
+        body: `Welcome! Your mission: keep our systems secure while maintaining user satisfaction. 
+        
+Key metrics to watch:
+- Budget: Don't go bankrupt
+- Reputation: Stay above 20 or the board will intervene
+- Morale: Happy staff work faster
+- Satisfaction: Keep users productive
+
+Good luck!`
+      });
+    }
+
+    function generateBlockedDateEmails() {
+      BLOCKED_DATES.forEach(bd => {
+        const daysUntil = Math.floor((bd.start - GameState.startDate) / (1000 * 60 * 60 * 24));
+        
+        // Schedule email 14 days before
+        setTimeout(() => {
+          if (GameState.daysPassed < 365) {
+            const contact = DEPARTMENTS[bd.dept];
+            generateEmail({
+              from: `${contact.contact} (${contact.title})`,
+              dept: bd.dept,
+              subject: `IMPORTANT: ${bd.reason} - No System Changes`,
+              priority: 'urgent',
+              body: `Please note that from ${formatDate(bd.start)} to ${formatDate(bd.end)}, we cannot have ANY system downtime due to ${bd.reason}. Please plan maintenance accordingly.`
+            });
+          }
+        }, (daysUntil - 14) * 1000 / GameState.speed);
+      });
+    }
+
+    function generateCVEEmail(cve) {
+      generateEmail({
+        from: 'Security Team',
+        dept: 'IT',
+        subject: `[${cve.severity.toUpperCase()}] New Vulnerability: ${cve.id}`,
+        priority: cve.severity === 'critical' ? 'urgent' : 'high',
+        body: `A new vulnerability has been discovered:
+
+${cve.id}: ${cve.name}
+Severity: ${cve.severity.toUpperCase()}
+Affected Systems: ${cve.affectedSystems.length}
+Patch Available: ${cve.patchAvailable ? 'Yes' : `No (ETA: ${cve.patchETA} days)`}
+
+Recommended Action: ${cve.patchAvailable ? 'Schedule patching immediately' : 'Apply compensating controls until patch available'}`
+      });
+    }
+
+    function generateBreachEmail(breach, system) {
+      generateEmail({
+        from: 'Security Operations Center',
+        dept: 'IT',
+        subject: `🚨 SECURITY INCIDENT: ${system.name}`,
+        priority: 'urgent',
+        body: `SECURITY BREACH DETECTED
+
+System: ${system.name}
+Vector: ${breach.cveId}
+Severity: ${breach.severity.toUpperCase()}
+
+Immediate actions required:
+1. Isolate affected system
+2. Begin incident response
+3. Assess data exposure`
+      });
+    }
+
+    function generateEmail(email) {
+      GameState.emails.unshift({
+        id: GameState.emails.length,
+        ...email,
+        date: new Date(GameState.currentDate),
+        read: false
+      });
+      updateInboxBadge();
+    }
+
+    // UI Updates
+    function updateUI() {
+      updateDate();
+      updateMetrics();
+      updateSystemsList();
+      updateStaffList();
+      updateDashboard();
+      updateInbox();
+      updateCVEList();
+      updateCalendar();
+    }
+
+    function updateDate() {
+      document.getElementById('gameDate').textContent = formatDate(GameState.currentDate);
+    }
+
+    function updateMetrics() {
+      document.getElementById('metricMoney').textContent = `$${Math.floor(GameState.money).toLocaleString()}`;
+      document.getElementById('metricReputation').textContent = Math.floor(GameState.reputation);
+      document.getElementById('metricMorale').textContent = Math.floor(GameState.morale);
+      document.getElementById('metricSatisfaction').textContent = Math.floor(GameState.satisfaction);
+    }
+
+    function updateSystemsList() {
+      const container = document.getElementById('systemsList');
+      container.innerHTML = GameState.systems.map(sys => {
+        const vulns = sys.vulnerabilities.map(v => {
+          const cve = GameState.cves.find(c => c.id === v);
+          return cve ? `<span class="vuln-badge ${cve.severity}">${cve.severity[0].toUpperCase()}</span>` : '';
+        }).join('');
+        
+        return `
+          <div class="system-card" data-system="${sys.id}">
+            <div class="system-name">
+              ${sys.name}
+              <span class="system-status ${sys.status}"></span>
+            </div>
+            <div class="system-type">${sys.type} • ${sys.department}</div>
+            ${vulns ? `<div class="system-vulns">${vulns}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+      
+      // Add click handlers
+      container.querySelectorAll('.system-card').forEach(card => {
+        card.addEventListener('click', () => showSystemModal(card.dataset.system));
+      });
+    }
+
+    function updateStaffList() {
+      const container = document.getElementById('staffList');
+      container.innerHTML = GameState.staff.map(staff => `
+        <div class="staff-card" data-staff="${staff.id}">
+          <div class="staff-name">${staff.name}</div>
+          <div class="staff-role">${staff.role}</div>
+          <span class="staff-status ${staff.status}">${staff.status}</span>
+          ${staff.assignment ? `
+            <div class="staff-assignment">
+              ${staff.assignment.type}: ${staff.assignment.target}
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${staff.progress}%"></div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function updateDashboard() {
+      // Threat level
+      const openCVEs = GameState.cves.filter(c => c.status === 'open');
+      const criticalCount = openCVEs.filter(c => c.severity === 'critical').length;
+      const highCount = openCVEs.filter(c => c.severity === 'high').length;
+      
+      let threatLevel = 'LOW';
+      let threatClass = 'low';
+      if (criticalCount > 2 || highCount > 5) {
+        threatLevel = 'CRITICAL';
+        threatClass = 'critical';
+      } else if (criticalCount > 0 || highCount > 2) {
+        threatLevel = 'HIGH';
+        threatClass = 'high';
+      } else if (highCount > 0 || openCVEs.length > 3) {
+        threatLevel = 'MEDIUM';
+        threatClass = 'medium';
+      }
+      
+      const threatEl = document.getElementById('threatLevel');
+      threatEl.textContent = threatLevel;
+      threatEl.className = `threat-level ${threatClass}`;
+      
+      // Vulnerability summary
+      document.getElementById('vulnSummary').innerHTML = `
+        <div style="display: flex; gap: 16px; justify-content: center;">
+          <div><span class="vuln-badge critical">${openCVEs.filter(c => c.severity === 'critical').length}</span> Critical</div>
+          <div><span class="vuln-badge high">${openCVEs.filter(c => c.severity === 'high').length}</span> High</div>
+          <div><span class="vuln-badge medium">${openCVEs.filter(c => c.severity === 'medium').length}</span> Medium</div>
+          <div><span class="vuln-badge low">${openCVEs.filter(c => c.severity === 'low').length}</span> Low</div>
+        </div>
+      `;
+      
+      // Systems summary
+      const online = GameState.systems.filter(s => s.status === 'online').length;
+      const degraded = GameState.systems.filter(s => s.status === 'degraded').length;
+      const compromised = GameState.systems.filter(s => s.status === 'compromised').length;
+      
+      document.getElementById('systemsSummary').innerHTML = `
+        <div style="display: flex; gap: 16px; justify-content: center;">
+          <div><span class="system-status online"></span> ${online} Online</div>
+          <div><span class="system-status degraded"></span> ${degraded} Degraded</div>
+          <div><span class="system-status compromised"></span> ${compromised} Compromised</div>
+        </div>
+      `;
+      
+      // Staff summary
+      const available = GameState.staff.filter(s => s.status === 'available').length;
+      const busy = GameState.staff.filter(s => s.status === 'busy').length;
+      
+      document.getElementById('staffSummary').innerHTML = `
+        <div style="display: flex; gap: 16px; justify-content: center;">
+          <div><span class="staff-status available">${available}</span> Available</div>
+          <div><span class="staff-status busy">${busy}</span> Busy</div>
+        </div>
+      `;
+    }
+
+    function updateInbox() {
+      const container = document.getElementById('emailList');
+      container.innerHTML = GameState.emails.slice(0, 20).map(email => `
+        <div class="email-item ${email.read ? '' : 'unread'}" data-email="${email.id}">
+          <div class="email-header">
+            <div class="email-from">
+              <span class="email-priority ${email.priority}"></span>
+              ${email.from}
+            </div>
+            <div class="email-time">${formatDate(email.date)}</div>
+          </div>
+          <div class="email-subject">${email.subject}</div>
+        </div>
+      `).join('');
+      
+      container.querySelectorAll('.email-item').forEach(item => {
+        item.addEventListener('click', () => showEmailModal(parseInt(item.dataset.email)));
+      });
+    }
+
+    function updateInboxBadge() {
+      const unread = GameState.emails.filter(e => !e.read).length;
+      document.getElementById('inboxBadge').textContent = unread;
+    }
+
+    function updateCVEList() {
+      const container = document.getElementById('cveList');
+      const openCVEs = GameState.cves.filter(c => c.status === 'open');
+      document.getElementById('cveBadge').textContent = openCVEs.length;
+      
+      container.innerHTML = openCVEs.map(cve => `
+        <div class="email-item" data-cve="${cve.id}" style="cursor: pointer;">
+          <div class="email-header">
+            <div class="email-from">
+              <span class="cve-severity ${cve.severity}" style="padding: 2px 8px; font-size: 10px;">${cve.severity.toUpperCase()}</span>
+              ${cve.id}
+            </div>
+            <div class="email-time">${cve.daysOpen} days open</div>
+          </div>
+          <div class="email-subject">${cve.name} • ${cve.affectedSystems.length} systems</div>
+        </div>
+      `).join('');
+      
+      container.querySelectorAll('[data-cve]').forEach(item => {
+        item.addEventListener('click', () => showCVEModal(item.dataset.cve));
+      });
+    }
+
+    function updateCalendar() {
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      document.getElementById('calendarMonth').textContent = 
+        `${monthNames[GameState.calendarMonth]} ${GameState.calendarYear}`;
+      
+      const firstDay = new Date(GameState.calendarYear, GameState.calendarMonth, 1);
+      const lastDay = new Date(GameState.calendarYear, GameState.calendarMonth + 1, 0);
+      const startDay = firstDay.getDay();
+      
+      let html = '<div class="calendar-day-header">Sun</div><div class="calendar-day-header">Mon</div><div class="calendar-day-header">Tue</div><div class="calendar-day-header">Wed</div><div class="calendar-day-header">Thu</div><div class="calendar-day-header">Fri</div><div class="calendar-day-header">Sat</div>';
+      
+      // Previous month padding
+      for (let i = 0; i < startDay; i++) {
+        html += '<div class="calendar-day other-month"></div>';
+      }
+      
+      // Current month days
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(GameState.calendarYear, GameState.calendarMonth, day);
+        const isToday = date.toDateString() === GameState.currentDate.toDateString();
+        
+        // Check for events
+        let events = '';
+        const blocked = BLOCKED_DATES.find(bd => date >= bd.start && date <= bd.end);
+        if (blocked) {
+          events += '<div class="calendar-event deadline" title="' + blocked.reason + '"></div>';
+        }
+        
+        html += `<div class="calendar-day ${isToday ? 'today' : ''}" data-date="${date.toISOString()}">
+          ${day}
+          ${events}
+        </div>`;
+      }
+      
+      document.getElementById('calendarGrid').innerHTML = html;
+    }
+
+    // Modals
+    function showSystemModal(systemId) {
+      const system = GameState.systems.find(s => s.id === systemId);
+      if (!system) return;
+      
+      const vulns = system.vulnerabilities.map(v => GameState.cves.find(c => c.id === v)).filter(Boolean);
+      
+      document.getElementById('modal').innerHTML = `
+        <div class="modal-header">
+          <div class="modal-title">${system.name}</div>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="cve-meta">
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Type</div>
+              <div class="cve-meta-value">${system.type}</div>
+            </div>
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Department</div>
+              <div class="cve-meta-value">${system.department}</div>
+            </div>
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Status</div>
+              <div class="cve-meta-value">${system.status.toUpperCase()}</div>
+            </div>
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Downtime Cost</div>
+              <div class="cve-meta-value">$${system.downtimeCost}/hr</div>
+            </div>
+          </div>
+          
+          <h4 style="margin-bottom: 12px;">Vulnerabilities (${vulns.length})</h4>
+          ${vulns.map(v => `
+            <div style="padding: 8px; background: var(--bg-tertiary); margin-bottom: 8px; border-radius: 4px;">
+              <span class="cve-severity ${v.severity}" style="padding: 2px 8px; font-size: 10px;">${v.severity.toUpperCase()}</span>
+              ${v.id}: ${v.name}
+            </div>
+          `).join('') || '<div style="color: var(--text-muted);">No known vulnerabilities</div>'}
+          
+          <h4 style="margin: 16px 0 12px;">Mitigations Active</h4>
+          ${system.mitigations.map(m => `<div style="color: var(--accent-green);">✓ ${m}</div>`).join('') 
+            || '<div style="color: var(--text-muted);">None</div>'}
+          
+          <div class="action-buttons" style="margin-top: 20px;">
+            <button class="btn btn-secondary" onclick="applyMitigation('${systemId}')">Apply Mitigation</button>
+            <button class="btn btn-danger" onclick="isolateSystem('${systemId}')">Isolate System</button>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function showCVEModal(cveId) {
+      const cve = GameState.cves.find(c => c.id === cveId);
+      if (!cve) return;
+      
+      const affectedSystems = cve.affectedSystems.map(id => GameState.systems.find(s => s.id === id)).filter(Boolean);
+      const availableStaff = GameState.staff.filter(s => s.status === 'available');
+      
+      document.getElementById('modal').innerHTML = `
+        <div class="modal-header">
+          <div class="modal-title">${cve.id}</div>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <span class="cve-severity ${cve.severity}">${cve.severity.toUpperCase()}</span>
+          <h3 style="margin: 12px 0;">${cve.name}</h3>
+          
+          <div class="cve-meta">
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Days Open</div>
+              <div class="cve-meta-value">${cve.daysOpen}</div>
+            </div>
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Patch Available</div>
+              <div class="cve-meta-value">${cve.patchAvailable ? 'Yes' : `No (${cve.patchETA}d)`}</div>
+            </div>
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Exploit Probability</div>
+              <div class="cve-meta-value">${(cve.exploitChance * 100).toFixed(1)}%/day</div>
+            </div>
+            <div class="cve-meta-item">
+              <div class="cve-meta-label">Affected Systems</div>
+              <div class="cve-meta-value">${affectedSystems.length}</div>
+            </div>
+          </div>
+          
+          <h4 style="margin-bottom: 12px;">Affected Systems</h4>
+          ${affectedSystems.map(sys => `
+            <div style="padding: 8px; background: var(--bg-tertiary); margin-bottom: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+              <span>${sys.name}</span>
+              ${cve.patchAvailable && availableStaff.length > 0 ? 
+                `<button class="btn btn-primary" style="padding: 4px 12px; font-size: 11px;" onclick="assignPatch('${cve.id}', '${sys.id}')">Patch</button>` 
+                : ''}
+            </div>
+          `).join('')}
+          
+          ${!cve.patchAvailable ? `
+            <div style="margin-top: 16px; padding: 12px; background: rgba(210, 153, 34, 0.2); border-radius: 4px;">
+              ⚠️ Patch not yet available. Consider applying compensating controls.
+            </div>
+          ` : ''}
+          
+          ${availableStaff.length === 0 ? `
+            <div style="margin-top: 16px; padding: 12px; background: rgba(248, 81, 73, 0.2); border-radius: 4px;">
+              ⚠️ No staff available. Wait for current tasks to complete.
+            </div>
+          ` : ''}
+        </div>
+      `;
+      
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function showEmailModal(emailId) {
+      const email = GameState.emails.find(e => e.id === emailId);
+      if (!email) return;
+      
+      email.read = true;
+      updateInboxBadge();
+      
+      document.getElementById('modal').innerHTML = `
+        <div class="modal-header">
+          <div class="modal-title">${email.subject}</div>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+            <div><strong>From:</strong> ${email.from}</div>
+            <div><strong>Date:</strong> ${formatDate(email.date)}</div>
+            <div><strong>Priority:</strong> <span class="email-priority ${email.priority}"></span> ${email.priority}</div>
+          </div>
+          <div style="white-space: pre-wrap; line-height: 1.6;">${email.body}</div>
+        </div>
+      `;
+      
+      document.getElementById('modalOverlay').classList.add('active');
+      updateInbox();
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+    }
+
+    // Actions
+    function assignPatch(cveId, systemId) {
+      const staff = GameState.staff.find(s => s.status === 'available');
+      if (!staff) {
+        showNotification('warning', 'No Staff Available', 'Wait for current tasks to complete');
+        return;
+      }
+      
+      const system = GameState.systems.find(s => s.id === systemId);
+      
+      staff.status = 'busy';
+      staff.assignment = {
+        type: 'patch',
+        target: system.name,
+        cveId,
+        systemId
+      };
+      staff.progress = 0;
+      
+      closeModal();
+      updateUI();
+      showNotification('info', 'Task Assigned', `${staff.name} is patching ${system.name}`);
+    }
+
+    function applyMitigation(systemId) {
+      const staff = GameState.staff.find(s => s.status === 'available');
+      if (!staff) {
+        showNotification('warning', 'No Staff Available', 'Wait for current tasks to complete');
+        return;
+      }
+      
+      const mitigations = ['Firewall Rule', 'VPN Required', '2FA Enabled', 'Network Isolated'];
+      const mitigation = mitigations[Math.floor(Math.random() * mitigations.length)];
+      const system = GameState.systems.find(s => s.id === systemId);
+      
+      staff.status = 'busy';
+      staff.assignment = {
+        type: 'mitigate',
+        target: system.name,
+        systemId,
+        mitigation
+      };
+      staff.progress = 0;
+      
+      closeModal();
+      updateUI();
+      showNotification('info', 'Task Assigned', `${staff.name} is applying ${mitigation}`);
+    }
+
+    function isolateSystem(systemId) {
+      const system = GameState.systems.find(s => s.id === systemId);
+      system.status = 'offline';
+      system.mitigations.push('Isolated');
+      
+      // Satisfaction hit
+      GameState.satisfaction -= 10;
+      
+      // Contain any breaches
+      GameState.breaches.filter(b => b.systemId === systemId).forEach(b => {
+        b.contained = true;
+      });
+      
+      closeModal();
+      updateUI();
+      showNotification('warning', 'System Isolated', `${system.name} is now offline`);
+    }
+
+    // Notifications
+    function showNotification(type, title, message) {
+      const container = document.getElementById('notifications');
+      const notif = document.createElement('div');
+      notif.className = `notification ${type}`;
+      
+      const icons = { critical: '🚨', warning: '⚠️', info: 'ℹ️', success: '✓' };
+      
+      notif.innerHTML = `
+        <div class="notification-icon">${icons[type] || 'ℹ️'}</div>
+        <div class="notification-content">
+          <div class="notification-title">${title}</div>
+          <div class="notification-message">${message}</div>
+        </div>
+      `;
+      
+      container.appendChild(notif);
+      
+      setTimeout(() => {
+        notif.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notif.remove(), 300);
+      }, 4000);
+    }
+
+    // End Game
+    function endGame(success, reason = '') {
+      GameState.paused = true;
+      
+      const moneyScore = Math.max(0, (GameState.money / GameState.startingMoney) * 100);
+      const repScore = GameState.reputation;
+      const moraleScore = GameState.morale;
+      const satScore = GameState.satisfaction;
+      const totalScore = Math.floor((moneyScore + repScore + moraleScore + satScore) / 4);
+      
+      const title = success ? '🎉 Year Complete!' : 
+                   reason === 'bankruptcy' ? '💸 Bankruptcy!' : '🚨 Critical Breach!';
+      
+      document.getElementById('modal').innerHTML = `
+        <div class="modal-body game-over-modal">
+          <div class="game-over-title">${title}</div>
+          <div class="final-score">${totalScore}</div>
+          
+          <div class="score-breakdown">
+            <div class="score-item">
+              <span>Budget Management</span>
+              <span>${Math.floor(moneyScore)}/100</span>
+            </div>
+            <div class="score-item">
+              <span>Reputation</span>
+              <span>${Math.floor(repScore)}/100</span>
+            </div>
+            <div class="score-item">
+              <span>Staff Morale</span>
+              <span>${Math.floor(moraleScore)}/100</span>
+            </div>
+            <div class="score-item">
+              <span>User Satisfaction</span>
+              <span>${Math.floor(satScore)}/100</span>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 20px; color: var(--text-secondary);">
+            Seed: ${GameState.seed}<br>
+            Days Survived: ${GameState.daysPassed}/365<br>
+            CVEs Handled: ${GameState.cves.filter(c => c.status === 'resolved').length}/${GameState.cves.length}<br>
+            Breaches: ${GameState.breaches.length}
+          </div>
+          
+          <button class="btn btn-primary" onclick="location.reload()">Play Again</button>
+        </div>
+      `;
+      
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    // URL State Management
+    function saveToHash() {
+      // Simplified state for URL (full state would be too large)
+      const state = {
+        s: GameState.seed,
+        d: GameState.daysPassed,
+        df: GameState.difficulty
+      };
+      window.location.hash = btoa(JSON.stringify(state));
+    }
+
+    function loadFromHash() {
+      if (window.location.hash) {
+        try {
+          const state = JSON.parse(atob(window.location.hash.slice(1)));
+          document.getElementById('seedInput').value = state.s;
+          GameState.difficulty = state.df || 'normal';
+          // Note: Full state restoration would require replaying from seed
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      return false;
+    }
+
+    // Utility
+    function formatDate(date) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    }
+
+    // Event Listeners
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        GameState.speed = parseInt(btn.dataset.speed);
+        GameState.paused = GameState.speed === 0;
+      });
+    });
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`${tab.dataset.tab}Panel`).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.difficulty-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        document.querySelectorAll('.difficulty-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        GameState.difficulty = opt.dataset.difficulty;
+      });
+    });
+
+    document.getElementById('startBtn').addEventListener('click', initGame);
+
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      GameState.calendarMonth--;
+      if (GameState.calendarMonth < 0) {
+        GameState.calendarMonth = 11;
+        GameState.calendarYear--;
+      }
+      updateCalendar();
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      GameState.calendarMonth++;
+      if (GameState.calendarMonth > 11) {
+        GameState.calendarMonth = 0;
+        GameState.calendarYear++;
+      }
+      updateCalendar();
+    });
+
+    document.getElementById('modalOverlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modalOverlay')) {
+        closeModal();
+      }
+    });
+
+    document.getElementById('hireBtn').addEventListener('click', () => {
+      if (GameState.money < 10000) {
+        showNotification('warning', 'Insufficient Funds', 'Hiring requires $10,000');
+        return;
+      }
+      
+      const names = ['Casey Lee', 'Morgan Chen', 'Taylor Kim', 'Jamie Patel', 'Riley Brown'];
+      const roles = ['Security Analyst', 'Systems Engineer', 'Network Admin'];
+      
+      const newStaff = {
+        id: GameState.staff.length,
+        name: GameState.rng.pick(names),
+        role: GameState.rng.pick(roles),
+        skill: 0.4 + GameState.rng.next() * 0.3,
+        salary: 4000 + Math.floor(GameState.rng.next() * 3000),
+        status: 'available',
+        assignment: null,
+        progress: 0,
+        morale: 100
+      };
+      
+      GameState.staff.push(newStaff);
+      GameState.money -= 10000;
+      
+      updateUI();
+      showNotification('success', 'New Hire', `${newStaff.name} has joined the team!`);
+    });
+
+    // Initialize
+    loadFromHash();
+    updateCalendar();
+  </script>
+</body>
+</html>
