@@ -1,0 +1,1270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Undercrawl (Single-File Web App, state in URL hash)</title>
+  <style>
+    :root { --bg:#0b0d10; --panel:#12161b; --text:#e7eef6; --muted:#9fb1c5; --accent:#7aa6ff; --danger:#ff6b6b; --ok:#65d38a; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background:var(--bg); color:var(--text); }
+    a { color:var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .wrap { display:flex; min-height:100vh; gap:12px; padding:12px; }
+    .col { background:var(--panel); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px; }
+    .main { flex: 1 1 auto; display:flex; flex-direction:column; gap:12px; }
+    .side { width: 360px; max-width: 44vw; display:flex; flex-direction:column; gap:12px; }
+    .topbar { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .title { font-size:18px; font-weight:700; letter-spacing:0.2px; margin:0; }
+    .subtitle { margin:4px 0 0 0; color:var(--muted); font-size:12px; line-height:1.35; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; font-size:12px; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,0.08); }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .stat { display:flex; gap:8px; align-items:center; padding:8px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:10px; }
+    .stat b { font-size:12px; color:var(--muted); font-weight:600; }
+    .stat span { font-variant-numeric: tabular-nums; }
+    .grid { display:grid; grid-template-columns: 1fr 320px; gap:12px; align-items:start; }
+    .paneTitle { font-size:13px; font-weight:700; margin:0 0 8px 0; color:#d6e3f3; }
+    pre#view {
+      margin:0;
+      padding:10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.08);
+      background:rgba(0,0,0,0.24);
+      overflow:auto;
+      line-height:1.1;
+      font-size:13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";
+      white-space:pre;
+    }
+    .box {
+      padding:10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.08);
+      background:rgba(255,255,255,0.03);
+    }
+    .muted { color:var(--muted); }
+    .btns { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+    button {
+      background:rgba(255,255,255,0.06);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:10px;
+      padding:10px 10px;
+      font-size:13px;
+      cursor:pointer;
+      transition: transform 0.02s ease-in-out, background 0.12s ease-in-out, border-color 0.12s ease-in-out;
+      user-select:none;
+    }
+    button:hover { background:rgba(255,255,255,0.09); border-color:rgba(255,255,255,0.14); }
+    button:active { transform: translateY(1px); }
+    button.secondary { background:rgba(122,166,255,0.10); border-color:rgba(122,166,255,0.25); }
+    button.danger { background:rgba(255,107,107,0.10); border-color:rgba(255,107,107,0.25); }
+    button.ok { background:rgba(101,211,138,0.10); border-color:rgba(101,211,138,0.25); }
+    button:disabled { opacity:0.45; cursor:not-allowed; transform:none; }
+    .inventory { display:flex; flex-direction:column; gap:10px; }
+    .invList { margin:0; padding-left:18px; }
+    .invList li { margin:4px 0; }
+    .tag { display:inline-block; padding:2px 6px; border-radius:999px; font-size:12px; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.05); margin-left:6px; color:var(--muted); }
+    .log { margin:0; padding-left:16px; color:#dbe7f7; }
+    .log li { margin:4px 0; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px; }
+    .legendItem { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; font-size:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); padding:4px 8px; border-radius:999px; color:var(--muted); }
+    .hr { height:1px; background:rgba(255,255,255,0.08); margin:6px 0; }
+    .small { font-size:12px; line-height:1.35; }
+    .rightColGroup { display:flex; flex-direction:column; gap:12px; }
+    .twoColBtns { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="col main">
+      <div class="topbar">
+        <div>
+          <h1 class="title">Undercrawl</h1>
+          <p class="subtitle">
+            Single-file HTML game. All game state is stored in the URL fragment (after <span class="kbd">#</span>), so you can copy/paste the URL to reproduce the exact state in another browser.
+            <span class="muted">No localStorage, no server dependencies.</span>
+          </p>
+          <p class="subtitle small">
+            Movement is relative to facing. Buttons below, or keys: <span class="kbd">W</span>/<span class="kbd">S</span> forward/back, <span class="kbd">A</span>/<span class="kbd">D</span> strafe,
+            <span class="kbd">←</span>/<span class="kbd">→</span> turn, <span class="kbd">Space</span> attack, <span class="kbd">O</span> open, <span class="kbd">R</span> eat, <span class="kbd">T</span> drink,
+            spells <span class="kbd">1</span>/<span class="kbd">2</span>/<span class="kbd">3</span>, rest <span class="kbd">.</span>
+          </p>
+        </div>
+        <div class="row">
+          <button class="secondary" id="btnCopy">Copy URL</button>
+          <button class="danger" id="btnNew">New Game</button>
+        </div>
+      </div>
+
+      <div class="row" id="statsRow"></div>
+
+      <div class="grid">
+        <div class="rightColGroup">
+          <div>
+            <h2 class="paneTitle">View</h2>
+            <pre id="view" aria-label="Map view"></pre>
+          </div>
+
+          <div class="box">
+            <h2 class="paneTitle">What you are looking at</h2>
+            <div id="lookText" class="small"></div>
+            <div class="hr"></div>
+            <div class="legend" aria-label="Legend">
+              <span class="legendItem">@ you</span>
+              <span class="legendItem"># wall</span>
+              <span class="legendItem">. floor</span>
+              <span class="legendItem">+ closed door</span>
+              <span class="legendItem">/ open door</span>
+              <span class="legendItem">*</span><span class="legendItem">locked door</span>
+              <span class="legendItem">!</span><span class="legendItem">item</span>
+              <span class="legendItem">r,g,c,w monsters</span>
+            </div>
+          </div>
+
+          <div class="box">
+            <h2 class="paneTitle">Action log</h2>
+            <ul class="log" id="log"></ul>
+          </div>
+        </div>
+
+        <div class="rightColGroup">
+          <div class="box">
+            <h2 class="paneTitle">Actions</h2>
+
+            <div class="btns" style="margin-bottom:10px;">
+              <button id="btnForward">Forward <span class="tag">W</span></button>
+              <button id="btnTurnL">Turn Left <span class="tag">←</span></button>
+              <button id="btnTurnR">Turn Right <span class="tag">→</span></button>
+
+              <button id="btnStrafeL">Strafe L <span class="tag">A</span></button>
+              <button id="btnBack">Back <span class="tag">S</span></button>
+              <button id="btnStrafeR">Strafe R <span class="tag">D</span></button>
+            </div>
+
+            <div class="twoColBtns">
+              <button id="btnAttack" class="ok">Attack <span class="tag">Space</span></button>
+              <button id="btnOpen">Open Door <span class="tag">O</span></button>
+              <button id="btnEat">Eat <span class="tag">R</span></button>
+              <button id="btnDrink">Drink <span class="tag">T</span></button>
+              <button id="btnRest">Rest <span class="tag">.</span></button>
+              <button id="btnEquip">Cycle Weapon <span class="tag">E</span></button>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="btns">
+              <button id="btnSpell1" class="secondary">Spell 1: Heal <span class="tag">1</span></button>
+              <button id="btnSpell2" class="secondary">Spell 2: Firebolt <span class="tag">2</span></button>
+              <button id="btnSpell3" class="secondary">Spell 3: Blink <span class="tag">3</span></button>
+            </div>
+
+            <p class="subtitle small" style="margin-top:10px;">
+              Doors are in front of you. Some are locked and require keys. Items are picked up automatically when you step on them.
+            </p>
+          </div>
+
+          <div class="box inventory">
+            <h2 class="paneTitle">Inventory</h2>
+            <div id="invText" class="small"></div>
+            <div class="hr"></div>
+            <h2 class="paneTitle">Status</h2>
+            <div id="statusText" class="small muted"></div>
+          </div>
+
+          <div class="box">
+            <h2 class="paneTitle">About state in URL</h2>
+            <div class="small muted">
+              The fragment <span class="kbd">#…</span> contains a base64url-encoded JSON state. This is why copying the URL reproduces your exact game state.
+              The server never sees the fragment.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  /********************************************************************
+   * Utilities: base64url JSON encode/decode (Unicode-safe)
+   ********************************************************************/
+  function b64urlEncodeUtf8(str) {
+    const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    );
+    const b64 = btoa(utf8);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function b64urlDecodeUtf8(b64url) {
+    const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
+    const bin = atob(b64 + pad);
+    let esc = "";
+    for (let i = 0; i < bin.length; i++) {
+      esc += "%" + bin.charCodeAt(i).toString(16).padStart(2, "0");
+    }
+    return decodeURIComponent(esc);
+  }
+
+  function encodeState(state) {
+    return b64urlEncodeUtf8(JSON.stringify(state));
+  }
+
+  function decodeState(encoded) {
+    const json = b64urlDecodeUtf8(encoded);
+    return JSON.parse(json);
+  }
+
+  /********************************************************************
+   * Deterministic PRNG
+   ********************************************************************/
+  function mulberry32(seed) {
+    let t = seed >>> 0;
+    return function() {
+      t += 0x6D2B79F5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function randInt(rng, minIncl, maxIncl) {
+    return minIncl + Math.floor(rng() * (maxIncl - minIncl + 1));
+  }
+
+  function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+  /********************************************************************
+   * Fixed map generator (deterministic) - "large fixed map"
+   ********************************************************************/
+  const MAP_VER = 1;
+  const MAP_SEED = 1337;
+  const W = 61;  // odd
+  const H = 31;  // odd
+
+  function buildFixedMap() {
+    const rng = mulberry32(MAP_SEED);
+    const grid = Array.from({length: H}, () => Array.from({length: W}, () => "#"));
+
+    function inBounds(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
+
+    // Maze carve on odd coordinates
+    const visited = Array.from({length: H}, () => Array.from({length: W}, () => false));
+    const stack = [];
+    const start = {x: 1, y: 1};
+
+    function carveCell(x, y) {
+      grid[y][x] = ".";
+      visited[y][x] = true;
+    }
+
+    carveCell(start.x, start.y);
+    stack.push({x: start.x, y: start.y});
+
+    const dirs = [
+      {dx: 0, dy: -2},
+      {dx: 2, dy: 0},
+      {dx: 0, dy: 2},
+      {dx: -2, dy: 0},
+    ];
+
+    while (stack.length) {
+      const cur = stack[stack.length - 1];
+      const options = [];
+      for (const d of dirs) {
+        const nx = cur.x + d.dx, ny = cur.y + d.dy;
+        if (inBounds(nx, ny) && nx % 2 === 1 && ny % 2 === 1 && !visited[ny][nx]) {
+          options.push({nx, ny, wx: cur.x + d.dx/2, wy: cur.y + d.dy/2});
+        }
+      }
+      if (!options.length) {
+        stack.pop();
+        continue;
+      }
+      const pick = options[randInt(rng, 0, options.length - 1)];
+      grid[pick.wy][pick.wx] = ".";
+      carveCell(pick.nx, pick.ny);
+      stack.push({x: pick.nx, y: pick.ny});
+    }
+
+    // Carve a few fixed rooms to make it feel "sprawling"
+    const rooms = [
+      {x: 7,  y: 5,  w: 11, h: 7},
+      {x: 27, y: 3,  w: 13, h: 9},
+      {x: 43, y: 15, w: 13, h: 9},
+      {x: 11, y: 19, w: 15, h: 9},
+    ];
+    for (const r of rooms) {
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          if (inBounds(x, y)) grid[y][x] = ".";
+        }
+      }
+    }
+
+    // Add loops: remove some walls that separate floors
+    const loopCuts = Math.floor(W * H * 0.03);
+    for (let i = 0; i < loopCuts; i++) {
+      const x = randInt(rng, 1, W - 2);
+      const y = randInt(rng, 1, H - 2);
+      if (grid[y][x] !== "#") continue;
+      const neighbors = [
+        grid[y-1][x], grid[y+1][x], grid[y][x-1], grid[y][x+1]
+      ];
+      // If it connects at least two floor cells, carve it
+      if (neighbors.filter(c => c === ".").length >= 2) grid[y][x] = ".";
+    }
+
+    // BFS to find a far endpoint (used for "exit" flavor and door placement)
+    function bfsFarthest(from) {
+      const q = [{x: from.x, y: from.y}];
+      const dist = Array.from({length: H}, () => Array.from({length: W}, () => -1));
+      const prev = Array.from({length: H}, () => Array.from({length: W}, () => null));
+      dist[from.y][from.x] = 0;
+
+      let best = {x: from.x, y: from.y, d: 0};
+      while (q.length) {
+        const cur = q.shift();
+        const cd = dist[cur.y][cur.x];
+        if (cd > best.d) best = {x: cur.x, y: cur.y, d: cd};
+        for (const dd of [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]) {
+          const nx = cur.x + dd.dx, ny = cur.y + dd.dy;
+          if (!inBounds(nx, ny)) continue;
+          if (grid[ny][nx] !== ".") continue;
+          if (dist[ny][nx] !== -1) continue;
+          dist[ny][nx] = cd + 1;
+          prev[ny][nx] = cur;
+          q.push({x:nx,y:ny});
+        }
+      }
+
+      // reconstruct path to farthest
+      const path = [];
+      let cur = {x: best.x, y: best.y};
+      while (cur) {
+        path.push({x: cur.x, y: cur.y});
+        cur = prev[cur.y][cur.x];
+      }
+      path.reverse();
+      return {farthest: {x: best.x, y: best.y}, path};
+    }
+
+    const { farthest, path } = bfsFarthest(start);
+
+    // Pick three door cells along the main path; two are locked.
+    // Doors are overlays on top of floor cells.
+    function pickDoorAt(frac) {
+      const idx = clamp(Math.floor(path.length * frac), 8, path.length - 8);
+      return {x: path[idx].x, y: path[idx].y};
+    }
+
+    const doorCells = [
+      {...pickDoorAt(0.30), lock: null,     name: "Rusty Door"},
+      {...pickDoorAt(0.55), lock: "bronze", name: "Bronze-Locked Door"},
+      {...pickDoorAt(0.78), lock: "silver", name: "Silver-Locked Door"},
+    ];
+
+    // Place keys as fixed items BEFORE the corresponding door on the same path.
+    function pickKeyBeforeDoor(fracDoor, backSteps) {
+      const idx = clamp(Math.floor(path.length * fracDoor) - backSteps, 4, path.length - 12);
+      return {x: path[idx].x, y: path[idx].y};
+    }
+
+    const keyBronze = {...pickKeyBeforeDoor(0.55, 14), kind: "bronzeKey", label: "Bronze Key"};
+    const keySilver = {...pickKeyBeforeDoor(0.78, 18), kind: "silverKey", label: "Silver Key"};
+
+    // Ensure keys not placed exactly on a door cell; nudge forward if needed
+    function cellEq(a,b){ return a.x===b.x && a.y===b.y; }
+    for (const door of doorCells) {
+      if (cellEq(keyBronze, door)) keyBronze.x += 1;
+      if (cellEq(keySilver, door)) keySilver.x += 1;
+    }
+
+    return {
+      ver: MAP_VER,
+      w: W,
+      h: H,
+      grid,
+      start,
+      exit: farthest,
+      doors: doorCells.map((d, i) => ({id: i, x: d.x, y: d.y, lock: d.lock, name: d.name})),
+      fixedKeys: [keyBronze, keySilver],
+    };
+  }
+
+  const MAP = buildFixedMap();
+
+  /********************************************************************
+   * World generation (deterministic per game seed)
+   * - Items: deterministic positions/types; tracked by itemsTaken indices
+   * - Monsters: deterministic positions/types; tracked by monstersHp array
+   ********************************************************************/
+  const ITEM_TYPES = [
+    {kind:"ration", label:"Ration", glyph:"!", stack:true},
+    {kind:"water",  label:"Water Flask", glyph:"!", stack:true},
+    {kind:"potion", label:"Potion", glyph:"!", stack:true},
+    {kind:"sword",  label:"Iron Sword", glyph:"!", stack:false},
+    {kind:"staff",  label:"Oak Staff", glyph:"!", stack:false},
+  ];
+
+  const MONSTER_TYPES = [
+    {kind:"rat",    label:"Tunnel Rat", glyph:"r", hp:6,  atk:[1,3], range:1},
+    {kind:"goblin", label:"Goblin",     glyph:"g", hp:10, atk:[2,4], range:1},
+    {kind:"cultist",label:"Cultist",    glyph:"c", hp:9,  atk:[1,3], range:2},
+    {kind:"wight",  label:"Wight",      glyph:"w", hp:16, atk:[3,6], range:1},
+  ];
+
+  function listFloorCells() {
+    const cells = [];
+    for (let y = 0; y < MAP.h; y++) {
+      for (let x = 0; x < MAP.w; x++) {
+        if (MAP.grid[y][x] === ".") cells.push({x,y});
+      }
+    }
+    return cells;
+  }
+
+  const FLOOR_CELLS = listFloorCells();
+
+  function keyForXY(x,y){ return x + "," + y; }
+
+  function generateWorld(seed) {
+    const rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
+
+    const occupied = new Set();
+    occupied.add(keyForXY(MAP.start.x, MAP.start.y));
+    for (const d of MAP.doors) occupied.add(keyForXY(d.x, d.y));
+
+    // Deterministic helper: pick a floor cell not in occupied and not too close to start
+    function pickCell(minDistFromStart) {
+      for (let tries = 0; tries < 2000; tries++) {
+        const c = FLOOR_CELLS[randInt(rng, 0, FLOOR_CELLS.length - 1)];
+        const k = keyForXY(c.x, c.y);
+        if (occupied.has(k)) continue;
+        const md = Math.abs(c.x - MAP.start.x) + Math.abs(c.y - MAP.start.y);
+        if (md < minDistFromStart) continue;
+        occupied.add(k);
+        return {x:c.x, y:c.y};
+      }
+      // Fallback: just find something
+      for (const c of FLOOR_CELLS) {
+        const k = keyForXY(c.x, c.y);
+        if (!occupied.has(k)) {
+          occupied.add(k);
+          return {x:c.x, y:c.y};
+        }
+      }
+      return {x: MAP.start.x, y: MAP.start.y};
+    }
+
+    // Items list begins with fixed keys (always present, deterministic)
+    const items = [];
+    for (const fk of MAP.fixedKeys) {
+      const k = keyForXY(fk.x, fk.y);
+      occupied.add(k);
+      items.push({ kind: fk.kind, label: fk.label, glyph: "!", x: fk.x, y: fk.y, qty: 1, stack: false, fixed:true });
+    }
+
+    // Random items
+    const itemCount = 34;
+    for (let i = 0; i < itemCount; i++) {
+      const it = ITEM_TYPES[randInt(rng, 0, ITEM_TYPES.length - 1)];
+      const pos = pickCell(10);
+      const qty = it.stack ? randInt(rng, 1, 3) : 1;
+      items.push({ kind: it.kind, label: it.label, glyph: it.glyph, x: pos.x, y: pos.y, qty, stack: it.stack, fixed:false });
+    }
+
+    // Monsters (stationary). Stored in deterministic order; state only stores their HP array.
+    const monsters = [];
+    const monsterCount = 22;
+    for (let i = 0; i < monsterCount; i++) {
+      const mt = MONSTER_TYPES[randInt(rng, 0, MONSTER_TYPES.length - 1)];
+      const pos = pickCell(12);
+      monsters.push({
+        kind: mt.kind, label: mt.label, glyph: mt.glyph,
+        x: pos.x, y: pos.y, maxHp: mt.hp, atk: mt.atk, range: mt.range
+      });
+    }
+
+    return { items, monsters };
+  }
+
+  /********************************************************************
+   * Game state
+   ********************************************************************/
+  const VERSION = 1;
+  const DIRS = [
+    {dx:0, dy:-1, name:"North"},
+    {dx:1, dy:0,  name:"East"},
+    {dx:0, dy:1,  name:"South"},
+    {dx:-1,dy:0,  name:"West"},
+  ];
+
+  function nowSeed() {
+    // deterministic-ish seed for new games without external dependencies
+    // (still stored in hash immediately)
+    const t = Date.now() >>> 0;
+    return (t ^ (t << 13) ^ (t >>> 7) ^ (t << 17)) >>> 0;
+  }
+
+  function newGame(seed) {
+    const world = generateWorld(seed);
+    return {
+      v: VERSION,
+      mapVer: MAP_VER,
+      seed,
+      turn: 0,
+      p: {
+        x: MAP.start.x,
+        y: MAP.start.y,
+        dir: 0,
+        hp: 20,
+        maxHp: 20,
+        mana: 10,
+        maxMana: 10,
+        hunger: 0, // 0..100
+        thirst: 0, // 0..100
+      },
+      inv: {
+        ration: 2,
+        water: 2,
+        potion: 1,
+        bronzeKey: 0,
+        silverKey: 0,
+        dagger: 1,
+        sword: 0,
+        staff: 0,
+      },
+      weapon: "dagger",
+      doorsOpen: [],     // indices into MAP.doors
+      itemsTaken: [],    // indices into world.items
+      monstersHp: world.monsters.map(m => m.maxHp),
+      log: [
+        "You descend into the underways. The air is cold and wet.",
+        "Tip: Copy the URL (including #...) to move this exact state to another browser."
+      ],
+    };
+  }
+
+  function normalizeLoadedState(s) {
+    // Defensive normalization for old/broken hashes
+    if (!s || typeof s !== "object") return null;
+    if (s.v !== VERSION) return null;
+    if (s.mapVer !== MAP_VER) return null;
+    if (!s.p || typeof s.p.x !== "number") return null;
+    if (!Array.isArray(s.doorsOpen)) s.doorsOpen = [];
+    if (!Array.isArray(s.itemsTaken)) s.itemsTaken = [];
+    if (!Array.isArray(s.monstersHp)) s.monstersHp = [];
+    if (!Array.isArray(s.log)) s.log = [];
+    // clamp essentials
+    s.p.dir = ((s.p.dir|0) % 4 + 4) % 4;
+    s.p.hp = clamp(s.p.hp|0, 0, s.p.maxHp|0 || 20);
+    s.p.mana = clamp(s.p.mana|0, 0, s.p.maxMana|0 || 10);
+    s.p.hunger = clamp(s.p.hunger|0, 0, 100);
+    s.p.thirst = clamp(s.p.thirst|0, 0, 100);
+    s.turn = Math.max(0, s.turn|0);
+    // keep log bounded
+    if (s.log.length > 8) s.log = s.log.slice(-8);
+    return s;
+  }
+
+  let state = null;
+
+  /********************************************************************
+   * State <-> URL hash synchronization
+   ********************************************************************/
+  function saveToHash() {
+    const encoded = encodeState(state);
+    const current = (location.hash || "").startsWith("#") ? location.hash.slice(1) : "";
+    if (current !== encoded) {
+      history.replaceState(null, "", "#" + encoded);
+    }
+  }
+
+  function loadFromHashOrNew() {
+    const raw = (location.hash || "").startsWith("#") ? location.hash.slice(1) : "";
+    if (raw) {
+      try {
+        const decoded = decodeState(raw);
+        const norm = normalizeLoadedState(decoded);
+        if (norm) {
+          state = norm;
+          return;
+        }
+      } catch (_) { /* ignore */ }
+    }
+    state = newGame(nowSeed());
+    saveToHash();
+  }
+
+  // If user pastes a different #... while staying on the page, reflect it.
+  window.addEventListener("hashchange", () => {
+    const raw = (location.hash || "").startsWith("#") ? location.hash.slice(1) : "";
+    if (!raw) return;
+    try {
+      const decoded = decodeState(raw);
+      const norm = normalizeLoadedState(decoded);
+      if (norm) {
+        state = norm;
+        render();
+      }
+    } catch (_) { /* ignore */ }
+  });
+
+  /********************************************************************
+   * Core game mechanics
+   ********************************************************************/
+  function log(msg) {
+    state.log.push(msg);
+    if (state.log.length > 8) state.log = state.log.slice(-8);
+  }
+
+  function isDoorAt(x, y) {
+    for (const d of MAP.doors) if (d.x === x && d.y === y) return d;
+    return null;
+  }
+
+  function isDoorOpen(doorId) {
+    return state.doorsOpen.includes(doorId);
+  }
+
+  function setDoorOpen(doorId, open) {
+    const s = new Set(state.doorsOpen);
+    if (open) s.add(doorId); else s.delete(doorId);
+    state.doorsOpen = Array.from(s).sort((a,b)=>a-b);
+  }
+
+  function world() {
+    return generateWorld(state.seed);
+  }
+
+  function isWall(x, y) {
+    if (x < 0 || y < 0 || x >= MAP.w || y >= MAP.h) return true;
+    return MAP.grid[y][x] === "#";
+  }
+
+  function isBlocked(x, y) {
+    if (isWall(x, y)) return true;
+    const d = isDoorAt(x, y);
+    if (d && !isDoorOpen(d.id)) return true;
+    return false;
+  }
+
+  function facingCell() {
+    const d = DIRS[state.p.dir];
+    return {x: state.p.x + d.dx, y: state.p.y + d.dy};
+  }
+
+  function stepCosts() {
+    // Hunger/thirst tick per turn. Keep the game moving.
+    state.p.hunger = clamp(state.p.hunger + 1, 0, 100);
+    state.p.thirst = clamp(state.p.thirst + 2, 0, 100);
+    // If starving/dehydrated, chip HP.
+    let dmg = 0;
+    if (state.p.hunger >= 85) dmg += 1;
+    if (state.p.thirst >= 85) dmg += 1;
+    if (dmg > 0) {
+      state.p.hp = clamp(state.p.hp - dmg, 0, state.p.maxHp);
+      log(dmg === 1 ? "You weaken from deprivation." : "You weaken from starvation and thirst.");
+    }
+  }
+
+  function endTurn() {
+    state.turn++;
+    stepCosts();
+    monstersAct();
+    // Small passive mana regen
+    if (state.p.hp > 0 && state.p.mana < state.p.maxMana && state.turn % 2 === 0) state.p.mana++;
+    // Persist
+    saveToHash();
+    render();
+  }
+
+  function pickupIfPresent() {
+    const w = world();
+    const taken = new Set(state.itemsTaken);
+    for (let i = 0; i < w.items.length; i++) {
+      if (taken.has(i)) continue;
+      const it = w.items[i];
+      if (it.x === state.p.x && it.y === state.p.y) {
+        // pick up
+        taken.add(i);
+        state.itemsTaken = Array.from(taken).sort((a,b)=>a-b);
+        state.inv[it.kind] = (state.inv[it.kind] || 0) + it.qty;
+        log(`Picked up ${it.qty} × ${it.label}.`);
+        return;
+      }
+    }
+  }
+
+  function moveBy(dx, dy) {
+    if (state.p.hp <= 0) return;
+    const nx = state.p.x + dx, ny = state.p.y + dy;
+    if (isBlocked(nx, ny)) {
+      const d = isDoorAt(nx, ny);
+      if (d && !isDoorOpen(d.id)) {
+        log(d.lock ? `A locked door blocks you (${d.name}).` : `A closed door blocks you (${d.name}).`);
+      } else {
+        log("You bump into stone.");
+      }
+      endTurn();
+      return;
+    }
+    state.p.x = nx; state.p.y = ny;
+    pickupIfPresent();
+    endTurn();
+  }
+
+  function forward() {
+    const d = DIRS[state.p.dir];
+    moveBy(d.dx, d.dy);
+  }
+
+  function back() {
+    const d = DIRS[state.p.dir];
+    moveBy(-d.dx, -d.dy);
+  }
+
+  function strafeLeft() {
+    const d = DIRS[(state.p.dir + 3) % 4];
+    moveBy(d.dx, d.dy);
+  }
+
+  function strafeRight() {
+    const d = DIRS[(state.p.dir + 1) % 4];
+    moveBy(d.dx, d.dy);
+  }
+
+  function turnLeft() {
+    if (state.p.hp <= 0) return;
+    state.p.dir = (state.p.dir + 3) % 4;
+    endTurn();
+  }
+
+  function turnRight() {
+    if (state.p.hp <= 0) return;
+    state.p.dir = (state.p.dir + 1) % 4;
+    endTurn();
+  }
+
+  function weaponName(kind) {
+    if (kind === "dagger") return "Dagger";
+    if (kind === "sword") return "Sword";
+    if (kind === "staff") return "Staff";
+    return kind;
+  }
+
+  function weaponDamage(kind, rng) {
+    // modest but meaningful differences
+    if (kind === "dagger") return randInt(rng, 2, 4);
+    if (kind === "sword")  return randInt(rng, 3, 6);
+    if (kind === "staff")  return randInt(rng, 2, 5);
+    return randInt(rng, 1, 3);
+  }
+
+  function cycleWeapon() {
+    if (state.p.hp <= 0) return;
+    const options = [];
+    if ((state.inv.dagger|0) > 0) options.push("dagger");
+    if ((state.inv.sword|0) > 0) options.push("sword");
+    if ((state.inv.staff|0) > 0) options.push("staff");
+    if (!options.length) options.push("dagger");
+    const idx = options.indexOf(state.weapon);
+    state.weapon = options[(idx + 1) % options.length];
+    log(`Equipped ${weaponName(state.weapon)}.`);
+    saveToHash();
+    render();
+  }
+
+  function monsterAt(x, y) {
+    const w = world();
+    for (let i = 0; i < w.monsters.length; i++) {
+      if ((state.monstersHp[i] | 0) <= 0) continue;
+      const m = w.monsters[i];
+      if (m.x === x && m.y === y) return {idx:i, m};
+    }
+    return null;
+  }
+
+  function attack() {
+    if (state.p.hp <= 0) return;
+    const rng = mulberry32((state.seed ^ (state.turn * 2654435761)) >>> 0);
+    const f = facingCell();
+    const target = monsterAt(f.x, f.y);
+    if (!target) {
+      log("You swing at empty air.");
+      endTurn();
+      return;
+    }
+    const dmg = weaponDamage(state.weapon, rng);
+    state.monstersHp[target.idx] = Math.max(0, (state.monstersHp[target.idx] | 0) - dmg);
+    log(`You strike the ${target.m.label} for ${dmg}.`);
+    if (state.monstersHp[target.idx] <= 0) log(`The ${target.m.label} collapses.`);
+    endTurn();
+  }
+
+  function openDoor() {
+    if (state.p.hp <= 0) return;
+    const f = facingCell();
+    const d = isDoorAt(f.x, f.y);
+    if (!d) {
+      log("There is no door directly in front of you.");
+      endTurn();
+      return;
+    }
+    if (isDoorOpen(d.id)) {
+      log("That door is already open.");
+      endTurn();
+      return;
+    }
+    if (d.lock) {
+      const keyKind = d.lock === "bronze" ? "bronzeKey" : "silverKey";
+      if ((state.inv[keyKind] | 0) <= 0) {
+        log(`The door is locked (${d.lock}). You need the ${d.lock === "bronze" ? "Bronze" : "Silver"} Key.`);
+        endTurn();
+        return;
+      }
+      setDoorOpen(d.id, true);
+      log(`You unlock and open the ${d.name}.`);
+      endTurn();
+      return;
+    }
+    setDoorOpen(d.id, true);
+    log(`You open the ${d.name}.`);
+    endTurn();
+  }
+
+  function eat() {
+    if (state.p.hp <= 0) return;
+    if ((state.inv.ration | 0) <= 0) {
+      log("You have no rations.");
+      endTurn();
+      return;
+    }
+    state.inv.ration--;
+    state.p.hunger = clamp(state.p.hunger - 28, 0, 100);
+    log("You eat a ration.");
+    endTurn();
+  }
+
+  function drink() {
+    if (state.p.hp <= 0) return;
+    if ((state.inv.water | 0) <= 0) {
+      log("You have no water.");
+      endTurn();
+      return;
+    }
+    state.inv.water--;
+    state.p.thirst = clamp(state.p.thirst - 34, 0, 100);
+    log("You drink from a flask.");
+    endTurn();
+  }
+
+  function rest() {
+    if (state.p.hp <= 0) return;
+    // Rest restores a bit of mana; small risk: nearby monsters might hit you anyway.
+    state.p.mana = clamp(state.p.mana + 2, 0, state.p.maxMana);
+    log("You pause, breathing slowly.");
+    endTurn();
+  }
+
+  function castHeal() {
+    if (state.p.hp <= 0) return;
+    const cost = 3;
+    if (state.p.mana < cost) { log("Not enough mana for Heal."); saveToHash(); render(); return; }
+    state.p.mana -= cost;
+    const heal = 7;
+    const before = state.p.hp;
+    state.p.hp = clamp(state.p.hp + heal, 0, state.p.maxHp);
+    log(`Heal knits your wounds (+${state.p.hp - before}).`);
+    endTurn();
+  }
+
+  function castFirebolt() {
+    if (state.p.hp <= 0) return;
+    const cost = 4;
+    if (state.p.mana < cost) { log("Not enough mana for Firebolt."); saveToHash(); render(); return; }
+    state.p.mana -= cost;
+
+    const rng = mulberry32((state.seed ^ 0xBADC0DE ^ (state.turn * 1103515245)) >>> 0);
+    const d = DIRS[state.p.dir];
+    let hit = null;
+
+    for (let dist = 1; dist <= 3; dist++) {
+      const x = state.p.x + d.dx * dist;
+      const y = state.p.y + d.dy * dist;
+      if (isWall(x, y)) break;
+      const door = isDoorAt(x, y);
+      if (door && !isDoorOpen(door.id)) break;
+      const t = monsterAt(x, y);
+      if (t) { hit = t; break; }
+    }
+
+    if (!hit) {
+      log("A firebolt fizzles into the dark.");
+      endTurn();
+      return;
+    }
+
+    const dmg = randInt(rng, 5, 9);
+    state.monstersHp[hit.idx] = Math.max(0, (state.monstersHp[hit.idx] | 0) - dmg);
+    log(`Firebolt scorches the ${hit.m.label} for ${dmg}.`);
+    if (state.monstersHp[hit.idx] <= 0) log(`The ${hit.m.label} burns out.`);
+    endTurn();
+  }
+
+  function castBlink() {
+    if (state.p.hp <= 0) return;
+    const cost = 5;
+    if (state.p.mana < cost) { log("Not enough mana for Blink."); saveToHash(); render(); return; }
+    state.p.mana -= cost;
+
+    const rng = mulberry32((state.seed ^ 0xC0FFEE ^ (state.turn * 2654435761)) >>> 0);
+    const candidates = [];
+
+    // Choose open floor cells in a radius; avoid walls/closed doors.
+    for (let dy = -5; dy <= 5; dy++) {
+      for (let dx = -5; dx <= 5; dx++) {
+        const x = state.p.x + dx, y = state.p.y + dy;
+        if (Math.abs(dx) + Math.abs(dy) > 7) continue;
+        if (isBlocked(x, y)) continue;
+        // Avoid blinking onto a live monster
+        if (monsterAt(x, y)) continue;
+        candidates.push({x,y});
+      }
+    }
+
+    if (!candidates.length) {
+      log("Blink fails; nowhere safe to land.");
+      endTurn();
+      return;
+    }
+
+    const pick = candidates[randInt(rng, 0, candidates.length - 1)];
+    state.p.x = pick.x; state.p.y = pick.y;
+    log("Reality folds; you reappear elsewhere.");
+    pickupIfPresent();
+    endTurn();
+  }
+
+  function monstersAct() {
+    const w = world();
+    if (state.p.hp <= 0) return;
+
+    let attacked = 0;
+    const rng = mulberry32((state.seed ^ 0xDEADBEEF ^ (state.turn * 1013904223)) >>> 0);
+
+    for (let i = 0; i < w.monsters.length; i++) {
+      if ((state.monstersHp[i] | 0) <= 0) continue;
+      const m = w.monsters[i];
+
+      const dist = Math.abs(m.x - state.p.x) + Math.abs(m.y - state.p.y);
+      if (dist > m.range) continue;
+
+      // Basic line-of-sight: axis-aligned only for ranged (cultist), melee always "adjacent".
+      if (m.range > 1) {
+        // allow ranged if in same row/col and no walls/closed doors between
+        const sameRow = m.y === state.p.y;
+        const sameCol = m.x === state.p.x;
+        if (!sameRow && !sameCol) continue;
+
+        const stepX = sameRow ? Math.sign(state.p.x - m.x) : 0;
+        const stepY = sameCol ? Math.sign(state.p.y - m.y) : 0;
+        let cx = m.x, cy = m.y;
+        let blocked = false;
+        for (let s = 1; s < dist; s++) {
+          cx += stepX; cy += stepY;
+          if (isWall(cx, cy)) { blocked = true; break; }
+          const door = isDoorAt(cx, cy);
+          if (door && !isDoorOpen(door.id)) { blocked = true; break; }
+        }
+        if (blocked) continue;
+      } else {
+        if (dist !== 1) continue;
+      }
+
+      const dmg = randInt(rng, m.atk[0], m.atk[1]);
+      state.p.hp = clamp(state.p.hp - dmg, 0, state.p.maxHp);
+      attacked++;
+      log(`The ${m.label} hits you for ${dmg}.`);
+      if (state.p.hp <= 0) {
+        log("You collapse. The underways claim another traveler.");
+        return;
+      }
+    }
+
+    // Slight pressure: if nothing attacked for many turns, nudge hunger/thirst harder later
+    if (attacked === 0 && state.turn % 12 === 0) {
+      log("Somewhere deeper, stone shifts and echoes.");
+    }
+  }
+
+  /********************************************************************
+   * Rendering
+   ********************************************************************/
+  function glyphAt(x, y) {
+    // base
+    if (x < 0 || y < 0 || x >= MAP.w || y >= MAP.h) return " ";
+    if (MAP.grid[y][x] === "#") return "#";
+
+    // doors overlay
+    const d = isDoorAt(x, y);
+    if (d) {
+      if (isDoorOpen(d.id)) return "/";
+      if (d.lock) return "*";
+      return "+";
+    }
+
+    // player
+    if (x === state.p.x && y === state.p.y) return "@";
+
+    // monsters
+    const w = world();
+    for (let i = 0; i < w.monsters.length; i++) {
+      if ((state.monstersHp[i] | 0) <= 0) continue;
+      const m = w.monsters[i];
+      if (m.x === x && m.y === y) return m.glyph;
+    }
+
+    // items
+    const taken = new Set(state.itemsTaken);
+    for (let i = 0; i < w.items.length; i++) {
+      if (taken.has(i)) continue;
+      const it = w.items[i];
+      if (it.x === x && it.y === y) return it.glyph;
+    }
+
+    return ".";
+  }
+
+  function renderView() {
+    const vw = 31, vh = 17;
+    const halfW = Math.floor(vw / 2);
+    const halfH = Math.floor(vh / 2);
+
+    let out = "";
+    for (let y = state.p.y - halfH; y <= state.p.y + halfH; y++) {
+      let line = "";
+      for (let x = state.p.x - halfW; x <= state.p.x + halfW; x++) {
+        line += glyphAt(x, y);
+      }
+      out += line + "\n";
+    }
+    return out.trimEnd();
+  }
+
+  function describeTile(x, y) {
+    if (x < 0 || y < 0 || x >= MAP.w || y >= MAP.h) return "Endless dark beyond the map edge.";
+    if (MAP.grid[y][x] === "#") return "A rough stone wall.";
+    const d = isDoorAt(x, y);
+    if (d) {
+      if (isDoorOpen(d.id)) return `An open doorway (${d.name}).`;
+      if (d.lock) return `A locked door (${d.name}).`;
+      return `A closed door (${d.name}).`;
+    }
+    const m = monsterAt(x, y);
+    if (m) return `A ${m.m.label} watches the corridor.`;
+    const w = world();
+    const taken = new Set(state.itemsTaken);
+    for (let i = 0; i < w.items.length; i++) {
+      if (taken.has(i)) continue;
+      const it = w.items[i];
+      if (it.x === x && it.y === y) return `Something lies here: ${it.qty} × ${it.label}.`;
+    }
+    return "A damp, narrow passage.";
+  }
+
+  function renderLook() {
+    const f = facingCell();
+    const dirName = DIRS[state.p.dir].name;
+    const exitDist = Math.abs(MAP.exit.x - state.p.x) + Math.abs(MAP.exit.y - state.p.y);
+    return `
+      <div><b>Facing:</b> ${dirName}</div>
+      <div class="muted">Ahead: ${describeTile(f.x, f.y)}</div>
+      <div class="muted">You feel a draft from deep passages. (Exit distance: ${exitDist})</div>
+    `;
+  }
+
+  function pctBar(label, value, max, dangerAt) {
+    const pct = Math.round((value / max) * 100);
+    const isDanger = value >= dangerAt;
+    return `<div class="stat"><b>${label}</b><span style="color:${isDanger ? "var(--danger)" : "inherit"}">${value}/${max}</span></div>`;
+  }
+
+  function renderStats() {
+    const s = [];
+    s.push(pctBar("HP", state.p.hp, state.p.maxHp, Math.floor(state.p.maxHp*0.75)+1)); // highlight high? no, but keep consistent
+    s.push(`<div class="stat"><b>Mana</b><span>${state.p.mana}/${state.p.maxMana}</span></div>`);
+    s.push(`<div class="stat"><b>Hunger</b><span style="color:${state.p.hunger>=85?"var(--danger)":"inherit"}">${state.p.hunger}/100</span></div>`);
+    s.push(`<div class="stat"><b>Thirst</b><span style="color:${state.p.thirst>=85?"var(--danger)":"inherit"}">${state.p.thirst}/100</span></div>`);
+    s.push(`<div class="stat"><b>Turn</b><span>${state.turn}</span></div>`);
+    s.push(`<div class="stat"><b>Weapon</b><span>${weaponName(state.weapon)}</span></div>`);
+    return s.join("");
+  }
+
+  function invLine(kind, label) {
+    const n = (state.inv[kind] | 0);
+    return `${label}: <b>${n}</b>`;
+  }
+
+  function renderInventory() {
+    const parts = [];
+    parts.push(`<div>${invLine("ration", "Rations")} <span class="tag">Eat: R</span></div>`);
+    parts.push(`<div>${invLine("water", "Water Flasks")} <span class="tag">Drink: T</span></div>`);
+    parts.push(`<div>${invLine("potion", "Potions")} <span class="tag">(not used yet)</span></div>`);
+    parts.push(`<div>${invLine("bronzeKey", "Bronze Keys")}</div>`);
+    parts.push(`<div>${invLine("silverKey", "Silver Keys")}</div>`);
+    parts.push(`<div class="hr"></div>`);
+    parts.push(`<div><b>Weapons:</b></div>`);
+    parts.push(`<ul class="invList">
+      <li>Dagger: <b>${state.inv.dagger|0}</b>${state.weapon==="dagger" ? ' <span class="tag">equipped</span>' : ""}</li>
+      <li>Sword: <b>${state.inv.sword|0}</b>${state.weapon==="sword" ? ' <span class="tag">equipped</span>' : ""}</li>
+      <li>Staff: <b>${state.inv.staff|0}</b>${state.weapon==="staff" ? ' <span class="tag">equipped</span>' : ""}</li>
+    </ul>`);
+    return parts.join("");
+  }
+
+  function renderStatusText() {
+    const w = world();
+    const alive = w.monsters.reduce((acc, _, i) => acc + ((state.monstersHp[i] | 0) > 0 ? 1 : 0), 0);
+    const remainingItems = w.items.reduce((acc, _, i) => acc + (!state.itemsTaken.includes(i) ? 1 : 0), 0);
+    const openDoors = state.doorsOpen.length;
+
+    let warning = "";
+    if (state.p.hp <= 0) warning = `<div style="color:var(--danger); font-weight:700;">You are dead. Start a new game.</div>`;
+
+    return `
+      ${warning}
+      <div>Monsters remaining: <b>${alive}</b></div>
+      <div>Items remaining: <b>${remainingItems}</b></div>
+      <div>Doors opened: <b>${openDoors}</b> / ${MAP.doors.length}</div>
+      <div class="hr"></div>
+      <div class="muted">Tip: Locked doors are marked <span class="kbd">*</span>. Closed doors are <span class="kbd">+</span>. Open doors are <span class="kbd">/</span>.</div>
+    `;
+  }
+
+  function renderLog() {
+    const ul = document.getElementById("log");
+    ul.innerHTML = "";
+    for (const msg of state.log.slice().reverse()) {
+      const li = document.createElement("li");
+      li.textContent = msg;
+      ul.appendChild(li);
+    }
+  }
+
+  function setDisabled(disabled) {
+    for (const id of [
+      "btnForward","btnBack","btnStrafeL","btnStrafeR","btnTurnL","btnTurnR",
+      "btnAttack","btnOpen","btnEat","btnDrink","btnRest","btnSpell1","btnSpell2","btnSpell3","btnEquip"
+    ]) {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    }
+  }
+
+  function render() {
+    document.getElementById("statsRow").innerHTML = renderStats();
+    document.getElementById("view").textContent = renderView();
+    document.getElementById("lookText").innerHTML = renderLook();
+    document.getElementById("invText").innerHTML = renderInventory();
+    document.getElementById("statusText").innerHTML = renderStatusText();
+    renderLog();
+
+    // button enablement
+    setDisabled(state.p.hp <= 0);
+    document.getElementById("btnEat").disabled = (state.p.hp<=0) || ((state.inv.ration|0)<=0);
+    document.getElementById("btnDrink").disabled = (state.p.hp<=0) || ((state.inv.water|0)<=0);
+    document.getElementById("btnSpell1").disabled = (state.p.hp<=0) || (state.p.mana < 3);
+    document.getElementById("btnSpell2").disabled = (state.p.hp<=0) || (state.p.mana < 4);
+    document.getElementById("btnSpell3").disabled = (state.p.hp<=0) || (state.p.mana < 5);
+  }
+
+  /********************************************************************
+   * Input wiring: buttons and keyboard
+   ********************************************************************/
+  function bind() {
+    document.getElementById("btnForward").addEventListener("click", forward);
+    document.getElementById("btnBack").addEventListener("click", back);
+    document.getElementById("btnStrafeL").addEventListener("click", strafeLeft);
+    document.getElementById("btnStrafeR").addEventListener("click", strafeRight);
+    document.getElementById("btnTurnL").addEventListener("click", turnLeft);
+    document.getElementById("btnTurnR").addEventListener("click", turnRight);
+
+    document.getElementById("btnAttack").addEventListener("click", attack);
+    document.getElementById("btnOpen").addEventListener("click", openDoor);
+    document.getElementById("btnEat").addEventListener("click", eat);
+    document.getElementById("btnDrink").addEventListener("click", drink);
+    document.getElementById("btnRest").addEventListener("click", rest);
+    document.getElementById("btnEquip").addEventListener("click", cycleWeapon);
+
+    document.getElementById("btnSpell1").addEventListener("click", castHeal);
+    document.getElementById("btnSpell2").addEventListener("click", castFirebolt);
+    document.getElementById("btnSpell3").addEventListener("click", castBlink);
+
+    document.getElementById("btnNew").addEventListener("click", () => {
+      state = newGame(nowSeed());
+      saveToHash();
+      render();
+    });
+
+    document.getElementById("btnCopy").addEventListener("click", async () => {
+      const url = location.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        log("URL copied to clipboard.");
+      } catch {
+        // Fallback: prompt
+        prompt("Copy this URL:", url);
+        log("Copy the URL from the prompt.");
+      }
+      saveToHash();
+      render();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      // Avoid interfering with browser shortcuts
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const k = e.key;
+
+      // Turn: arrows left/right
+      if (k === "ArrowLeft") { e.preventDefault(); turnLeft(); return; }
+      if (k === "ArrowRight"){ e.preventDefault(); turnRight(); return; }
+
+      // Move relative: WASD
+      if (k === "w" || k === "W" || k === "ArrowUp") { e.preventDefault(); forward(); return; }
+      if (k === "s" || k === "S" || k === "ArrowDown") { e.preventDefault(); back(); return; }
+      if (k === "a" || k === "A") { e.preventDefault(); strafeLeft(); return; }
+      if (k === "d" || k === "D") { e.preventDefault(); strafeRight(); return; }
+
+      // Attack / open / eat / drink / equip / rest
+      if (k === " " ) { e.preventDefault(); attack(); return; }
+      if (k === "f" || k === "F") { e.preventDefault(); attack(); return; }
+      if (k === "o" || k === "O") { e.preventDefault(); openDoor(); return; }
+      if (k === "r" || k === "R") { e.preventDefault(); eat(); return; }
+      if (k === "t" || k === "T") { e.preventDefault(); drink(); return; }
+      if (k === "e" || k === "E") { e.preventDefault(); cycleWeapon(); return; }
+      if (k === "." ) { e.preventDefault(); rest(); return; }
+
+      // Spells 1/2/3
+      if (k === "1") { e.preventDefault(); castHeal(); return; }
+      if (k === "2") { e.preventDefault(); castFirebolt(); return; }
+      if (k === "3") { e.preventDefault(); castBlink(); return; }
+    });
+  }
+
+  /********************************************************************
+   * Boot
+   ********************************************************************/
+  loadFromHashOrNew();
+  bind();
+  render();
+})();
+</script>
+</body>
+</html>

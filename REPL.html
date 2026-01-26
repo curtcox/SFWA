@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA JS REPL (Transcript Replay in URL Hash)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    header {
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      padding: 12px 14px; border-bottom: 1px solid rgba(127,127,127,.35);
+    }
+    header .left, header .right { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    header h1 { font-size: 16px; margin:0; font-weight:650; }
+    button, .chip {
+      font: inherit; padding: 7px 10px; border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: rgba(127,127,127,.10);
+      cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+    label { display:inline-flex; gap:8px; align-items:center; user-select:none; }
+    input[type="checkbox"] { width:16px; height:16px; }
+    .meta { font-size: 12px; opacity: 0.85; }
+    main { display:flex; min-height: calc(100vh - 60px); }
+    .pane { width: 50%; display:flex; flex-direction:column; }
+    .pane + .pane { border-left: 1px solid rgba(127,127,127,.35); }
+
+    .pane-head {
+      padding: 10px 12px; border-bottom: 1px solid rgba(127,127,127,.35);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .title { font-weight:650; }
+    textarea {
+      width:100%; height: 40vh; resize:none; border:0; outline:none;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px; line-height: 1.45;
+      background: transparent;
+    }
+    .split {
+      display:flex; flex-direction:column;
+      min-height: 0;
+      flex: 1;
+    }
+    .history {
+      flex: 1;
+      min-height: 0;
+      overflow:auto;
+      border-top: 1px solid rgba(127,127,127,.35);
+      padding: 8px 8px 10px 8px;
+    }
+    .cell {
+      border: 1px solid rgba(127,127,127,.35);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin: 8px 0;
+      cursor:pointer;
+      background: rgba(127,127,127,.07);
+    }
+    .cell.sel { outline: 2px solid rgba(127,127,127,.55); }
+    .cell .hdr { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .cell .idx { font-weight:650; }
+    .cell .preview {
+      margin-top:6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      opacity: 0.85;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 5.6em;
+      overflow: hidden;
+    }
+
+    #out {
+      flex:1; min-height:0;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px; line-height: 1.45;
+      overflow:auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .line { padding: 2px 0; border-bottom: 1px dotted rgba(127,127,127,.20); }
+    .lvl-warn, .lvl-error { font-weight: 650; }
+    .lvl-cell { opacity: 0.9; }
+    .hint {
+      padding: 10px 12px;
+      border-top: 1px solid rgba(127,127,127,.35);
+      font-size: 12px; opacity: .85;
+    }
+
+    @media (max-width: 900px) {
+      main { flex-direction:column; }
+      .pane { width: 100%; min-height: 45vh; }
+      .pane + .pane { border-left:0; border-top: 1px solid rgba(127,127,127,.35); }
+      textarea { height: 35vh; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="left">
+    <h1>SFWA JS REPL — Transcript Replay</h1>
+    <span class="chip meta" id="hashInfo" title="Size of URL fragment state"></span>
+    <span class="chip meta" id="cellsInfo" title="History cells stored in hash"></span>
+  </div>
+  <div class="right">
+    <button id="commitRunBtn" title="Append draft to history, then replay from scratch">Commit + Replay</button>
+    <button id="replayBtn" title="Replay history from scratch (does not change it)">Replay</button>
+    <button id="updateBtn" title="Replace selected cell with draft, then replay">Update Cell</button>
+    <button id="undoBtn" title="Remove last cell, then replay">Undo Last</button>
+    <button id="squashBtn" title="Merge all cells into one (helps URL length)">Squash</button>
+    <label class="chip" title="Replay automatically on load and after history edits">
+      <input id="autorun" type="checkbox" />
+      Autorun
+    </label>
+    <button id="copyBtn" title="Copy full URL (including #...)">Copy URL</button>
+    <button id="clearBtn" title="Clear output">Clear output</button>
+    <button id="resetBtn" title="Reset transcript to default sample">Reset</button>
+  </div>
+</header>
+
+<main>
+  <section class="pane">
+    <div class="pane-head">
+      <div class="title">Draft (next cell)</div>
+      <div class="meta">Typing updates <code>#...</code>; committing appends to history.</div>
+    </div>
+
+    <div class="split">
+      <textarea id="draft" spellcheck="false"></textarea>
+
+      <div class="pane-head">
+        <div class="title">History</div>
+        <div class="meta">Click a cell to load it into the draft.</div>
+      </div>
+      <div class="history" id="history"></div>
+    </div>
+
+    <div class="hint">
+      Notes: This REPL <strong>replays from scratch</strong> each time, so “session” variables exist because earlier cells run again.
+      Prefer <code>print(...)</code> / <code>console.log(...)</code> for results. Avoid top-level <code>return</code> (it ends the whole replay).
+    </div>
+  </section>
+
+  <section class="pane">
+    <div class="pane-head">
+      <div class="title">Output</div>
+      <div class="meta" id="runStatus"></div>
+    </div>
+    <div id="out" aria-live="polite"></div>
+    <div class="hint">
+      Output is derived from replay. Each replay runs in a fresh sandboxed iframe to avoid accumulating timers/intervals.
+    </div>
+  </section>
+</main>
+
+<script>
+/* LZString (MIT) minimal build: compressToEncodedURIComponent / decompressFromEncodedURIComponent
+   Source: https://github.com/pieroxy/lz-string/ */
+const LZString = (function() {
+  const f = String.fromCharCode;
+  const keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
+  const baseReverseDic = Object.create(null);
+  function getBaseValue(alphabet, character) {
+    if (!baseReverseDic[alphabet]) {
+      baseReverseDic[alphabet] = Object.create(null);
+      for (let i = 0; i < alphabet.length; i++) baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+    }
+    return baseReverseDic[alphabet][character];
+  }
+  function compress(uncompressed) {
+    if (uncompressed == null) return "";
+    let context_dictionary = Object.create(null);
+    let context_dictionaryToCreate = Object.create(null);
+    let context_c = "";
+    let context_wc = "";
+    let context_w = "";
+    let context_enlargeIn = 2;
+    let context_dictSize = 3;
+    let context_numBits = 2;
+    const context_data = [];
+    let context_data_val = 0;
+    let context_data_position = 0;
+
+    function writeBit(bit) {
+      context_data_val = (context_data_val << 1) | bit;
+      if (context_data_position === 15) {
+        context_data_position = 0;
+        context_data.push(f(context_data_val));
+        context_data_val = 0;
+      } else context_data_position++;
+    }
+    function writeBits(numBits, valueToWrite) {
+      for (let j = 0; j < numBits; j++) {
+        writeBit(valueToWrite & 1);
+        valueToWrite >>= 1;
+      }
+    }
+
+    for (let ii = 0; ii < uncompressed.length; ii++) {
+      context_c = uncompressed.charAt(ii);
+      if (context_dictionary[context_c] === undefined) {
+        context_dictionary[context_c] = context_dictSize++;
+        context_dictionaryToCreate[context_c] = true;
+      }
+      context_wc = context_w + context_c;
+      if (context_dictionary[context_wc] !== undefined) {
+        context_w = context_wc;
+      } else {
+        if (context_dictionaryToCreate[context_w]) {
+          if (context_w.charCodeAt(0) < 256) {
+            writeBits(context_numBits, 0);
+            writeBits(8, context_w.charCodeAt(0));
+          } else {
+            writeBits(context_numBits, 1);
+            writeBits(16, context_w.charCodeAt(0));
+          }
+          context_enlargeIn--;
+          if (context_enlargeIn === 0) {
+            context_enlargeIn = Math.pow(2, context_numBits);
+            context_numBits++;
+          }
+          delete context_dictionaryToCreate[context_w];
+        } else {
+          writeBits(context_numBits, context_dictionary[context_w]);
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn === 0) {
+          context_enlargeIn = Math.pow(2, context_numBits);
+          context_numBits++;
+        }
+        context_dictionary[context_wc] = context_dictSize++;
+        context_w = String(context_c);
+      }
+    }
+
+    if (context_w !== "") {
+      if (context_dictionaryToCreate[context_w]) {
+        if (context_w.charCodeAt(0) < 256) {
+          writeBits(context_numBits, 0);
+          writeBits(8, context_w.charCodeAt(0));
+        } else {
+          writeBits(context_numBits, 1);
+          writeBits(16, context_w.charCodeAt(0));
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn === 0) {
+          context_enlargeIn = Math.pow(2, context_numBits);
+          context_numBits++;
+        }
+        delete context_dictionaryToCreate[context_w];
+      } else {
+        writeBits(context_numBits, context_dictionary[context_w]);
+      }
+      context_enlargeIn--;
+      if (context_enlargeIn === 0) {
+        context_enlargeIn = Math.pow(2, context_numBits);
+        context_numBits++;
+      }
+    }
+
+    writeBits(context_numBits, 2);
+
+    while (true) {
+      context_data_val <<= 1;
+      if (context_data_position === 15) {
+        context_data.push(f(context_data_val));
+        break;
+      } else context_data_position++;
+    }
+    return context_data.join("");
+  }
+
+  function decompress(length, resetValue, getNextValue) {
+    const dictionary = [];
+    let next, enlargeIn = 4, dictSize = 4, numBits = 3, entry = "";
+    const result = [];
+    let i, w, bits, resb, maxpower, power, c;
+    const data = { val: getNextValue(0), position: resetValue, index: 1 };
+
+    function readBit() {
+      resb = data.val & data.position;
+      data.position >>= 1;
+      if (data.position === 0) { data.position = resetValue; data.val = getNextValue(data.index++); }
+      return resb > 0 ? 1 : 0;
+    }
+    function readBits(n) {
+      bits = 0; maxpower = Math.pow(2, n); power = 1;
+      while (power !== maxpower) { bits |= readBit() * power; power <<= 1; }
+      return bits;
+    }
+
+    for (i = 0; i < 3; i++) dictionary[i] = i;
+
+    next = readBits(2);
+    switch (next) {
+      case 0: c = f(readBits(8)); break;
+      case 1: c = f(readBits(16)); break;
+      case 2: return "";
+    }
+    dictionary[3] = c; w = c; result.push(c);
+
+    while (true) {
+      if (data.index > length) return "";
+      const cc = readBits(numBits);
+
+      switch (cc) {
+        case 0: c = f(readBits(8)); dictionary[dictSize++] = c; enlargeIn--; entry = c; break;
+        case 1: c = f(readBits(16)); dictionary[dictSize++] = c; enlargeIn--; entry = c; break;
+        case 2: return result.join("");
+        default:
+          if (dictionary[cc] !== undefined) entry = dictionary[cc];
+          else if (cc === dictSize) entry = w + w.charAt(0);
+          else return null;
+      }
+
+      result.push(entry);
+      dictionary[dictSize++] = w + entry.charAt(0);
+      enlargeIn--;
+      w = entry;
+      if (enlargeIn === 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+    }
+  }
+
+  function compressToEncodedURIComponent(input) {
+    if (input == null) return "";
+    const compressed = compress(input);
+    let result = "";
+    for (let i = 0; i < compressed.length; i++) {
+      const c = compressed.charCodeAt(i);
+      result += keyStrUriSafe.charAt(c >> 6) + keyStrUriSafe.charAt(c & 63);
+    }
+    return result;
+  }
+
+  function decompressFromEncodedURIComponent(input) {
+    if (input == null) return "";
+    if (input === "") return null;
+    const getNextValue = (index) => getBaseValue(keyStrUriSafe, input.charAt(index));
+    return decompress(input.length, 1 << 5, (index) => {
+      const v1 = getNextValue(index * 2);
+      const v2 = getNextValue(index * 2 + 1);
+      return (v1 << 6) | v2;
+    });
+  }
+
+  return { compressToEncodedURIComponent, decompressFromEncodedURIComponent };
+})();
+
+(function() {
+  "use strict";
+
+  const DEFAULT_HISTORY = [
+`// Cell 1: setup
+print("Hello from print()");
+console.log("Hello from console.log");
+
+const x = 10;
+const y = 5;
+print("x+y =", x + y);`,
+`// Cell 2: use previous bindings
+const z = x * y;
+print("z =", z);
+
+// You can top-level await:
+await new Promise(r => setTimeout(r, 100));
+print("done waiting");`
+  ];
+
+  const DEFAULT_STATE = {
+    v: 2,
+    autorun: true,
+    selected: 0,
+    draft: `// Draft (will become the next cell when you Commit + Replay)\nprint("edit me");`,
+    history: DEFAULT_HISTORY
+  };
+
+  const els = {
+    draft: document.getElementById("draft"),
+    history: document.getElementById("history"),
+    out: document.getElementById("out"),
+    runStatus: document.getElementById("runStatus"),
+    hashInfo: document.getElementById("hashInfo"),
+    cellsInfo: document.getElementById("cellsInfo"),
+    autorun: document.getElementById("autorun"),
+    commitRunBtn: document.getElementById("commitRunBtn"),
+    replayBtn: document.getElementById("replayBtn"),
+    updateBtn: document.getElementById("updateBtn"),
+    undoBtn: document.getElementById("undoBtn"),
+    squashBtn: document.getElementById("squashBtn"),
+    copyBtn: document.getElementById("copyBtn"),
+    clearBtn: document.getElementById("clearBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+  };
+
+  let state = { ...DEFAULT_STATE };
+  let ignoreNextHashChange = false;
+  let pendingWriteTimer = null;
+
+  let activeRunToken = null;
+  let runnerFrame = null;
+
+  function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+  function encodeState(s) {
+    const json = JSON.stringify(s);
+    return LZString.compressToEncodedURIComponent(json);
+  }
+
+  function decodeStateFromHash(hash) {
+    const raw = (hash || "").startsWith("#") ? hash.slice(1) : (hash || "");
+    if (!raw) return null;
+    const json = LZString.decompressFromEncodedURIComponent(raw);
+    if (!json) return null;
+    const parsed = safeJsonParse(json);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (parsed.v !== 2) return null;
+    if (!Array.isArray(parsed.history) || !parsed.history.every(x => typeof x === "string")) return null;
+    if (typeof parsed.draft !== "string") parsed.draft = "";
+    if (typeof parsed.autorun !== "boolean") parsed.autorun = true;
+    if (typeof parsed.selected !== "number") parsed.selected = 0;
+    parsed.selected = Math.max(0, Math.min(parsed.history.length - 1, parsed.selected | 0));
+    return parsed;
+  }
+
+  function renderMeta() {
+    const h = location.hash || "";
+    els.hashInfo.textContent = `hash: ${h.length} chars`;
+    els.cellsInfo.textContent = `cells: ${state.history.length}`;
+  }
+
+  function writeHash({ push = false } = {}) {
+    const encoded = encodeState(state);
+    const newHash = "#" + encoded;
+
+    ignoreNextHashChange = true;
+    if (push) history.pushState(null, "", newHash);
+    else history.replaceState(null, "", newHash);
+
+    renderMeta();
+    setTimeout(() => { ignoreNextHashChange = false; }, 0);
+  }
+
+  function scheduleWriteHash() {
+    clearTimeout(pendingWriteTimer);
+    pendingWriteTimer = setTimeout(() => writeHash({ push: false }), 250);
+  }
+
+  function setState(next, { write = true, push = false } = {}) {
+    state = { ...state, ...next };
+    // clamp selection
+    if (!Array.isArray(state.history)) state.history = [];
+    if (typeof state.selected !== "number") state.selected = 0;
+    state.selected = Math.max(0, Math.min(state.history.length - 1, state.selected | 0));
+
+    els.draft.value = state.draft;
+    els.autorun.checked = state.autorun;
+
+    renderHistory();
+    if (write) writeHash({ push });
+    renderMeta();
+  }
+
+  function nowTime() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function appendLine(text, cls) {
+    const div = document.createElement("div");
+    div.className = `line ${cls || ""}`;
+    div.textContent = `[${nowTime()}] ${text}`;
+    els.out.appendChild(div);
+    els.out.scrollTop = els.out.scrollHeight;
+  }
+
+  function clearOutput() { els.out.textContent = ""; els.runStatus.textContent = ""; }
+
+  function previewOf(code) {
+    const lines = code.replace(/\r/g, "").split("\n");
+    return lines.slice(0, 6).join("\n");
+  }
+
+  function renderHistory() {
+    els.history.textContent = "";
+    state.history.forEach((code, i) => {
+      const cell = document.createElement("div");
+      cell.className = "cell" + (i === state.selected ? " sel" : "");
+      cell.onclick = () => {
+        state.selected = i;
+        state.draft = state.history[i];
+        setState({ selected: state.selected, draft: state.draft }, { write: true, push: true });
+      };
+
+      const hdr = document.createElement("div");
+      hdr.className = "hdr";
+
+      const idx = document.createElement("div");
+      idx.className = "idx";
+      idx.textContent = `Cell ${i + 1}`;
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = `${code.length} chars`;
+
+      const pre = document.createElement("div");
+      pre.className = "preview";
+      pre.textContent = previewOf(code);
+
+      hdr.appendChild(idx);
+      hdr.appendChild(meta);
+      cell.appendChild(hdr);
+      cell.appendChild(pre);
+      els.history.appendChild(cell);
+    });
+  }
+
+  function newRunToken() {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function destroyRunner() {
+    if (runnerFrame) { runnerFrame.remove(); runnerFrame = null; }
+    activeRunToken = null;
+  }
+
+  function buildRunnerSrcdoc() {
+    return `<!doctype html><meta charset="utf-8">
+<script>
+(function(){
+  const send = (msg) => parent.postMessage(msg, "*");
+
+  const safeToString = (v) => {
+    try {
+      if (typeof v === "string") return v;
+      if (v instanceof Error) return v.stack || v.message || String(v);
+      return JSON.stringify(v, (k, val) => {
+        if (typeof val === "function") return "[Function " + (val.name || "anonymous") + "]";
+        if (val === undefined) return "[undefined]";
+        if (typeof val === "bigint") return val.toString() + "n";
+        return val;
+      }, 2);
+    } catch (e) {
+      try { return String(v); } catch { return "[unprintable]"; }
+    }
+  };
+  const fmt = (args) => args.map(safeToString).join(" ");
+  const wrap = (level) => (...args) => send({ type: "console", level, text: fmt(args) });
+
+  console.log = wrap("log");
+  console.info = wrap("info");
+  console.warn = wrap("warn");
+  console.error = wrap("error");
+  console.debug = wrap("debug");
+
+  window.print = (...args) => send({ type: "print", text: fmt(args) });
+
+  window.onerror = function(message, source, lineno, colno, error){
+    const text = error && (error.stack || error.message) ? (error.stack || error.message) : String(message);
+    send({ type: "error", text });
+  };
+  window.onunhandledrejection = function(e){
+    send({ type: "error", text: safeToString(e.reason) });
+  };
+
+  async function runTranscript(cells, token) {
+    // Build ONE async function so top-level await works and earlier bindings are visible to later cells.
+    // IMPORTANT: a top-level 'return' in any cell ends the whole replay.
+    // Cell code is placed directly in the function body (not inside try blocks) so that
+    // let/const declarations are function-scoped and visible to subsequent cells.
+    let body = "";
+    body += "let __repl_cell__ = -1;\\n";
+    body += "const __cellStart__ = (i) => parent.postMessage({type:'cell', phase:'start', idx:i, token}, '*');\\n";
+    body += "const __cellEnd__   = (i) => parent.postMessage({type:'cell', phase:'end', idx:i, token}, '*');\\n";
+    body += "const __cellFail__  = (i, e) => parent.postMessage({type:'cell', phase:'error', idx:i, text: (e && (e.stack||e.message)) ? (e.stack||e.message) : String(e), token}, '*');\\n";
+
+    for (let i = 0; i < cells.length; i++) {
+      body += "\\n// ----- Cell " + (i+1) + " -----\\n";
+      body += "__repl_cell__=" + i + "; __cellStart__(" + i + ");\\n";
+      // Inline the cell code directly - let/const will be function-scoped
+      body += String(cells[i]) + "\\n";
+      body += "__cellEnd__(" + i + ");\\n";
+    }
+
+    // Wrap the entire body in a try-catch to report which cell failed
+    let wrappedBody = "try {\\n" + body + "\\n} catch(__e__) { __cellFail__(__repl_cell__, __e__); throw __e__; }";
+
+    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+    const fn = new AsyncFunction("print", "token", wrappedBody);
+    await fn(window.print, token);
+  }
+
+  send({ type: "ready" });
+
+  window.addEventListener("message", async (e) => {
+    const d = e.data;
+    if (!d || d.type !== "run") return;
+    const token = d.token;
+    try {
+      await runTranscript(Array.isArray(d.cells) ? d.cells : [], token);
+      send({ type: "done", token });
+    } catch (err) {
+      // error details likely already sent as cellFail, but keep a final marker
+      send({ type: "error", text: safeToString(err), token });
+      send({ type: "done", token });
+    }
+  });
+})();
+<\/script>`;
+  }
+
+  function replay() {
+    clearOutput();
+    destroyRunner();
+
+    activeRunToken = newRunToken();
+    els.runStatus.textContent = "Replaying from scratch…";
+
+    runnerFrame = document.createElement("iframe");
+    runnerFrame.style.display = "none";
+    runnerFrame.setAttribute("sandbox", "allow-scripts");
+    runnerFrame.srcdoc = buildRunnerSrcdoc();
+    document.body.appendChild(runnerFrame);
+
+    const onMessage = (event) => {
+      const d = event.data;
+      if (!d || typeof d !== "object") return;
+      if (d.token && d.token !== activeRunToken) return;
+
+      if (d.type === "ready") {
+        runnerFrame.contentWindow.postMessage({ type: "run", token: activeRunToken, cells: state.history }, "*");
+        return;
+      }
+      if (d.type === "cell") {
+        if (d.phase === "start") appendLine(`Cell ${d.idx + 1} start`, "lvl-cell");
+        if (d.phase === "end") appendLine(`Cell ${d.idx + 1} end`, "lvl-cell");
+        if (d.phase === "error") appendLine(`Cell ${d.idx + 1} error: ${d.text}`, "lvl-error");
+        return;
+      }
+      if (d.type === "console") { appendLine(`${d.level}: ${d.text}`, d.level === "warn" ? "lvl-warn" : (d.level === "error" ? "lvl-error" : "")); return; }
+      if (d.type === "print") { appendLine(`${d.text}`, ""); return; }
+      if (d.type === "error") { appendLine(`error: ${d.text}`, "lvl-error"); return; }
+      if (d.type === "done") {
+        els.runStatus.textContent = "Done.";
+        window.removeEventListener("message", onMessage);
+        setTimeout(() => destroyRunner(), 50);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+  }
+
+  function commitAndReplay() {
+    const code = (els.draft.value || "").trimEnd();
+    if (!code.trim()) {
+      appendLine("Draft is empty; nothing committed.", "lvl-warn");
+      return;
+    }
+    const nextHistory = state.history.slice();
+    nextHistory.push(code);
+    setState({ history: nextHistory, selected: nextHistory.length - 1, draft: "" }, { write: true, push: true });
+    if (state.autorun) replay();
+  }
+
+  function updateSelectedAndReplay() {
+    if (!state.history.length) {
+      appendLine("No history cells to update.", "lvl-warn");
+      return;
+    }
+    const code = (els.draft.value || "").trimEnd();
+    if (!code.trim()) {
+      appendLine("Draft is empty; refusing to overwrite selected cell.", "lvl-warn");
+      return;
+    }
+    const nextHistory = state.history.slice();
+    nextHistory[state.selected] = code;
+    setState({ history: nextHistory }, { write: true, push: true });
+    if (state.autorun) replay();
+  }
+
+  function undoLastAndReplay() {
+    if (!state.history.length) return;
+    const nextHistory = state.history.slice(0, -1);
+    const nextSelected = Math.max(0, nextHistory.length - 1);
+    setState({ history: nextHistory, selected: nextSelected }, { write: true, push: true });
+    if (state.autorun) replay();
+  }
+
+  function squashHistory() {
+    if (state.history.length <= 1) return;
+    const merged =
+      state.history.map((c, i) => `// ===== Cell ${i + 1} =====\n${c}`).join("\n\n");
+    setState({ history: [merged], selected: 0, draft: merged }, { write: true, push: true });
+    if (state.autorun) replay();
+  }
+
+  function resetAll() {
+    setState({ ...DEFAULT_STATE }, { write: true, push: true });
+    clearOutput();
+    if (state.autorun) replay();
+  }
+
+  function copyUrl() {
+    const url = location.href;
+    const ok = () => appendLine("Copied URL to clipboard.", "");
+    const fail = () => appendLine("Copy failed. Manually copy from the address bar.", "lvl-warn");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(ok).catch(fail);
+    } else {
+      try {
+        const t = document.createElement("textarea");
+        t.value = url;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand("copy");
+        t.remove();
+        ok();
+      } catch { fail(); }
+    }
+  }
+
+  // --- wiring
+  els.commitRunBtn.addEventListener("click", commitAndReplay);
+  els.replayBtn.addEventListener("click", () => replay());
+  els.updateBtn.addEventListener("click", updateSelectedAndReplay);
+  els.undoBtn.addEventListener("click", undoLastAndReplay);
+  els.squashBtn.addEventListener("click", squashHistory);
+  els.copyBtn.addEventListener("click", copyUrl);
+  els.clearBtn.addEventListener("click", clearOutput);
+  els.resetBtn.addEventListener("click", resetAll);
+
+  els.autorun.addEventListener("change", () => {
+    state.autorun = !!els.autorun.checked;
+    writeHash({ push: true });
+    if (state.autorun) replay();
+  });
+
+  els.draft.addEventListener("input", () => {
+    state.draft = els.draft.value;
+    scheduleWriteHash();
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (ignoreNextHashChange) return;
+    const decoded = decodeStateFromHash(location.hash);
+    if (!decoded) return;
+    const changed =
+      decoded.autorun !== state.autorun ||
+      decoded.draft !== state.draft ||
+      decoded.selected !== state.selected ||
+      decoded.history.length !== state.history.length ||
+      decoded.history.some((c, i) => c !== state.history[i]);
+
+    if (!changed) return;
+    setState(decoded, { write: false });
+    clearOutput();
+    if (state.autorun) replay();
+  });
+
+  // --- init
+  const fromHash = decodeStateFromHash(location.hash);
+  if (fromHash) setState(fromHash, { write: false });
+  else setState({ ...DEFAULT_STATE }, { write: true });
+
+  renderMeta();
+  if (state.autorun) replay();
+})();
+</script>
+</body>
+</html>
