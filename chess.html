@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SFWA Chess (State in #)</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #151924;
+      --panel2: #0f1320;
+      --text: #e7eaf0;
+      --muted: #a8b0c2;
+      --accent: #6aa6ff;
+      --danger: #ff6a6a;
+
+      --sq-light: #dcdde1;
+      --sq-dark:  #6a6f7a;
+
+      --sq-sel:   rgba(106,166,255,0.55);
+      --sq-legal: rgba(106,255,176,0.45);
+      --sq-last:  rgba(255,224,106,0.45);
+      --sq-check: rgba(255,106,106,0.55);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 800px at 30% 10%, #1a2240, var(--bg));
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 520px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 8px 6px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+    }
+
+    header .sub {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .boardCard, .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 16px;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+      overflow: hidden;
+    }
+
+    .boardTopBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.18);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      gap: 10px;
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: var(--text);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .pill strong { font-weight: 650; }
+
+    .btnRow { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    button, .btn {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.04s ease, background 0.12s ease, border-color 0.12s ease;
+      user-select: none;
+    }
+    button:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
+    button:active { transform: translateY(1px); }
+    button.primary { border-color: rgba(106,166,255,0.6); background: rgba(106,166,255,0.18); }
+    button.primary:hover { background: rgba(106,166,255,0.26); }
+    button.danger { border-color: rgba(255,106,106,0.55); background: rgba(255,106,106,0.14); }
+    button.danger:hover { background: rgba(255,106,106,0.22); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .board {
+      width: 520px;
+      height: 520px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+    }
+
+    .sq {
+      position: relative;
+      display: grid;
+      place-items: center;
+      font-size: 44px;
+      line-height: 1;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .sq.light { background: var(--sq-light); }
+    .sq.dark  { background: var(--sq-dark); }
+
+    .sq::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.08s ease;
+    }
+
+    .sq.sel::after   { background: var(--sq-sel); opacity: 1; }
+    .sq.legal::after { background: var(--sq-legal); opacity: 1; }
+    .sq.last::after  { background: var(--sq-last); opacity: 1; }
+    .sq.check::after { background: var(--sq-check); opacity: 1; }
+
+    .coord {
+      position: absolute;
+      font-size: 11px;
+      color: rgba(0,0,0,0.65);
+      mix-blend-mode: multiply;
+      bottom: 4px;
+      right: 6px;
+      pointer-events: none;
+    }
+    .coord.topLeft { top: 4px; left: 6px; bottom: auto; right: auto; }
+
+    .panel {
+      padding: 12px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      font-weight: 650;
+      color: var(--text);
+      letter-spacing: 0.2px;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    .moves {
+      max-height: 360px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+    .moves table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .moves th, .moves td { padding: 6px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+    .moves th { color: var(--muted); font-weight: 600; text-align: left; }
+    .moves td.cur { color: var(--accent); font-weight: 650; }
+    .moves code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: var(--text);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      padding: 2px 6px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .row input[type="text"] {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.22);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    .row input[type="text"]:focus { border-color: rgba(106,166,255,0.6); box-shadow: 0 0 0 3px rgba(106,166,255,0.14); }
+
+    .err {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+    }
+
+    /* Promotion modal */
+    .modalBackdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 9999;
+    }
+    .modal {
+      width: min(520px, 95vw);
+      background: #0f1320;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      padding: 14px;
+    }
+    .modal h3 { margin: 0 0 8px 0; font-size: 14px; font-weight: 650; }
+    .promoRow { display: flex; gap: 10px; }
+    .promoBtn {
+      flex: 1;
+      padding: 14px 12px;
+      border-radius: 14px;
+      font-size: 40px;
+      line-height: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+      .board { width: 100%; height: min(92vw, 520px); }
+      .boardCard { justify-self: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>SFWA Chess</h1>
+        <div class="sub">Single-file web app. All state is encoded in the URL fragment (<code>#...</code>).</div>
+      </div>
+      <div class="sub">Copy the URL to share the exact game state.</div>
+    </header>
+
+    <div class="boardCard">
+      <div class="boardTopBar">
+        <div class="status">
+          <span class="pill">Turn: <strong id="turnLbl">—</strong></span>
+          <span class="pill" id="stateLbl">—</span>
+          <span class="pill">Halfmove: <strong id="halfLbl">—</strong></span>
+          <span class="pill">Fullmove: <strong id="fullLbl">—</strong></span>
+        </div>
+        <div class="btnRow">
+          <button id="btnUndo">Undo</button>
+          <button id="btnRedo">Redo</button>
+          <button id="btnFlip">Flip</button>
+          <button class="primary" id="btnCopyUrl">Copy URL</button>
+        </div>
+      </div>
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="panel">
+      <div class="grid2">
+        <div class="card">
+          <h2>Moves (UCI)</h2>
+          <div class="muted">Moves are stored in the fragment, along with the base FEN and current ply index.</div>
+          <div class="moves" id="moves"></div>
+        </div>
+        <div class="card">
+          <h2>Position</h2>
+          <div class="muted" style="margin-bottom:8px;">Current FEN (derived from base FEN + moves up to the current ply).</div>
+          <div class="row" style="margin-bottom:8px;">
+            <input id="fenOut" type="text" readonly />
+          </div>
+          <div class="row">
+            <button id="btnCopyFen">Copy FEN</button>
+            <button class="danger" id="btnNew">New Game</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Start from FEN</h2>
+        <div class="muted" style="margin-bottom:8px;">
+          This sets the <em>base</em> position and clears the move list. The entire setup is still stored only in <code>#...</code>.
+        </div>
+        <div class="row" style="margin-bottom:8px;">
+          <input id="fenIn" type="text" placeholder="Paste a FEN here, then click Set Base FEN" />
+        </div>
+        <div class="row">
+          <button id="btnSetFen">Set Base FEN</button>
+          <button id="btnClearSel">Clear Selection</button>
+        </div>
+        <div class="err" id="err"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalBackdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="promoTitle">
+    <div class="modal">
+      <h3 id="promoTitle">Choose promotion</h3>
+      <div class="muted" style="margin-bottom:10px;">Select the piece to promote to. This choice is stored in the URL.</div>
+      <div class="promoRow" id="promoRow"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ----------------------------
+  // Constants / Unicode pieces
+  // ----------------------------
+  const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const HASH_PREFIX = "#c1:";
+
+  const PIECE_TO_UNI = {
+    "K":"\u2654","Q":"\u2655","R":"\u2656","B":"\u2657","N":"\u2658","P":"\u2659",
+    "k":"\u265A","q":"\u265B","r":"\u265C","b":"\u265D","n":"\u265E","p":"\u265F"
+  };
+
+  // ----------------------------
+  // DOM
+  // ----------------------------
+  const elBoard = document.getElementById("board");
+  const elMoves = document.getElementById("moves");
+  const elTurn  = document.getElementById("turnLbl");
+  const elState = document.getElementById("stateLbl");
+  const elHalf  = document.getElementById("halfLbl");
+  const elFull  = document.getElementById("fullLbl");
+  const elFenOut= document.getElementById("fenOut");
+  const elFenIn = document.getElementById("fenIn");
+  const elErr   = document.getElementById("err");
+
+  const btnUndo = document.getElementById("btnUndo");
+  const btnRedo = document.getElementById("btnRedo");
+  const btnFlip = document.getElementById("btnFlip");
+  const btnCopyUrl = document.getElementById("btnCopyUrl");
+  const btnCopyFen = document.getElementById("btnCopyFen");
+  const btnNew  = document.getElementById("btnNew");
+  const btnSetFen = document.getElementById("btnSetFen");
+  const btnClearSel = document.getElementById("btnClearSel");
+
+  const modalBackdrop = document.getElementById("modalBackdrop");
+  const promoRow = document.getElementById("promoRow");
+
+  // ----------------------------
+  // URL State Model (ALL stored in #)
+  // ----------------------------
+  // v: version
+  // b: base FEN ("" => START_FEN)
+  // m: move list (UCI strings)
+  // i: current ply index (0..m.length)
+  // f: flip (0/1)
+  // s: selected square ("" or like "e2")
+  function defaultState() {
+    return { v: 1, b: "", m: [], i: 0, f: 0, s: "" };
+  }
+
+  function sanitizeState(raw) {
+    const st = defaultState();
+    if (!raw || typeof raw !== "object") return st;
+
+    st.v = 1;
+    st.b = (typeof raw.b === "string") ? raw.b.trim() : "";
+    st.m = Array.isArray(raw.m) ? raw.m.filter(x => typeof x === "string") : [];
+    st.i = (Number.isInteger(raw.i) ? raw.i : 0);
+    st.f = raw.f ? 1 : 0;
+    st.s = (typeof raw.s === "string") ? raw.s.trim() : "";
+
+    // Basic move string validation: uci like e2e4, e7e8q
+    st.m = st.m
+      .map(x => x.trim())
+      .filter(x => /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(x));
+
+    if (st.i < 0) st.i = 0;
+    if (st.i > st.m.length) st.i = st.m.length;
+
+    if (!/^[a-h][1-8]$/.test(st.s)) st.s = "";
+    return st;
+  }
+
+  // ----------------------------
+  // Base64url encoding for hash
+  // ----------------------------
+  function b64urlEncode(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const b64 = btoa(bin);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function b64urlDecode(b64url) {
+    const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+    const padLen = (4 - (b64.length % 4)) % 4;
+    const padded = b64 + "=".repeat(padLen);
+    const bin = atob(padded);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  function encodeStateToHash(state) {
+    const json = JSON.stringify(state);
+    return HASH_PREFIX + b64urlEncode(json);
+  }
+
+  function parseStateFromUrl() {
+    const h = location.hash || "";
+    if (!h) return { state: defaultState(), error: "" };
+    if (!h.startsWith(HASH_PREFIX)) {
+      // Unknown hash format; fall back to defaults but preserve the fact.
+      return { state: defaultState(), error: "Unrecognized hash format. Resetting to a new game." };
+    }
+    try {
+      const payload = h.slice(HASH_PREFIX.length);
+      const json = b64urlDecode(payload);
+      const raw = JSON.parse(json);
+      return { state: sanitizeState(raw), error: "" };
+    } catch (e) {
+      return { state: defaultState(), error: "Invalid hash state. Resetting to a new game." };
+    }
+  }
+
+  function commitState(nextState, { push = false } = {}) {
+    const st = sanitizeState(nextState);
+    const h = encodeStateToHash(st);
+    if (push) history.pushState(null, "", h);
+    else history.replaceState(null, "", h);
+    appState = st;
+    recomputeAndRender();
+  }
+
+  // ----------------------------
+  // Chess engine (legal move generation)
+  // ----------------------------
+  function isWhitePiece(p) { return p && p === p.toUpperCase(); }
+  function sideOfPiece(p) { return isWhitePiece(p) ? "w" : "b"; }
+  function otherSide(side) { return side === "w" ? "b" : "w"; }
+
+  function coordsToSquare(x, y) { return String.fromCharCode(97 + x) + String(8 - y); }
+  function squareToCoords(sq) {
+    const x = sq.charCodeAt(0) - 97;
+    const r = parseInt(sq[1], 10);
+    const y = 8 - r;
+    return { x, y };
+  }
+  function inBounds(x, y) { return x >= 0 && x < 8 && y >= 0 && y < 8; }
+
+  function parseFEN(fen) {
+    const parts = fen.trim().split(/\s+/);
+    if (parts.length < 4) throw new Error("FEN must have at least 4 fields.");
+    const [placement, turn, castling, ep, halfmove, fullmove] = parts;
+    const rows = placement.split("/");
+    if (rows.length !== 8) throw new Error("FEN placement must have 8 ranks.");
+
+    const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+    for (let y = 0; y < 8; y++) {
+      let x = 0;
+      for (const ch of rows[y]) {
+        if (/[1-8]/.test(ch)) {
+          x += parseInt(ch, 10);
+        } else if (/[prnbqkPRNBQK]/.test(ch)) {
+          if (x >= 8) throw new Error("FEN rank overflow.");
+          board[y][x] = ch;
+          x++;
+        } else {
+          throw new Error("Invalid FEN piece: " + ch);
+        }
+      }
+      if (x !== 8) throw new Error("FEN rank does not have 8 files.");
+    }
+
+    const rights = { K:false, Q:false, k:false, q:false };
+    if (castling !== "-") {
+      for (const c of castling) {
+        if (rights.hasOwnProperty(c)) rights[c] = true;
+      }
+    }
+
+    let epSq = null;
+    if (ep !== "-" ) {
+      if (!/^[a-h][1-8]$/.test(ep)) throw new Error("Invalid en-passant square.");
+      epSq = squareToCoords(ep);
+    }
+
+    const hm = (halfmove !== undefined) ? parseInt(halfmove, 10) : 0;
+    const fm = (fullmove !== undefined) ? parseInt(fullmove, 10) : 1;
+
+    return {
+      board,
+      turn: (turn === "b") ? "b" : "w",
+      castling: rights,
+      ep: epSq,
+      halfmove: Number.isFinite(hm) ? hm : 0,
+      fullmove: Number.isFinite(fm) ? fm : 1
+    };
+  }
+
+  function toFEN(pos) {
+    const rows = [];
+    for (let y = 0; y < 8; y++) {
+      let row = "";
+      let empties = 0;
+      for (let x = 0; x < 8; x++) {
+        const p = pos.board[y][x];
+        if (!p) empties++;
+        else {
+          if (empties) { row += String(empties); empties = 0; }
+          row += p;
+        }
+      }
+      if (empties) row += String(empties);
+      rows.push(row);
+    }
+    const placement = rows.join("/");
+    const cast = (() => {
+      let s = "";
+      if (pos.castling.K) s += "K";
+      if (pos.castling.Q) s += "Q";
+      if (pos.castling.k) s += "k";
+      if (pos.castling.q) s += "q";
+      return s || "-";
+    })();
+    const ep = pos.ep ? coordsToSquare(pos.ep.x, pos.ep.y) : "-";
+    return `${placement} ${pos.turn} ${cast} ${ep} ${pos.halfmove} ${pos.fullmove}`;
+  }
+
+  function findKing(pos, side) {
+    const target = (side === "w") ? "K" : "k";
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) {
+        if (pos.board[y][x] === target) return { x, y };
+      }
+    }
+    return null;
+  }
+
+  function isSquareAttacked(pos, x, y, bySide) {
+    const b = pos.board;
+
+    // Pawn attacks
+    if (bySide === "w") {
+      // White pawns attack up (toward decreasing y), so they come from y+1
+      for (const dx of [-1, 1]) {
+        const sx = x + dx, sy = y + 1;
+        if (inBounds(sx, sy) && b[sy][sx] === "P") return true;
+      }
+    } else {
+      // Black pawns attack down (toward increasing y), so they come from y-1
+      for (const dx of [-1, 1]) {
+        const sx = x + dx, sy = y - 1;
+        if (inBounds(sx, sy) && b[sy][sx] === "p") return true;
+      }
+    }
+
+    // Knight attacks
+    const knight = (bySide === "w") ? "N" : "n";
+    const knightD = [
+      [1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]
+    ];
+    for (const [dx, dy] of knightD) {
+      const sx = x + dx, sy = y + dy;
+      if (inBounds(sx, sy) && b[sy][sx] === knight) return true;
+    }
+
+    // King attacks
+    const king = (bySide === "w") ? "K" : "k";
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const sx = x + dx, sy = y + dy;
+      if (inBounds(sx, sy) && b[sy][sx] === king) return true;
+    }
+
+    // Sliding pieces (bishops/rooks/queens)
+    const bishop = (bySide === "w") ? "B" : "b";
+    const rook   = (bySide === "w") ? "R" : "r";
+    const queen  = (bySide === "w") ? "Q" : "q";
+
+    const diagDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+    for (const [dx, dy] of diagDirs) {
+      let sx = x + dx, sy = y + dy;
+      while (inBounds(sx, sy)) {
+        const p = b[sy][sx];
+        if (p) {
+          if (p === bishop || p === queen) return true;
+          break;
+        }
+        sx += dx; sy += dy;
+      }
+    }
+
+    const orthoDirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dx, dy] of orthoDirs) {
+      let sx = x + dx, sy = y + dy;
+      while (inBounds(sx, sy)) {
+        const p = b[sy][sx];
+        if (p) {
+          if (p === rook || p === queen) return true;
+          break;
+        }
+        sx += dx; sy += dy;
+      }
+    }
+
+    return false;
+  }
+
+  function inCheck(pos, side) {
+    const k = findKing(pos, side);
+    if (!k) return false; // malformed position
+    return isSquareAttacked(pos, k.x, k.y, otherSide(side));
+  }
+
+  function cloneBoard(board) {
+    return board.map(r => r.slice());
+  }
+
+  function moveToUCI(mv) {
+    const from = coordsToSquare(mv.fromX, mv.fromY);
+    const to = coordsToSquare(mv.toX, mv.toY);
+    return from + to + (mv.promo ? mv.promo : "");
+  }
+
+  function parseUCI(uci) {
+    if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) throw new Error("Invalid UCI: " + uci);
+    const from = uci.slice(0,2);
+    const to = uci.slice(2,4);
+    const promo = uci.length === 5 ? uci[4] : null;
+    return { from, to, promo };
+  }
+
+  function generatePseudoMoves(pos) {
+    const moves = [];
+    const side = pos.turn;
+    const b = pos.board;
+
+    function addMove(fromX, fromY, toX, toY, { promo=null, isEP=false, isCastle=false } = {}) {
+      moves.push({ fromX, fromY, toX, toY, promo, isEP, isCastle });
+    }
+
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) {
+        const p = b[y][x];
+        if (!p) continue;
+        if (sideOfPiece(p) !== side) continue;
+
+        const lower = p.toLowerCase();
+
+        if (lower === "p") {
+          const dir = (side === "w") ? -1 : 1;
+          const startRankY = (side === "w") ? 6 : 1;
+          const promoteY   = (side === "w") ? 0 : 7;
+
+          // Forward 1
+          const y1 = y + dir;
+          if (inBounds(x, y1) && !b[y1][x]) {
+            if (y1 === promoteY) {
+              for (const pr of ["q","r","b","n"]) addMove(x,y,x,y1,{ promo: pr });
+            } else {
+              addMove(x,y,x,y1);
+            }
+
+            // Forward 2 from start
+            const y2 = y + 2*dir;
+            if (y === startRankY && inBounds(x, y2) && !b[y2][x]) {
+              addMove(x,y,x,y2);
+            }
+          }
+
+          // Captures + en passant
+          for (const dx of [-1, 1]) {
+            const tx = x + dx;
+            const ty = y + dir;
+            if (!inBounds(tx, ty)) continue;
+
+            const target = b[ty][tx];
+            const isCap = target && sideOfPiece(target) !== side;
+
+            const isEP = pos.ep && pos.ep.x === tx && pos.ep.y === ty && !target;
+            if (isCap || isEP) {
+              if (ty === promoteY) {
+                for (const pr of ["q","r","b","n"]) addMove(x,y,tx,ty,{ promo: pr, isEP });
+              } else {
+                addMove(x,y,tx,ty,{ isEP });
+              }
+            }
+          }
+
+        } else if (lower === "n") {
+          const deltas = [
+            [1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]
+          ];
+          for (const [dx, dy] of deltas) {
+            const tx = x + dx, ty = y + dy;
+            if (!inBounds(tx, ty)) continue;
+            const t = b[ty][tx];
+            if (!t || sideOfPiece(t) !== side) addMove(x,y,tx,ty);
+          }
+
+        } else if (lower === "b" || lower === "r" || lower === "q") {
+          const dirs = [];
+          if (lower === "b" || lower === "q") dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
+          if (lower === "r" || lower === "q") dirs.push([1,0],[-1,0],[0,1],[0,-1]);
+
+          for (const [dx, dy] of dirs) {
+            let tx = x + dx, ty = y + dy;
+            while (inBounds(tx, ty)) {
+              const t = b[ty][tx];
+              if (!t) addMove(x,y,tx,ty);
+              else {
+                if (sideOfPiece(t) !== side) addMove(x,y,tx,ty);
+                break;
+              }
+              tx += dx; ty += dy;
+            }
+          }
+
+        } else if (lower === "k") {
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const tx = x + dx, ty = y + dy;
+            if (!inBounds(tx, ty)) continue;
+            const t = b[ty][tx];
+            if (!t || sideOfPiece(t) !== side) addMove(x,y,tx,ty);
+          }
+
+          // Castling
+          // Only if king on its home square and not in check (we filter more later too).
+          if (side === "w" && x === 4 && y === 7) {
+            // King side: e1g1, rook h1->f1
+            if (pos.castling.K && b[7][7] === "R" && !b[7][5] && !b[7][6]) {
+              addMove(4,7,6,7,{ isCastle:true });
+            }
+            // Queen side: e1c1, rook a1->d1
+            if (pos.castling.Q && b[7][0] === "R" && !b[7][1] && !b[7][2] && !b[7][3]) {
+              addMove(4,7,2,7,{ isCastle:true });
+            }
+          }
+          if (side === "b" && x === 4 && y === 0) {
+            if (pos.castling.k && b[0][7] === "r" && !b[0][5] && !b[0][6]) {
+              addMove(4,0,6,0,{ isCastle:true });
+            }
+            if (pos.castling.q && b[0][0] === "r" && !b[0][1] && !b[0][2] && !b[0][3]) {
+              addMove(4,0,2,0,{ isCastle:true });
+            }
+          }
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  function applyMove(pos, mv) {
+    const b = cloneBoard(pos.board);
+    const side = pos.turn;
+    const piece = b[mv.fromY][mv.fromX];
+    const target = b[mv.toY][mv.toX];
+
+    const next = {
+      board: b,
+      turn: otherSide(side),
+      castling: { ...pos.castling },
+      ep: null,
+      halfmove: pos.halfmove,
+      fullmove: pos.fullmove
+    };
+
+    // Helpers: update castling rights if rook/king moves or rook is captured from home squares.
+    function clearCastlingForMove(fromX, fromY, pieceChar) {
+      if (pieceChar === "K") { next.castling.K = false; next.castling.Q = false; }
+      if (pieceChar === "k") { next.castling.k = false; next.castling.q = false; }
+      if (pieceChar === "R") {
+        if (fromX === 0 && fromY === 7) next.castling.Q = false;
+        if (fromX === 7 && fromY === 7) next.castling.K = false;
+      }
+      if (pieceChar === "r") {
+        if (fromX === 0 && fromY === 0) next.castling.q = false;
+        if (fromX === 7 && fromY === 0) next.castling.k = false;
+      }
+    }
+
+    function clearCastlingForCapture(toX, toY, capturedChar) {
+      if (capturedChar === "R") {
+        if (toX === 0 && toY === 7) next.castling.Q = false;
+        if (toX === 7 && toY === 7) next.castling.K = false;
+      }
+      if (capturedChar === "r") {
+        if (toX === 0 && toY === 0) next.castling.q = false;
+        if (toX === 7 && toY === 0) next.castling.k = false;
+      }
+    }
+
+    // Determine if capture (including en passant)
+    let isCapture = !!target;
+    if (mv.isEP) {
+      // capturing pawn is behind the ep square
+      const capY = (side === "w") ? mv.toY + 1 : mv.toY - 1;
+      const capX = mv.toX;
+      if (inBounds(capX, capY) && b[capY][capX]) {
+        clearCastlingForCapture(capX, capY, b[capY][capX]);
+        b[capY][capX] = null;
+      }
+      isCapture = true;
+    } else if (target) {
+      clearCastlingForCapture(mv.toX, mv.toY, target);
+    }
+
+    // Move piece
+    b[mv.fromY][mv.fromX] = null;
+
+    // Castling move rook too
+    if (mv.isCastle) {
+      // King moves already implied by mv
+      if (side === "w") {
+        next.castling.K = false; next.castling.Q = false;
+        if (mv.toX === 6) { // king side
+          b[7][5] = b[7][7]; b[7][7] = null;
+        } else if (mv.toX === 2) { // queen side
+          b[7][3] = b[7][0]; b[7][0] = null;
+        }
+      } else {
+        next.castling.k = false; next.castling.q = false;
+        if (mv.toX === 6) {
+          b[0][5] = b[0][7]; b[0][7] = null;
+        } else if (mv.toX === 2) {
+          b[0][3] = b[0][0]; b[0][0] = null;
+        }
+      }
+    }
+
+    // Promotion
+    let placed = piece;
+    if (piece && piece.toLowerCase() === "p" && mv.promo) {
+      const promoChar = mv.promo.toLowerCase();
+      const map = { q:"q", r:"r", b:"b", n:"n" };
+      const pc = map[promoChar] || "q";
+      placed = (side === "w") ? pc.toUpperCase() : pc;
+    }
+
+    b[mv.toY][mv.toX] = placed;
+
+    // Update castling rights for moving pieces
+    clearCastlingForMove(mv.fromX, mv.fromY, piece);
+
+    // En passant target
+    next.ep = null;
+    if (piece && piece.toLowerCase() === "p") {
+      const dy = mv.toY - mv.fromY;
+      if (Math.abs(dy) === 2) {
+        // ep square is in-between
+        next.ep = { x: mv.fromX, y: (mv.fromY + mv.toY) / 2 };
+      }
+    }
+
+    // Halfmove / fullmove
+    if (piece && piece.toLowerCase() === "p") next.halfmove = 0;
+    else if (isCapture) next.halfmove = 0;
+    else next.halfmove = pos.halfmove + 1;
+
+    if (side === "b") next.fullmove = pos.fullmove + 1;
+
+    return next;
+  }
+
+  function generateLegalMoves(pos) {
+    const pseudo = generatePseudoMoves(pos);
+    const side = pos.turn;
+    const legal = [];
+
+    for (const mv of pseudo) {
+      // Extra castling legality constraints: cannot castle out of, through, or into check.
+      if (mv.isCastle) {
+        if (inCheck(pos, side)) continue;
+
+        const kFrom = { x: mv.fromX, y: mv.fromY };
+        // squares the king crosses
+        const passSquares = [];
+        if (side === "w" && mv.toY === 7) {
+          if (mv.toX === 6) passSquares.push({x:5,y:7},{x:6,y:7});
+          if (mv.toX === 2) passSquares.push({x:3,y:7},{x:2,y:7});
+        }
+        if (side === "b" && mv.toY === 0) {
+          if (mv.toX === 6) passSquares.push({x:5,y:0},{x:6,y:0});
+          if (mv.toX === 2) passSquares.push({x:3,y:0},{x:2,y:0});
+        }
+        // Must not pass through attacked squares
+        if (isSquareAttacked(pos, kFrom.x, kFrom.y, otherSide(side))) continue;
+        let ok = true;
+        for (const sq of passSquares) {
+          if (isSquareAttacked(pos, sq.x, sq.y, otherSide(side))) { ok = false; break; }
+        }
+        if (!ok) continue;
+      }
+
+      const next = applyMove(pos, mv);
+      if (!inCheck(next, side)) legal.push(mv);
+    }
+
+    return legal;
+  }
+
+  function findLegalMoveByUCI(pos, uci) {
+    const parsed = parseUCI(uci);
+    const from = squareToCoords(parsed.from);
+    const to = squareToCoords(parsed.to);
+    const promo = parsed.promo;
+
+    const legal = generateLegalMoves(pos);
+    for (const mv of legal) {
+      if (mv.fromX === from.x && mv.fromY === from.y && mv.toX === to.x && mv.toY === to.y) {
+        // Promotions must match exactly if present
+        if ((mv.promo || null) === (promo || null)) return mv;
+      }
+    }
+    return null;
+  }
+
+  function buildPositionFromState(st) {
+    const baseFen = st.b ? st.b : START_FEN;
+    let pos = parseFEN(baseFen);
+    for (let ply = 0; ply < st.i; ply++) {
+      const uci = st.m[ply];
+      const mv = findLegalMoveByUCI(pos, uci);
+      if (!mv) throw new Error("Invalid move in state at ply " + (ply+1) + ": " + uci);
+      pos = applyMove(pos, mv);
+    }
+    return pos;
+  }
+
+  // ----------------------------
+  // UI state + rendering
+  // ----------------------------
+  let appState = defaultState();
+  let currentPos = null;
+  let legalMovesCache = [];
+  let pendingPromotion = null; // { fromSq, toSq, isCapture, isEP, optionsSide }
+
+  function setError(msg) {
+    if (!msg) {
+      elErr.style.display = "none";
+      elErr.textContent = "";
+    } else {
+      elErr.style.display = "block";
+      elErr.textContent = msg;
+    }
+  }
+
+  function pieceAtSquare(pos, sq) {
+    const {x,y} = squareToCoords(sq);
+    return pos.board[y][x];
+  }
+
+  function squaresForDisplay(flipped) {
+    const ys = flipped ? [...Array(8).keys()].reverse() : [...Array(8).keys()];
+    const xs = flipped ? [...Array(8).keys()].reverse() : [...Array(8).keys()];
+    const squares = [];
+    for (const y of ys) for (const x of xs) squares.push({x,y});
+    return squares;
+  }
+
+  function recomputeAndRender() {
+    setError("");
+    try {
+      currentPos = buildPositionFromState(appState);
+    } catch (e) {
+      // Reset to default if hash state is inconsistent.
+      setError(String(e && e.message ? e.message : e));
+      appState = defaultState();
+      currentPos = buildPositionFromState(appState);
+      // Ensure URL reflects reset.
+      const h = encodeStateToHash(appState);
+      history.replaceState(null, "", h);
+    }
+
+    legalMovesCache = generateLegalMoves(currentPos);
+
+    renderBoard();
+    renderSidePanel();
+    renderStatus();
+  }
+
+  function renderStatus() {
+    elTurn.textContent = (currentPos.turn === "w") ? "White" : "Black";
+    elHalf.textContent = String(currentPos.halfmove);
+    elFull.textContent = String(currentPos.fullmove);
+
+    const side = currentPos.turn;
+    const inChk = inCheck(currentPos, side);
+    const hasMoves = legalMovesCache.length > 0;
+    let label = "";
+
+    if (!hasMoves && inChk) {
+      label = "Checkmate";
+    } else if (!hasMoves && !inChk) {
+      label = "Stalemate";
+    } else if (inChk) {
+      label = "Check";
+    } else {
+      label = "In play";
+    }
+    elState.textContent = label;
+
+    btnUndo.disabled = appState.i <= 0;
+    btnRedo.disabled = appState.i >= appState.m.length;
+  }
+
+  function lastMoveSquares() {
+    if (appState.i <= 0) return null;
+    const uci = appState.m[appState.i - 1];
+    try {
+      const p = parseUCI(uci);
+      return { from: p.from, to: p.to };
+    } catch { return null; }
+  }
+
+  function legalDestsFrom(selSq) {
+    if (!selSq) return [];
+    const {x,y} = squareToCoords(selSq);
+    return legalMovesCache.filter(m => m.fromX === x && m.fromY === y);
+  }
+
+  function renderBoard() {
+    elBoard.innerHTML = "";
+    const flipped = !!appState.f;
+
+    const last = lastMoveSquares();
+    const sel = appState.s || "";
+    const selDests = legalDestsFrom(sel);
+
+    // Precompute check square (king of side to move)
+    let checkSq = null;
+    if (inCheck(currentPos, currentPos.turn)) {
+      const k = findKing(currentPos, currentPos.turn);
+      if (k) checkSq = coordsToSquare(k.x, k.y);
+    }
+
+    const squares = squaresForDisplay(flipped);
+    for (let idx = 0; idx < squares.length; idx++) {
+      const {x,y} = squares[idx];
+      const sq = coordsToSquare(x,y);
+      const light = ((x + y) % 2 === 0);
+
+      const btn = document.createElement("button");
+      btn.className = "sq " + (light ? "light" : "dark");
+      btn.type = "button";
+      btn.dataset.square = sq;
+
+      const p = currentPos.board[y][x];
+      btn.textContent = p ? PIECE_TO_UNI[p] : "";
+
+      // Highlights
+      if (sel && sq === sel) btn.classList.add("sel");
+      if (selDests.some(m => coordsToSquare(m.toX, m.toY) === sq)) btn.classList.add("legal");
+      if (last && (sq === last.from || sq === last.to)) btn.classList.add("last");
+      if (checkSq && sq === checkSq) btn.classList.add("check");
+
+      // Coords labels on corners
+      // Show file labels on bottom row of current orientation, and rank labels on left column.
+      const showFile = (!flipped && y === 7) || (flipped && y === 0);
+      const showRank = (!flipped && x === 0) || (flipped && x === 7);
+
+      if (showFile) {
+        const s = document.createElement("span");
+        s.className = "coord";
+        s.textContent = sq[0];
+        btn.appendChild(s);
+      }
+      if (showRank) {
+        const s = document.createElement("span");
+        s.className = "coord topLeft";
+        s.textContent = sq[1];
+        btn.appendChild(s);
+      }
+
+      btn.addEventListener("click", onSquareClick);
+      elBoard.appendChild(btn);
+    }
+  }
+
+  function renderSidePanel() {
+    elFenOut.value = toFEN(currentPos);
+
+    // Moves table
+    const rows = [];
+    const totalPlies = appState.m.length;
+    const curPly = appState.i;
+
+    rows.push(`<table>
+      <thead><tr><th style="width:54px;">Move</th><th>White</th><th>Black</th></tr></thead>
+      <tbody>`);
+
+    const fullMoves = Math.ceil(totalPlies / 2);
+    for (let n = 0; n < fullMoves; n++) {
+      const wIndex = n*2;
+      const bIndex = n*2 + 1;
+      const moveNo = n + 1;
+
+      const w = appState.m[wIndex] || "";
+      const b = appState.m[bIndex] || "";
+
+      const wClass = (curPly === wIndex + 1) ? "cur" : "";
+      const bClass = (curPly === bIndex + 1) ? "cur" : "";
+
+      rows.push(`<tr>
+        <td>${moveNo}.</td>
+        <td class="${wClass}">${w ? `<code>${escapeHtml(w)}</code>` : ""}</td>
+        <td class="${bClass}">${b ? `<code>${escapeHtml(b)}</code>` : ""}</td>
+      </tr>`);
+    }
+
+    rows.push(`</tbody></table>`);
+    elMoves.innerHTML = rows.join("");
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // ----------------------------
+  // Interaction
+  // ----------------------------
+  function onSquareClick(e) {
+    const sq = e.currentTarget.dataset.square;
+    const sel = appState.s || "";
+
+    // If game is over, still allow selection but no moves.
+    const side = currentPos.turn;
+    const p = pieceAtSquare(currentPos, sq);
+
+    // If no selection yet:
+    if (!sel) {
+      if (p && sideOfPiece(p) === side) {
+        // select own piece
+        commitState({ ...appState, s: sq }, { push: false });
+      }
+      return;
+    }
+
+    // Clicking same square: deselect
+    if (sq === sel) {
+      commitState({ ...appState, s: "" }, { push: false });
+      return;
+    }
+
+    // If clicked another own piece: reselect
+    if (p && sideOfPiece(p) === side) {
+      commitState({ ...appState, s: sq }, { push: false });
+      return;
+    }
+
+    // Attempt to move selected piece to target square
+    const from = squareToCoords(sel);
+    const to = squareToCoords(sq);
+
+    const candidates = legalMovesCache.filter(m =>
+      m.fromX === from.x && m.fromY === from.y && m.toX === to.x && m.toY === to.y
+    );
+
+    if (candidates.length === 0) return;
+
+    // Promotion requires user choice (there will be 4 candidate moves with different promo)
+    const promoMoves = candidates.filter(m => m.promo);
+    if (promoMoves.length > 0) {
+      openPromotionModal(sel, sq, promoMoves, side);
+      return;
+    }
+
+    // Single legal move
+    const mv = candidates[0];
+    const uci = moveToUCI(mv);
+    makeMoveAndCommit(uci);
+  }
+
+  function makeMoveAndCommit(uci) {
+    // Truncate future moves if we are mid-history
+    const m = appState.m.slice(0, appState.i);
+    m.push(uci);
+    const next = { ...appState, m, i: m.length, s: "" };
+    // Milestone: push history entry so back/forward works meaningfully.
+    commitState(next, { push: true });
+  }
+
+  // Promotion modal
+  function openPromotionModal(fromSq, toSq, promoMoves, side) {
+    pendingPromotion = { fromSq, toSq, promoMoves, side };
+    promoRow.innerHTML = "";
+
+    const isWhite = (side === "w");
+    const pieces = [
+      { code: "q", uni: isWhite ? PIECE_TO_UNI["Q"] : PIECE_TO_UNI["q"], label: "Queen" },
+      { code: "r", uni: isWhite ? PIECE_TO_UNI["R"] : PIECE_TO_UNI["r"], label: "Rook" },
+      { code: "b", uni: isWhite ? PIECE_TO_UNI["B"] : PIECE_TO_UNI["b"], label: "Bishop" },
+      { code: "n", uni: isWhite ? PIECE_TO_UNI["N"] : PIECE_TO_UNI["n"], label: "Knight" }
+    ];
+
+    for (const pc of pieces) {
+      const btn = document.createElement("button");
+      btn.className = "promoBtn";
+      btn.type = "button";
+      btn.title = pc.label;
+      btn.textContent = pc.uni;
+      btn.addEventListener("click", () => {
+        const chosen = pendingPromotion.promoMoves.find(mv => mv.promo === pc.code);
+        if (!chosen) return;
+        const uci = moveToUCI(chosen);
+        closePromotionModal();
+        makeMoveAndCommit(uci);
+      });
+      promoRow.appendChild(btn);
+    }
+
+    modalBackdrop.style.display = "flex";
+  }
+
+  function closePromotionModal() {
+    pendingPromotion = null;
+    modalBackdrop.style.display = "none";
+    promoRow.innerHTML = "";
+  }
+
+  modalBackdrop.addEventListener("click", (e) => {
+    // Click outside modal closes it (does not change state)
+    if (e.target === modalBackdrop) closePromotionModal();
+  });
+
+  // ----------------------------
+  // Controls
+  // ----------------------------
+  btnUndo.addEventListener("click", () => {
+    if (appState.i <= 0) return;
+    commitState({ ...appState, i: appState.i - 1, s: "" }, { push: true });
+  });
+
+  btnRedo.addEventListener("click", () => {
+    if (appState.i >= appState.m.length) return;
+    commitState({ ...appState, i: appState.i + 1, s: "" }, { push: true });
+  });
+
+  btnFlip.addEventListener("click", () => {
+    commitState({ ...appState, f: appState.f ? 0 : 1 }, { push: true });
+  });
+
+  btnNew.addEventListener("click", () => {
+    commitState(defaultState(), { push: true });
+  });
+
+  btnSetFen.addEventListener("click", () => {
+    const fen = (elFenIn.value || "").trim();
+    if (!fen) { setError("Please paste a FEN first."); return; }
+    try {
+      // validate
+      parseFEN(fen);
+      commitState({ v:1, b: fen, m: [], i: 0, f: appState.f ? 1 : 0, s: "" }, { push: true });
+      elFenIn.value = "";
+      setError("");
+    } catch (e) {
+      setError("Invalid FEN: " + (e && e.message ? e.message : e));
+    }
+  });
+
+  btnClearSel.addEventListener("click", () => {
+    if (!appState.s) return;
+    commitState({ ...appState, s: "" }, { push: false });
+  });
+
+  btnCopyUrl.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      // no toast to keep it minimal; browser will often show its own cue.
+    } catch {
+      prompt("Copy this URL:", location.href);
+    }
+  });
+
+  btnCopyFen.addEventListener("click", async () => {
+    const fen = elFenOut.value || "";
+    try {
+      await navigator.clipboard.writeText(fen);
+    } catch {
+      prompt("Copy this FEN:", fen);
+    }
+  });
+
+  // ----------------------------
+  // URL -> App hydration
+  // ----------------------------
+  function onUrlChange() {
+    const { state, error } = parseStateFromUrl();
+    appState = state;
+    if (error) setError(error);
+    recomputeAndRender();
+  }
+
+  window.addEventListener("hashchange", onUrlChange);
+  window.addEventListener("popstate", onUrlChange);
+
+  // ----------------------------
+  // Init
+  // ----------------------------
+  // If no hash, set an initial canonical one.
+  if (!location.hash) {
+    const st = defaultState();
+    history.replaceState(null, "", encodeStateToHash(st));
+  }
+  onUrlChange();
+
+})();
+</script>
+</body>
+</html>
