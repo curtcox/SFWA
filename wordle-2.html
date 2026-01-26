@@ -615,6 +615,15 @@ function perRowCounts(rows){
   return counts;
 }
 
+function remainingCandidates(rows){
+  let candidates = WORDS;
+  for (const r of rows){
+    candidates = candidates.filter(w => feedback(r.g, w) === r.f);
+    if (!candidates.length) break;
+  }
+  return candidates;
+}
+
 /* =========================
    6) Hash encode/decode
    ========================= */
@@ -770,6 +779,7 @@ function render(){
   }
 
   const counts = perRowCounts(state.rows);
+  const candidates = remainingCandidates(state.rows);
   elGrid.innerHTML = "";
 
   for (let r=0; r<MAX_ROWS; r++){
@@ -788,7 +798,9 @@ function render(){
       fb = "";
       meta = `<span class="mono">${countCandidates(state.rows)}</span> now`;
     } else {
-      letters = "".padEnd(WORD_LEN, "");
+      const idx = r - (state.rows.length + 1);
+      const w = candidates[idx];
+      letters = (w ? w : "").padEnd(WORD_LEN, "");
       fb = "";
       meta = "";
     }
