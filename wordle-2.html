@@ -628,7 +628,7 @@ function remainingCandidates(rows){
    6) Hash encode/decode
    ========================= */
 function encodeStateToHash(s){
-  const json = JSON.stringify(s);
+  const json = JSON.stringify({ v: 1, ...coreOf(s) });
   return LZString.compressToEncodedURIComponent(json);
 }
 function decodeStateFromHash(hash){
@@ -641,16 +641,9 @@ function decodeStateFromHash(hash){
     if (!obj || obj.v !== 1) return null;
 
     const s = defaultState();
-    s.ti = (obj.ti|0);
-    s.peek = !!obj.peek;
-    s.rows = Array.isArray(obj.rows) ? obj.rows : [];
-    s.cur = String(obj.cur||"");
-    s.undo = Array.isArray(obj.undo) ? obj.undo : [];
-    s.redo = Array.isArray(obj.redo) ? obj.redo : [];
-
-    s.undo = s.undo.slice(-HISTORY_CAP).map(c => applyCore({ti:0,peek:false,rows:[],cur:""}, c));
-    s.redo = s.redo.slice(-HISTORY_CAP).map(c => applyCore({ti:0,peek:false,rows:[],cur:""}, c));
-    applyCore(s, s);
+    applyCore(s, obj);
+    s.undo = [];
+    s.redo = [];
     return s;
   }catch{
     return null;
