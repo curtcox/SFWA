@@ -570,6 +570,8 @@ print("done waiting");`
   async function runTranscript(cells, token) {
     // Build ONE async function so top-level await works and earlier bindings are visible to later cells.
     // IMPORTANT: a top-level 'return' in any cell ends the whole replay.
+    // Cell code is placed directly in the function body (not inside try blocks) so that
+    // let/const declarations are function-scoped and visible to subsequent cells.
     let body = "";
     body += "let __repl_cell__ = -1;\\n";
     body += "const __cellStart__ = (i) => parent.postMessage({type:'cell', phase:'start', idx:i, token}, '*');\\n";
@@ -578,14 +580,18 @@ print("done waiting");`
 
     for (let i = 0; i < cells.length; i++) {
       body += "\\n// ----- Cell " + (i+1) + " -----\\n";
-      body += "try { __repl_cell__=" + i + "; __cellStart__(" + i + ");\\n";
+      body += "__repl_cell__=" + i + "; __cellStart__(" + i + ");\\n";
+      // Inline the cell code directly - let/const will be function-scoped
       body += String(cells[i]) + "\\n";
-      body += "__cellEnd__(" + i + "); } catch(e){ __cellFail__(" + i + ", e); throw e; }\\n";
+      body += "__cellEnd__(" + i + ");\\n";
     }
 
+    // Wrap the entire body in a try-catch to report which cell failed
+    let wrappedBody = "try {\\n" + body + "\\n} catch(__e__) { __cellFail__(__repl_cell__, __e__); throw __e__; }";
+
     const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-    const fn = new AsyncFunction("print", body);
-    await fn(window.print);
+    const fn = new AsyncFunction("print", "token", wrappedBody);
+    await fn(window.print, token);
   }
 
   send({ type: "ready" });
