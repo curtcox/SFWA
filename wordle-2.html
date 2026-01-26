@@ -30,11 +30,11 @@
       border-radius:var(--radius);
       box-shadow: var(--shadow);
     }
-    .topbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px;}
+    .topbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px; width: fit-content; max-width:100%;}
     .group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
     .label{color:var(--muted); font-size:12px}
     input[type="number"]{
-      width:92px; padding:8px 10px;
+      width:8ch; min-width:7ch; padding:8px 10px;
       border-radius:10px; border:1px solid var(--border);
       background:var(--panel2); color:var(--text);
       outline:none;
@@ -58,22 +58,22 @@
     .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
     .accent{color:var(--accent)}
     .content{
-      display:grid; grid-template-columns: 1fr 340px; gap:14px; align-items:start;
+      display:grid; grid-template-columns: 1fr; gap:14px; align-items:start;
       margin-top:14px;
     }
     @media (max-width: 920px){ .content{grid-template-columns:1fr} }
 
-    .board{padding:14px;}
+    .board{padding:14px; width: fit-content; max-width:100%; overflow-x:auto;}
     .grid{
+      --cell: clamp(44px, 10.5vw, 54px);
       display:grid;
-      grid-template-columns: repeat(5, 54px) 1fr;
+      grid-template-columns: repeat(5, var(--cell)) max-content;
       gap:8px 10px;
       align-items:center;
       justify-content:start;
     }
-    @media (max-width: 480px){ .grid{grid-template-columns: repeat(5, 46px) 1fr} }
     .cell{
-      width:54px; height:54px;
+      width:var(--cell); height:var(--cell);
       display:flex; align-items:center; justify-content:center;
       border-radius:12px;
       border:1px solid var(--border);
@@ -82,7 +82,7 @@
       letter-spacing:1px;
       user-select:none;
     }
-    @media (max-width: 480px){ .cell{width:46px; height:46px; font-size:18px} }
+    @media (max-width: 480px){ .cell{font-size:18px} }
     .cell.green{background: rgba(46,160,67,.26); border-color: rgba(46,160,67,.6)}
     .cell.yellow{background: rgba(210,153,34,.22); border-color: rgba(210,153,34,.55)}
     .cell.gray{background: rgba(58,68,90,.25); border-color: rgba(58,68,90,.55)}
@@ -144,6 +144,21 @@
     .key.green{background: rgba(46,160,67,.26); border-color: rgba(46,160,67,.6)}
     .key.yellow{background: rgba(210,153,34,.22); border-color: rgba(210,153,34,.55)}
     .key.gray{background: rgba(58,68,90,.25); border-color: rgba(58,68,90,.55)}
+
+    details.panel{padding:0; width: fit-content; max-width:100%}
+    details.panel > summary{
+      list-style:none;
+      cursor:pointer;
+      padding:12px 14px;
+      user-select:none;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    details.panel > summary::-webkit-details-marker{display:none}
+    details.panel > summary .hint{color:var(--muted); font-size:12px}
+    details.panel .debug-body{padding:14px}
   </style>
 </head>
 
@@ -153,21 +168,13 @@
       <div class="title">
         <h1>Single-File Wordle-Style (All State in <span class="mono accent">#hash</span>)</h1>
         <div class="sub">
-          All state—target word number, guesses, feedback, and undo/redo—lives in the URL fragment identifier.
+          All state—target word number, guesses, and feedback lives in the URL fragment identifier.
           The dictionary is embedded as gzipped base64 (5-letter subset) and decompressed client-side.
         </div>
       </div>
     </header>
 
     <div class="panel topbar">
-      <div class="group">
-        <span class="label">Word #</span>
-        <button id="prevWord" class="secondary" title="Previous word">Prev</button>
-        <input id="wordNum" type="number" min="1" step="1" />
-        <button id="nextWord" class="secondary" title="Next word">Next</button>
-        <span class="label">of <span id="wordTotal" class="mono"></span></span>
-      </div>
-
       <div class="group">
         <span class="pill">
           <span class="label">Target</span>
@@ -176,7 +183,7 @@
         <button id="peekBtn" class="secondary">Peek</button>
       </div>
 
-      <div class="group" style="margin-left:auto">
+      <div class="group">
         <button id="undoBtn" class="secondary">Undo</button>
         <button id="redoBtn" class="secondary">Redo</button>
         <button id="resetBtn" class="danger" title="Reset guesses (keeps target word number)">Reset</button>
@@ -203,10 +210,26 @@
           <div class="krow" id="krow3"></div>
         </div>
       </div>
+    </div>
 
-      <div class="panel side">
-        <h2>Candidate Counts</h2>
+    <details class="panel" style="margin-top:14px">
+      <summary>
+        <span>Debug</span>
+        <span class="hint">Word selection and candidate counts</span>
+      </summary>
+      <div class="debug-body">
+        <div class="box" style="margin-bottom:10px">
+          <div class="group">
+            <span class="label">Word #</span>
+            <button id="prevWord" class="secondary" title="Previous word">Prev</button>
+            <input id="wordNum" type="number" min="1" step="1" />
+            <button id="nextWord" class="secondary" title="Next word">Next</button>
+            <span class="label">of <span id="wordTotal" class="mono"></span></span>
+          </div>
+        </div>
+
         <div class="box">
+          <h2 style="margin:0 0 10px 0; font-size:14px">Candidate Counts</h2>
           <div class="kv"><span>Dictionary size</span><span id="dictSize" class="mono"></span></div>
           <div class="kv"><span>Rows</span><span class="mono">10</span></div>
           <div class="kv"><span>Word length</span><span class="mono">5</span></div>
@@ -219,7 +242,7 @@
           </div>
         </div>
 
-        <div class="box">
+        <div class="box" style="margin-top:10px">
           <div class="small">
             Notes:
             <ul style="margin:8px 0 0 18px; padding:0; color:var(--muted)">
@@ -229,7 +252,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </details>
   </div>
 
 <script>
