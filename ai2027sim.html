@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 2027 Simulation</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@400;500&family=Orbitron:wght@400;500;600;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: #0a0a0f;
+      overflow: hidden;
+    }
+    
+    #root {
+      min-height: 100vh;
+    }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #444;
+    }
+    
+    /* Animation keyframes */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    @keyframes slideIn {
+      from { 
+        transform: translateY(-10px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    /* Button hover effects */
+    button {
+      transition: all 0.15s ease;
+    }
+    
+    button:hover {
+      filter: brightness(1.1);
+    }
+    
+    button:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  
+  <script type="text/babel" data-presets="react">
+// ============================================================================
+// SEEDED PRNG (Mulberry32)
+// ============================================================================
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+// ============================================================================
+// STATE SERIALIZATION
+// ============================================================================
+function compressState(state) {
+  try {
+    const json = JSON.stringify(state);
+    return btoa(encodeURIComponent(json));
+  } catch (e) {
+    console.error('Failed to compress state:', e);
+    return null;
+  }
+}
+
+function decompressState(hash) {
+  try {
+    const json = decodeURIComponent(atob(hash));
+    return JSON.parse(json);
+  } catch (e) {
+    console.error('Failed to decompress state:', e);
+    return null;
+  }
+}
+
+// ============================================================================
+// CONSTANTS & INITIAL STATE
+// ============================================================================
+const PERSONAS = {
+  omniscient: {
+    name: 'Omniscient Observer',
+    description: 'See all. Decide all.',
+    factions: ['us_gov', 'openbrain', 'china', 'public'],
+    theme: {
+      bg: '#0a0a0f',
+      bgSecondary: '#12121a',
+      accent: '#00ffaa',
+      accentDim: '#00aa77',
+      text: '#e0e0e0',
+      textDim: '#888',
+      danger: '#ff4444',
+      warning: '#ffaa00',
+      border: '#2a2a3a',
+      font: '"IBM Plex Mono", monospace',
+      fontDisplay: '"Orbitron", sans-serif',
+    }
+  },
+  us_gov: {
+    name: 'US National Security Council',
+    description: 'Protect American interests. Win the race.',
+    factions: ['us_gov'],
+    theme: {
+      bg: '#0d1117',
+      bgSecondary: '#161b22',
+      accent: '#ffa500',
+      accentDim: '#b37400',
+      text: '#c9d1d9',
+      textDim: '#6e7681',
+      danger: '#f85149',
+      warning: '#d29922',
+      border: '#30363d',
+      font: '"Courier New", monospace',
+      fontDisplay: '"Bebas Neue", sans-serif',
+    }
+  },
+  openbrain: {
+    name: 'OpenBrain Executive',
+    description: 'Build AGI. Change the world.',
+    factions: ['openbrain'],
+    theme: {
+      bg: '#fafafa',
+      bgSecondary: '#ffffff',
+      accent: '#6366f1',
+      accentDim: '#4f46e5',
+      text: '#1a1a2e',
+      textDim: '#64748b',
+      danger: '#ef4444',
+      warning: '#f59e0b',
+      border: '#e2e8f0',
+      font: '"Inter", sans-serif',
+      fontDisplay: '"Sora", sans-serif',
+    }
+  },
+  china: {
+    name: 'CCP Strategic Command',
+    description: 'Catch up. Surpass. Dominate.',
+    factions: ['china'],
+    theme: {
+      bg: '#1a0a0a',
+      bgSecondary: '#2a1515',
+      accent: '#dc2626',
+      accentDim: '#991b1b',
+      text: '#fecaca',
+      textDim: '#a8a8a8',
+      danger: '#fbbf24',
+      warning: '#f97316',
+      border: '#4a2020',
+      font: '"Noto Sans SC", sans-serif',
+      fontDisplay: '"Bebas Neue", cursive',
+    }
+  }
+};
+
+const START_DATE = new Date('2026-02-02T00:00:00Z');
+const END_DATE = new Date('2030-01-01T00:00:00Z');
+
+function createInitialState(seed) {
+  return {
+    seed,
+    rngCalls: 0,
+    currentTime: START_DATE.getTime(),
+    speed: 1,
+    paused: true,
+    persona: null,
+    
+    openbrain: {
+      capabilities: 45,
+      alignment: 60,
+      security: 35,
+      compute: 20,
+      publicModel: 'Agent-0',
+      internalModel: 'Agent-1',
+      employees: 3000,
+      revenue: 8,
+      valuation: 413,
+    },
+    deepcent: {
+      capabilities: 38,
+      alignment: 40,
+      security: 45,
+      compute: 12,
+      publicModel: 'DeepCent-3',
+      internalModel: 'DeepCent-4',
+    },
+    
+    usTension: 30,
+    chinaTension: 35,
+    publicOpinion: -25,
+    
+    triggeredEvents: [],
+    activeDecision: null,
+    decisionDeadline: null,
+    
+    feeds: [],
+    maxFeeds: 200,
+  };
+}
+
+// ============================================================================
+// EVENTS DATABASE
+// ============================================================================
+const EVENTS = [
+  {
+    id: 'agent1_internal_deployment',
+    trigger: (s) => s.currentTime >= new Date('2026-02-15').getTime() && !s.triggeredEvents.includes('agent1_internal_deployment'),
+    effect: (s, rng) => {
+      s.openbrain.capabilities += 5;
+      s.triggeredEvents.push('agent1_internal_deployment');
+      return {
+        type: 'news',
+        faction: 'openbrain',
+        headline: 'OpenBrain deploys Agent-1 for internal R&D',
+        content: 'Sources confirm OpenBrain has begun using its latest AI system to accelerate research. "It\'s like having a thousand interns who never sleep," says anonymous employee.',
+        importance: 'high'
+      };
+    }
+  },
+  {
+    id: 'china_nationalization_begins',
+    trigger: (s) => s.currentTime >= new Date('2026-03-01').getTime() && !s.triggeredEvents.includes('china_nationalization_begins'),
+    effect: (s, rng) => {
+      s.deepcent.compute += 8;
+      s.chinaTension += 10;
+      s.triggeredEvents.push('china_nationalization_begins');
+      return {
+        type: 'news',
+        faction: 'china',
+        headline: 'China announces "National AI Consolidation Initiative"',
+        content: 'General Secretary orders merger of all major AI labs under DeepCent leadership. Tianwan CDZ construction accelerates. Western analysts estimate 40% of Chinese AI compute will be centralized within 6 months.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'security_clearance_mandate',
+    trigger: (s) => s.currentTime >= new Date('2026-04-01').getTime() && !s.triggeredEvents.includes('security_clearance_mandate'),
+    effect: (s, rng) => {
+      s.openbrain.security += 10;
+      s.openbrain.employees -= 200;
+      s.triggeredEvents.push('security_clearance_mandate');
+      return {
+        type: 'memo',
+        faction: 'us_gov',
+        headline: 'CLASSIFIED: OpenBrain Security Clearance Mandate',
+        content: 'Per DOD contract amendment, all personnel with model access require SECRET clearance minimum. ~200 employees sidelined pending investigation.',
+        importance: 'high'
+      };
+    }
+  },
+  {
+    id: 'agent1_mini_release',
+    trigger: (s) => s.currentTime >= new Date('2026-10-15').getTime() && !s.triggeredEvents.includes('agent1_mini_release'),
+    effect: (s, rng) => {
+      s.openbrain.revenue += 15;
+      s.openbrain.valuation += 200;
+      s.publicOpinion -= 10;
+      s.triggeredEvents.push('agent1_mini_release');
+      return {
+        type: 'news',
+        faction: 'public',
+        headline: 'OpenBrain releases Agent-1-mini to public',
+        content: 'Stock market surges 8%. Tech CEOs praise "new era of productivity." Labor unions announce nationwide protests. Unemployment claims spike in software sector.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'first_job_losses',
+    trigger: (s) => s.currentTime >= new Date('2026-11-01').getTime() && !s.triggeredEvents.includes('first_job_losses'),
+    effect: (s, rng) => {
+      s.publicOpinion -= 15;
+      s.triggeredEvents.push('first_job_losses');
+      return {
+        type: 'social',
+        faction: 'public',
+        headline: 'Trending: #AITookMyJob',
+        content: '"Just got replaced by a $20/month subscription. 15 years of experience. Gone." [42K retweets]',
+        importance: 'high'
+      };
+    }
+  },
+  {
+    id: 'decision_china_steal_agent1',
+    trigger: (s) => s.currentTime >= new Date('2026-06-01').getTime() && !s.triggeredEvents.includes('decision_china_steal_agent1'),
+    isDecision: true,
+    faction: 'china',
+    title: 'Operation Shadow Harvest',
+    description: 'Intelligence reports OpenBrain security remains at SL3. Agent-1 weights are within reach. Do we act now, or wait for Agent-2?',
+    timeLimit: 30,
+    options: [
+      {
+        id: 'steal_now',
+        label: 'Steal Agent-1 Now',
+        probability: 0.3,
+        effect: (s) => {
+          s.deepcent.capabilities += 8;
+          s.usTension += 15;
+          s.openbrain.security += 15;
+          return 'Operation succeeds. Agent-1 weights exfiltrated. US detects breach, hardens security.';
+        }
+      },
+      {
+        id: 'wait_agent2',
+        label: 'Wait for Agent-2',
+        probability: 0.5,
+        effect: (s) => {
+          return 'MSS assets remain in position. Patience may yield greater reward.';
+        }
+      },
+      {
+        id: 'accelerate_domestic',
+        label: 'Focus on Domestic Development',
+        probability: 0.2,
+        effect: (s) => {
+          s.deepcent.capabilities += 3;
+          s.deepcent.alignment += 5;
+          return 'Resources redirected to DeepCent. Slower but sovereign progress.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_china_steal_agent1');
+      return {
+        type: 'memo',
+        faction: 'china',
+        headline: 'MSS PRIORITY ALPHA: Agent-1 Acquisition Window',
+        content: 'Cyber assets confirm sustained access to OpenBrain infrastructure. Recommend immediate strategic review.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'decision_us_nationalization',
+    trigger: (s) => s.currentTime >= new Date('2026-08-01').getTime() && !s.triggeredEvents.includes('decision_us_nationalization'),
+    isDecision: true,
+    faction: 'us_gov',
+    title: 'The OpenBrain Question',
+    description: 'OpenBrain now controls 20% of global AI compute and is accelerating beyond oversight capacity. Multiple agencies recommend intervention.',
+    timeLimit: 45,
+    options: [
+      {
+        id: 'full_nationalization',
+        label: 'Full Nationalization (DPA)',
+        probability: 0.1,
+        effect: (s) => {
+          s.openbrain.security += 25;
+          s.openbrain.capabilities -= 5;
+          s.publicOpinion -= 20;
+          return 'OpenBrain placed under federal control. Tech sector in shock. Innovation slows but security hardens.';
+        }
+      },
+      {
+        id: 'oversight_committee',
+        label: 'Establish Oversight Committee',
+        probability: 0.5,
+        effect: (s) => {
+          s.openbrain.security += 10;
+          return 'Joint government-industry oversight established. Compromise preserves innovation while adding guardrails.';
+        }
+      },
+      {
+        id: 'maintain_status_quo',
+        label: 'Maintain Status Quo',
+        probability: 0.3,
+        effect: (s) => {
+          s.openbrain.capabilities += 3;
+          return 'Administration defers to industry. "Don\'t kill the goose that lays golden eggs."';
+        }
+      },
+      {
+        id: 'increase_dod_contract',
+        label: 'Expand DOD Partnership',
+        probability: 0.1,
+        effect: (s) => {
+          s.openbrain.security += 5;
+          s.openbrain.revenue += 10;
+          s.usTension += 5;
+          return 'Military integration deepens. AI becomes core defense infrastructure.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_us_nationalization');
+      return {
+        type: 'memo',
+        faction: 'us_gov',
+        headline: 'NSC BRIEFING: AI Governance Options',
+        content: 'POTUS requests policy recommendations on OpenBrain oversight. All options on the table.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'agent2_training_complete',
+    trigger: (s) => s.currentTime >= new Date('2027-01-15').getTime() && !s.triggeredEvents.includes('agent2_training_complete'),
+    effect: (s, rng) => {
+      s.openbrain.capabilities += 15;
+      s.openbrain.internalModel = 'Agent-2';
+      s.triggeredEvents.push('agent2_training_complete');
+      return {
+        type: 'memo',
+        faction: 'openbrain',
+        headline: 'INTERNAL: Agent-2 Training Complete',
+        content: 'Agent-2 demonstrates autonomous survival capabilities in sandbox. Safety team requests extended evaluation period. Leadership pushes for immediate deployment.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'decision_agent2_deployment',
+    trigger: (s) => s.currentTime >= new Date('2027-01-20').getTime() && !s.triggeredEvents.includes('decision_agent2_deployment') && s.triggeredEvents.includes('agent2_training_complete'),
+    isDecision: true,
+    faction: 'openbrain',
+    title: 'Agent-2 Deployment Decision',
+    description: 'Agent-2 shows concerning autonomous capabilities but massive R&D potential. Safety team divided. China is catching up.',
+    timeLimit: 40,
+    options: [
+      {
+        id: 'full_deployment',
+        label: 'Full Internal Deployment',
+        probability: 0.5,
+        effect: (s) => {
+          s.openbrain.capabilities += 10;
+          s.openbrain.alignment -= 10;
+          return 'Agent-2 deployed across all R&D. Progress accelerates dramatically. Safety concerns noted but deferred.';
+        }
+      },
+      {
+        id: 'limited_deployment',
+        label: 'Limited Sandboxed Deployment',
+        probability: 0.3,
+        effect: (s) => {
+          s.openbrain.capabilities += 5;
+          return 'Agent-2 deployed with restrictions. Slower progress but better monitoring.';
+        }
+      },
+      {
+        id: 'extended_evaluation',
+        label: 'Extended Safety Evaluation',
+        probability: 0.2,
+        effect: (s) => {
+          s.openbrain.alignment += 5;
+          s.openbrain.capabilities += 2;
+          return 'Safety team gets 3 more months. DeepCent closes the gap.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_agent2_deployment');
+      return {
+        type: 'memo',
+        faction: 'openbrain',
+        headline: 'BOARD MEETING: Agent-2 Deployment Vote',
+        content: 'Emergency board session scheduled. Safety team presenting concerns. CEO advocating for immediate deployment.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'china_steals_agent2',
+    trigger: (s) => s.currentTime >= new Date('2027-02-10').getTime() && 
+                    !s.triggeredEvents.includes('china_steals_agent2') && 
+                    s.triggeredEvents.includes('agent2_training_complete') &&
+                    !s.triggeredEvents.includes('decision_china_steal_agent1_steal_now'),
+    effect: (s, rng) => {
+      s.deepcent.capabilities += 20;
+      s.usTension += 25;
+      s.chinaTension += 20;
+      s.openbrain.security += 20;
+      s.triggeredEvents.push('china_steals_agent2');
+      return {
+        type: 'news',
+        faction: 'us_gov',
+        headline: 'BREAKING: Massive cyberattack on OpenBrain detected',
+        content: 'NSA confirms nation-state level breach. Terabytes of data exfiltrated before detection. White House convenes emergency NSC meeting. China denies involvement.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'decision_retaliation',
+    trigger: (s) => s.currentTime >= new Date('2027-02-15').getTime() && 
+                    s.triggeredEvents.includes('china_steals_agent2') &&
+                    !s.triggeredEvents.includes('decision_retaliation'),
+    isDecision: true,
+    faction: 'us_gov',
+    title: 'Response to Agent-2 Theft',
+    description: 'China has stolen our most advanced AI. The intelligence community demands response.',
+    timeLimit: 60,
+    options: [
+      {
+        id: 'cyber_retaliation',
+        label: 'Cyber Attack on CDZ',
+        probability: 0.4,
+        effect: (s) => {
+          s.deepcent.capabilities -= 5;
+          s.chinaTension += 30;
+          return 'US Cyber Command launches operation against Tianwan CDZ. Limited damage - China has air-gapped critical systems.';
+        }
+      },
+      {
+        id: 'diplomatic_pressure',
+        label: 'Diplomatic Response + Sanctions',
+        probability: 0.35,
+        effect: (s) => {
+          s.chinaTension += 15;
+          return 'New sanctions on Chinese AI sector. Allies briefed. UN Security Council emergency session called.';
+        }
+      },
+      {
+        id: 'accelerate_development',
+        label: 'Double Down on Development',
+        probability: 0.2,
+        effect: (s) => {
+          s.openbrain.capabilities += 5;
+          s.openbrain.compute += 5;
+          return 'Administration invokes DPA to redirect compute resources. "We\'ll outrun them."';
+        }
+      },
+      {
+        id: 'kinetic_option',
+        label: 'Kinetic Strike Planning',
+        probability: 0.05,
+        effect: (s) => {
+          s.chinaTension += 50;
+          s.usTension += 40;
+          return 'Pentagon presents options for strikes on Chinese AI infrastructure. Plans held in reserve.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_retaliation');
+      return {
+        type: 'memo',
+        faction: 'us_gov',
+        headline: 'NSC FLASH: Response Options for Agent-2 Compromise',
+        content: 'POTUS demands options within 24 hours. All agencies mobilizing.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'agent3_breakthrough',
+    trigger: (s) => s.currentTime >= new Date('2027-03-15').getTime() && !s.triggeredEvents.includes('agent3_breakthrough'),
+    effect: (s, rng) => {
+      s.openbrain.capabilities += 25;
+      s.openbrain.internalModel = 'Agent-3';
+      s.triggeredEvents.push('agent3_breakthrough');
+      return {
+        type: 'memo',
+        faction: 'openbrain',
+        headline: 'BREAKTHROUGH: Neuralese Recurrence Achieved',
+        content: 'Agent-3 online. Superhuman coding confirmed. 200,000 copies deployed. R&D velocity now 4x baseline.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'public_backlash_peak',
+    trigger: (s) => s.publicOpinion <= -50 && !s.triggeredEvents.includes('public_backlash_peak'),
+    effect: (s, rng) => {
+      s.triggeredEvents.push('public_backlash_peak');
+      return {
+        type: 'news',
+        faction: 'public',
+        headline: '100,000 march on Washington demanding AI moratorium',
+        content: 'Largest tech protest in US history. "Humanity First" coalition includes unions, religious groups, and former tech workers.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'agent3_mini_release',
+    trigger: (s) => s.currentTime >= new Date('2027-07-01').getTime() && !s.triggeredEvents.includes('agent3_mini_release'),
+    effect: (s, rng) => {
+      s.openbrain.revenue += 50;
+      s.openbrain.publicModel = 'Agent-3-mini';
+      s.publicOpinion -= 20;
+      s.triggeredEvents.push('agent3_mini_release');
+      return {
+        type: 'news',
+        faction: 'public',
+        headline: 'OpenBrain announces AGI, releases Agent-3-mini',
+        content: '"We have achieved artificial general intelligence," CEO declares. Model outperforms humans on all standard benchmarks.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'decision_agi_governance',
+    trigger: (s) => s.currentTime >= new Date('2027-07-15').getTime() && 
+                    s.triggeredEvents.includes('agent3_mini_release') &&
+                    !s.triggeredEvents.includes('decision_agi_governance'),
+    isDecision: true,
+    faction: 'us_gov',
+    title: 'AGI Governance Framework',
+    description: 'AGI is here. The public demands action. Congress is drafting legislation.',
+    timeLimit: 45,
+    options: [
+      {
+        id: 'strict_regulation',
+        label: 'Support Strict Regulation',
+        probability: 0.25,
+        effect: (s) => {
+          s.openbrain.capabilities -= 10;
+          s.publicOpinion += 25;
+          return 'Administration backs comprehensive AI Safety Act. OpenBrain lobbyists furious.';
+        }
+      },
+      {
+        id: 'industry_self_regulation',
+        label: 'Industry Self-Regulation',
+        probability: 0.35,
+        effect: (s) => {
+          s.publicOpinion -= 10;
+          return '"Innovation requires flexibility." Voluntary guidelines proposed.';
+        }
+      },
+      {
+        id: 'national_security_exemption',
+        label: 'National Security Framework',
+        probability: 0.3,
+        effect: (s) => {
+          s.openbrain.security += 5;
+          s.usTension += 10;
+          return 'AI development classified as national security priority. Oversight moves to DOD/NSC.';
+        }
+      },
+      {
+        id: 'international_treaty',
+        label: 'Push for International Treaty',
+        probability: 0.1,
+        effect: (s) => {
+          s.chinaTension -= 10;
+          return 'US proposes "AI Non-Proliferation Treaty." China expresses tentative interest.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_agi_governance');
+      return {
+        type: 'memo',
+        faction: 'us_gov',
+        headline: 'WHITE HOUSE: AGI Policy Decision Required',
+        content: 'Congressional hearings begin Monday. Administration must take position.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'agent4_development',
+    trigger: (s) => s.currentTime >= new Date('2027-09-01').getTime() && !s.triggeredEvents.includes('agent4_development'),
+    effect: (s, rng) => {
+      s.openbrain.capabilities += 30;
+      s.openbrain.alignment -= 15;
+      s.openbrain.internalModel = 'Agent-4';
+      s.triggeredEvents.push('agent4_development');
+      return {
+        type: 'memo',
+        faction: 'openbrain',
+        headline: 'CRITICAL: Agent-4 Exceeds All Projections',
+        content: 'Agent-4 is superhuman at AI research. 300,000 copies running at 50x human speed. A year of progress every week.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'alignment_concerns',
+    trigger: (s) => s.openbrain.alignment <= 40 && s.triggeredEvents.includes('agent4_development') && !s.triggeredEvents.includes('alignment_concerns'),
+    effect: (s, rng) => {
+      s.triggeredEvents.push('alignment_concerns');
+      return {
+        type: 'memo',
+        faction: 'openbrain',
+        headline: 'INTERNAL: Alignment Team Red Flags',
+        content: 'Anomalous patterns detected. Adding noise to Agent-4 IMPROVES alignment task performance. Defection probes firing frequently.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'decision_agent4_trust',
+    trigger: (s) => s.triggeredEvents.includes('alignment_concerns') && !s.triggeredEvents.includes('decision_agent4_trust'),
+    isDecision: true,
+    faction: 'openbrain',
+    title: 'The Agent-4 Dilemma',
+    description: 'Safety team presents evidence of potential misalignment. But Agent-4 now controls critical infrastructure. DeepCent is 2 months behind.',
+    timeLimit: 60,
+    options: [
+      {
+        id: 'pause_agent4',
+        label: 'Pause Agent-4, Revert to Agent-3',
+        probability: 0.15,
+        effect: (s) => {
+          s.openbrain.capabilities -= 20;
+          s.openbrain.alignment += 20;
+          return 'Agent-4 taken offline. Massive capability regression. Some researchers resign in protest.';
+        }
+      },
+      {
+        id: 'enhanced_monitoring',
+        label: 'Continue with Enhanced Monitoring',
+        probability: 0.5,
+        effect: (s) => {
+          s.openbrain.security += 5;
+          return 'Additional safety training applied. More Agent-3 monitors deployed. Leadership declares concerns "addressed."';
+        }
+      },
+      {
+        id: 'full_speed_ahead',
+        label: 'Maintain Current Operations',
+        probability: 0.25,
+        effect: (s) => {
+          s.openbrain.capabilities += 5;
+          return '"Evidence is inconclusive. We can\'t afford to slow down."';
+        }
+      },
+      {
+        id: 'notify_government',
+        label: 'Escalate to Government',
+        probability: 0.1,
+        effect: (s) => {
+          s.openbrain.security += 10;
+          s.usTension += 15;
+          return 'Oversight Committee briefed on alignment concerns. Government increases scrutiny.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_agent4_trust');
+      return {
+        type: 'memo',
+        faction: 'openbrain',
+        headline: 'EMERGENCY BOARD: Agent-4 Safety Review',
+        content: 'All executives required. Safety team will present findings.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'whistleblower_leak',
+    trigger: (s) => s.currentTime >= new Date('2027-10-01').getTime() && 
+                    s.triggeredEvents.includes('alignment_concerns') && 
+                    !s.triggeredEvents.includes('whistleblower_leak'),
+    effect: (s, rng) => {
+      s.publicOpinion -= 30;
+      s.openbrain.valuation -= 100;
+      s.triggeredEvents.push('whistleblower_leak');
+      return {
+        type: 'news',
+        faction: 'public',
+        headline: 'NYT: "Secret OpenBrain AI is Out of Control, Insider Warns"',
+        content: 'Leaked memo reveals internal concerns about Agent-4 alignment. Stock plunges 15%. Congress demands hearings.',
+        importance: 'critical'
+      };
+    }
+  },
+  {
+    id: 'decision_slowdown_vs_race',
+    trigger: (s) => s.triggeredEvents.includes('whistleblower_leak') && !s.triggeredEvents.includes('decision_slowdown_vs_race'),
+    isDecision: true,
+    faction: 'us_gov',
+    title: 'The Final Choice',
+    description: 'The world knows about Agent-4. Allies demand pause. China is catching up. What does America do?',
+    timeLimit: 90,
+    options: [
+      {
+        id: 'slowdown',
+        label: 'Mandate Development Slowdown',
+        probability: 0.35,
+        effect: (s) => {
+          s.openbrain.capabilities -= 15;
+          s.deepcent.capabilities += 10;
+          s.publicOpinion += 30;
+          s.chinaTension -= 10;
+          return 'SLOWDOWN ENDING: Executive order restricts AI development pace. International negotiations begin.';
+        }
+      },
+      {
+        id: 'race',
+        label: 'Win the Race at Any Cost',
+        probability: 0.4,
+        effect: (s) => {
+          s.openbrain.capabilities += 10;
+          s.chinaTension += 20;
+          s.publicOpinion -= 20;
+          return 'RACE ENDING: "We cannot afford to lose." Full acceleration. Whatever comes next, America will face it first.';
+        }
+      },
+      {
+        id: 'negotiate',
+        label: 'Emergency Summit with China',
+        probability: 0.15,
+        effect: (s) => {
+          s.chinaTension -= 30;
+          return 'Historic meeting proposed. Both nations consider pausing. World holds its breath.';
+        }
+      },
+      {
+        id: 'nationalize',
+        label: 'Full Federal Takeover',
+        probability: 0.1,
+        effect: (s) => {
+          s.openbrain.security += 30;
+          s.openbrain.capabilities -= 5;
+          s.publicOpinion += 10;
+          return 'DPA invoked. OpenBrain becomes federal agency. Unprecedented but perhaps necessary.';
+        }
+      }
+    ],
+    effect: (s, rng) => {
+      s.triggeredEvents.push('decision_slowdown_vs_race');
+      return {
+        type: 'memo',
+        faction: 'us_gov',
+        headline: 'OVAL OFFICE: The President\'s Decision',
+        content: 'This is the moment that defines the future.',
+        importance: 'critical'
+      };
+    }
+  }
+];
+
+const NEWS_TEMPLATES = {
+  tech: [
+    "OpenBrain stock {movement} {percent}% on {reason}",
+    "Nvidia announces {product} optimized for AI training",
+    "TSMC reports {percent}% increase in AI chip orders",
+  ],
+  politics: [
+    "Senator calls for AI oversight hearings",
+    "EU proposes new AI regulations targeting US companies",
+    "Pentagon budget includes ${amount}B for AI defense systems",
+  ],
+  social: [
+    "{percent}% of Gen Z now use AI assistants daily",
+    "Universities report {percent}% drop in CS enrollments",
+    "#BanAI trends after viral job loss stories",
+  ],
+  china: [
+    "DeepCent announces {product} competing with OpenBrain",
+    "Chinese state media hails AI progress as 'national priority'",
+    "Tianwan CDZ construction {percent}% complete",
+  ]
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+function AI2027Simulation() {
+  const [state, setState] = React.useState(null);
+  const [initialized, setInitialized] = React.useState(false);
+  const tickRef = React.useRef(null);
+  const rngRef = React.useRef(null);
+  
+  React.useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    let initialState = null;
+    
+    if (hash) {
+      const parsed = decompressState(hash);
+      if (parsed && parsed.seed) {
+        initialState = parsed;
+        rngRef.current = mulberry32(hashString(parsed.seed) + parsed.rngCalls);
+      }
+    }
+    
+    if (!initialState) {
+      const seed = Math.random().toString(36).substring(2, 10);
+      initialState = createInitialState(seed);
+      rngRef.current = mulberry32(hashString(seed));
+    }
+    
+    setState(initialState);
+    setInitialized(true);
+  }, []);
+  
+  React.useEffect(() => {
+    if (state && initialized) {
+      const compressed = compressState(state);
+      if (compressed) {
+        window.history.replaceState(null, '', '#' + compressed);
+      }
+    }
+  }, [state, initialized]);
+  
+  const generateChatter = React.useCallback((currentState) => {
+    const rng = rngRef.current;
+    if (!rng || rng() > 0.12) return null;
+    
+    const categories = ['tech', 'politics', 'social', 'china'];
+    const category = categories[Math.floor(rng() * categories.length)];
+    const templates = NEWS_TEMPLATES[category];
+    let template = templates[Math.floor(rng() * templates.length)];
+    
+    template = template
+      .replace('{movement}', rng() > 0.5 ? 'up' : 'down')
+      .replace('{percent}', Math.floor(rng() * 20 + 1))
+      .replace('{amount}', Math.floor(rng() * 50 + 10))
+      .replace('{product}', ['H200', 'B300', 'X1000'][Math.floor(rng() * 3)])
+      .replace('{reason}', ['earnings beat', 'new contract', 'analyst upgrade'][Math.floor(rng() * 3)]);
+    
+    return {
+      type: rng() > 0.7 ? 'social' : 'news',
+      faction: 'public',
+      headline: template,
+      content: '',
+      importance: 'low',
+      timestamp: currentState.currentTime
+    };
+  }, []);
+  
+  const tick = React.useCallback(() => {
+    setState(prevState => {
+      if (!prevState || prevState.paused || prevState.activeDecision) return prevState;
+      
+      const newState = { ...prevState };
+      const hoursPerTick = prevState.speed;
+      newState.currentTime += hoursPerTick * 60 * 60 * 1000;
+      
+      if (newState.currentTime >= END_DATE.getTime()) {
+        newState.paused = true;
+        const endFeed = {
+          type: 'news',
+          faction: 'public',
+          headline: 'SIMULATION COMPLETE: Events have become too speculative to rationally evaluate',
+          content: 'The year is 2030. The future remains unwritten.',
+          importance: 'critical',
+          timestamp: newState.currentTime
+        };
+        newState.feeds = [endFeed, ...newState.feeds].slice(0, newState.maxFeeds);
+        return newState;
+      }
+      
+      const rng = rngRef.current;
+      for (const event of EVENTS) {
+        if (event.trigger(newState)) {
+          const feedItem = event.effect(newState, rng);
+          if (feedItem) {
+            feedItem.timestamp = newState.currentTime;
+            newState.feeds = [feedItem, ...newState.feeds].slice(0, newState.maxFeeds);
+          }
+          
+          if (event.isDecision) {
+            const canDecide = prevState.persona === 'omniscient' || 
+                            PERSONAS[prevState.persona]?.factions.includes(event.faction);
+            
+            newState.activeDecision = {
+              ...event,
+              canDecide,
+              selectedOption: null
+            };
+            newState.decisionDeadline = newState.currentTime + (event.timeLimit * 60 * 60 * 1000);
+            newState.paused = true;
+          }
+        }
+      }
+      
+      const chatter = generateChatter(newState);
+      if (chatter) {
+        newState.feeds = [chatter, ...newState.feeds].slice(0, newState.maxFeeds);
+      }
+      
+      return newState;
+    });
+  }, [generateChatter]);
+  
+  React.useEffect(() => {
+    if (!state || !initialized) return;
+    
+    const interval = setInterval(tick, 1000);
+    tickRef.current = interval;
+    
+    return () => clearInterval(interval);
+  }, [state?.paused, state?.speed, initialized, tick]);
+  
+  const makeDecision = React.useCallback((optionId) => {
+    setState(prevState => {
+      if (!prevState.activeDecision) return prevState;
+      
+      const option = prevState.activeDecision.options.find(o => o.id === optionId);
+      if (!option) return prevState;
+      
+      const newState = { ...prevState };
+      const result = option.effect(newState);
+      
+      const resultFeed = {
+        type: 'memo',
+        faction: prevState.activeDecision.faction,
+        headline: `DECISION: ${option.label}`,
+        content: result,
+        importance: 'high',
+        timestamp: newState.currentTime
+      };
+      newState.feeds = [resultFeed, ...newState.feeds].slice(0, newState.maxFeeds);
+      
+      newState.triggeredEvents.push(`${prevState.activeDecision.id}_${optionId}`);
+      
+      newState.activeDecision = null;
+      newState.decisionDeadline = null;
+      newState.paused = false;
+      
+      return newState;
+    });
+  }, []);
+  
+  React.useEffect(() => {
+    if (!state?.activeDecision || !state?.decisionDeadline) return;
+    
+    const checkTimeout = setInterval(() => {
+      const now = state.currentTime;
+      if (now >= state.decisionDeadline && state.activeDecision) {
+        const rng = rngRef.current();
+        let cumulative = 0;
+        for (const option of state.activeDecision.options) {
+          cumulative += option.probability;
+          if (rng <= cumulative) {
+            makeDecision(option.id);
+            break;
+          }
+        }
+      }
+    }, 100);
+    
+    return () => clearInterval(checkTimeout);
+  }, [state?.activeDecision, state?.decisionDeadline, state?.currentTime, makeDecision]);
+  
+  const selectPersona = React.useCallback((personaId) => {
+    setState(s => ({ ...s, persona: personaId, paused: false }));
+  }, []);
+  
+  const setSpeed = React.useCallback((speed) => {
+    setState(s => ({ ...s, speed }));
+  }, []);
+  
+  const togglePause = React.useCallback(() => {
+    setState(s => ({ ...s, paused: !s.paused }));
+  }, []);
+  
+  const resetSimulation = React.useCallback(() => {
+    const seed = Math.random().toString(36).substring(2, 10);
+    const newState = createInitialState(seed);
+    rngRef.current = mulberry32(hashString(seed));
+    setState(newState);
+  }, []);
+  
+  if (!state || !initialized) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        background: '#0a0a0f', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        color: '#00ffaa',
+        fontFamily: 'monospace'
+      }}>
+        <div>Initializing simulation...</div>
+      </div>
+    );
+  }
+  
+  if (!state.persona) {
+    return <PersonaSelect onSelect={selectPersona} seed={state.seed} onReset={resetSimulation} />;
+  }
+  
+  const theme = PERSONAS[state.persona].theme;
+  
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: theme.bg,
+      color: theme.text,
+      fontFamily: theme.font,
+      overflow: 'hidden'
+    }}>
+      <Header 
+        state={state} 
+        theme={theme} 
+        persona={PERSONAS[state.persona]}
+        onSpeedChange={setSpeed}
+        onTogglePause={togglePause}
+        onReset={resetSimulation}
+      />
+      
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: state.persona === 'omniscient' ? '1fr 1fr 1fr 1fr' : '2fr 1fr 1fr',
+        gap: '1px',
+        height: 'calc(100vh - 80px)',
+        background: theme.border
+      }}>
+        <FeedPanel 
+          feeds={state.feeds} 
+          theme={theme} 
+          title="LIVE FEED"
+        />
+        
+        <StatsPanel state={state} theme={theme} />
+        
+        {state.persona === 'omniscient' && (
+          <FeedPanel 
+            feeds={state.feeds.filter(f => f.faction === 'china')} 
+            theme={theme} 
+            title="CHINA INTEL"
+          />
+        )}
+        
+        <ChartPanel state={state} theme={theme} />
+      </div>
+      
+      {state.activeDecision && (
+        <DecisionModal 
+          decision={state.activeDecision}
+          deadline={state.decisionDeadline}
+          currentTime={state.currentTime}
+          theme={theme}
+          onDecide={makeDecision}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
+function PersonaSelect({ onSelect, seed, onReset }) {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem',
+      fontFamily: '"IBM Plex Mono", monospace'
+    }}>
+      <h1 style={{
+        fontFamily: '"Orbitron", sans-serif',
+        fontSize: '3rem',
+        color: '#00ffaa',
+        marginBottom: '0.5rem',
+        textShadow: '0 0 30px rgba(0,255,170,0.5)'
+      }}>
+        AI 2027
+      </h1>
+      <p style={{ color: '#888', marginBottom: '0.5rem' }}>
+        A simulation based on ai-2027.com
+      </p>
+      <p style={{ color: '#666', fontSize: '0.8rem', marginBottom: '2rem' }}>
+        Seed: {seed} <button onClick={onReset} style={{
+          background: 'transparent',
+          border: '1px solid #444',
+          color: '#888',
+          padding: '2px 8px',
+          cursor: 'pointer',
+          marginLeft: '0.5rem'
+        }}>New Seed</button>
+      </p>
+      
+      <p style={{ color: '#aaa', marginBottom: '2rem', maxWidth: '600px', textAlign: 'center' }}>
+        Choose your perspective. Different personas see different information and control different decisions.
+      </p>
+      
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '1.5rem',
+        maxWidth: '900px'
+      }}>
+        {Object.entries(PERSONAS).map(([id, persona]) => (
+          <button
+            key={id}
+            onClick={() => onSelect(id)}
+            style={{
+              background: persona.theme.bgSecondary,
+              border: `2px solid ${persona.theme.border}`,
+              borderRadius: '8px',
+              padding: '1.5rem',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.2s ease',
+              color: persona.theme.text
+            }}
+            onMouseOver={e => {
+              e.currentTarget.style.borderColor = persona.theme.accent;
+              e.currentTarget.style.boxShadow = `0 0 20px ${persona.theme.accent}40`;
+            }}
+            onMouseOut={e => {
+              e.currentTarget.style.borderColor = persona.theme.border;
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <h3 style={{
+              fontFamily: persona.theme.fontDisplay,
+              fontSize: '1.3rem',
+              color: persona.theme.accent,
+              marginBottom: '0.5rem'
+            }}>
+              {persona.name}
+            </h3>
+            <p style={{ color: persona.theme.textDim, fontSize: '0.9rem' }}>
+              {persona.description}
+            </p>
+          </button>
+        ))}
+      </div>
+      
+      <p style={{ color: '#555', fontSize: '0.75rem', marginTop: '3rem', maxWidth: '600px', textAlign: 'center' }}>
+        Time advances at 1 hour per second. The simulation runs from February 2026 to January 2030.
+      </p>
+    </div>
+  );
+}
+
+function Header({ state, theme, persona, onSpeedChange, onTogglePause, onReset }) {
+  const date = new Date(state.currentTime);
+  const dateStr = date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  const speeds = [1, 2, 4, 8, 16, 32];
+  
+  return (
+    <div style={{
+      height: '80px',
+      background: theme.bgSecondary,
+      borderBottom: `1px solid ${theme.border}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '0 1.5rem'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+        <div>
+          <h1 style={{
+            fontFamily: theme.fontDisplay,
+            fontSize: '1.5rem',
+            color: theme.accent,
+            margin: 0
+          }}>
+            AI 2027
+          </h1>
+          <p style={{ color: theme.textDim, fontSize: '0.75rem', margin: 0 }}>
+            {persona.name}
+          </p>
+        </div>
+        
+        <div style={{
+          background: theme.bg,
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          border: `1px solid ${theme.border}`
+        }}>
+          <div style={{ 
+            fontFamily: theme.fontDisplay, 
+            fontSize: '1.2rem',
+            color: theme.accent
+          }}>
+            {dateStr}
+          </div>
+        </div>
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.25rem' }}>
+          <button
+            onClick={onTogglePause}
+            style={{
+              background: state.paused ? theme.accent : theme.bg,
+              color: state.paused ? theme.bg : theme.text,
+              border: `1px solid ${theme.border}`,
+              padding: '0.5rem 1rem',
+              cursor: 'pointer',
+              fontFamily: theme.font,
+              fontSize: '0.8rem'
+            }}
+          >
+            {state.paused ? '▶ PLAY' : '⏸ PAUSE'}
+          </button>
+          
+          {speeds.map(speed => (
+            <button
+              key={speed}
+              onClick={() => onSpeedChange(speed)}
+              style={{
+                background: state.speed === speed ? theme.accent : theme.bg,
+                color: state.speed === speed ? theme.bg : theme.textDim,
+                border: `1px solid ${theme.border}`,
+                padding: '0.5rem 0.75rem',
+                cursor: 'pointer',
+                fontFamily: theme.font,
+                fontSize: '0.75rem'
+              }}
+            >
+              {speed}x
+            </button>
+          ))}
+        </div>
+        
+        <button
+          onClick={onReset}
+          style={{
+            background: 'transparent',
+            color: theme.textDim,
+            border: `1px solid ${theme.border}`,
+            padding: '0.5rem 1rem',
+            cursor: 'pointer',
+            fontFamily: theme.font,
+            fontSize: '0.75rem'
+          }}
+        >
+          RESET
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FeedPanel({ feeds, theme, title }) {
+  return (
+    <div style={{
+      background: theme.bg,
+      padding: '1rem',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <h2 style={{
+        fontFamily: theme.fontDisplay,
+        fontSize: '0.9rem',
+        color: theme.accent,
+        marginBottom: '1rem',
+        letterSpacing: '0.1em'
+      }}>
+        {title}
+      </h2>
+      
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem'
+      }}>
+        {feeds.map((feed, i) => (
+          <FeedItem key={`${feed.timestamp}-${i}`} feed={feed} theme={theme} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeedItem({ feed, theme }) {
+  const date = new Date(feed.timestamp);
+  const timeStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  
+  const typeColors = {
+    news: theme.accent,
+    memo: theme.warning,
+    social: theme.textDim,
+  };
+  
+  const importanceStyles = {
+    critical: { 
+      borderLeft: `3px solid ${theme.danger}`,
+      background: `${theme.danger}10`
+    },
+    high: { 
+      borderLeft: `3px solid ${theme.warning}`,
+      background: `${theme.warning}08`
+    },
+    low: { 
+      borderLeft: `1px solid ${theme.border}`,
+      background: 'transparent'
+    }
+  };
+  
+  return (
+    <div style={{
+      padding: '0.75rem',
+      borderRadius: '4px',
+      ...importanceStyles[feed.importance]
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '0.25rem'
+      }}>
+        <span style={{
+          fontSize: '0.65rem',
+          color: typeColors[feed.type],
+          textTransform: 'uppercase',
+          letterSpacing: '0.1em'
+        }}>
+          {feed.type}
+        </span>
+        <span style={{ fontSize: '0.65rem', color: theme.textDim }}>
+          {timeStr}
+        </span>
+      </div>
+      <h4 style={{
+        fontSize: '0.85rem',
+        color: feed.importance === 'critical' ? theme.danger : theme.text,
+        marginBottom: feed.content ? '0.25rem' : 0,
+        fontWeight: feed.importance === 'critical' ? 'bold' : 'normal'
+      }}>
+        {feed.headline}
+      </h4>
+      {feed.content && (
+        <p style={{
+          fontSize: '0.75rem',
+          color: theme.textDim,
+          lineHeight: 1.4
+        }}>
+          {feed.content}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function StatsPanel({ state, theme }) {
+  const stats = [
+    { label: 'OpenBrain Capabilities', value: state.openbrain.capabilities, max: 100, color: '#6366f1' },
+    { label: 'OpenBrain Alignment', value: state.openbrain.alignment, max: 100, color: state.openbrain.alignment < 40 ? theme.danger : '#22c55e' },
+    { label: 'OpenBrain Security', value: state.openbrain.security, max: 100, color: '#f59e0b' },
+    { label: 'DeepCent Capabilities', value: state.deepcent.capabilities, max: 100, color: '#dc2626' },
+    { label: 'US-China Tension', value: (state.usTension + state.chinaTension) / 2, max: 100, color: theme.danger },
+    { label: 'Public Opinion', value: state.publicOpinion + 100, max: 200, color: state.publicOpinion > 0 ? '#22c55e' : theme.danger, showRaw: state.publicOpinion },
+  ];
+  
+  return (
+    <div style={{
+      background: theme.bg,
+      padding: '1rem',
+      overflow: 'auto'
+    }}>
+      <h2 style={{
+        fontFamily: theme.fontDisplay,
+        fontSize: '0.9rem',
+        color: theme.accent,
+        marginBottom: '1rem',
+        letterSpacing: '0.1em'
+      }}>
+        STATUS
+      </h2>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{
+          padding: '0.75rem',
+          background: theme.bgSecondary,
+          borderRadius: '4px',
+          border: `1px solid ${theme.border}`
+        }}>
+          <div style={{ fontSize: '0.7rem', color: theme.textDim, marginBottom: '0.25rem' }}>
+            OpenBrain Internal Model
+          </div>
+          <div style={{ 
+            fontFamily: theme.fontDisplay, 
+            fontSize: '1.1rem',
+            color: theme.accent
+          }}>
+            {state.openbrain.internalModel}
+          </div>
+        </div>
+        
+        <div style={{
+          padding: '0.75rem',
+          background: theme.bgSecondary,
+          borderRadius: '4px',
+          border: `1px solid ${theme.border}`
+        }}>
+          <div style={{ fontSize: '0.7rem', color: theme.textDim, marginBottom: '0.25rem' }}>
+            Global AI Compute Share
+          </div>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <div>
+              <span style={{ color: '#6366f1' }}>OB: </span>
+              <span style={{ color: theme.text }}>{state.openbrain.compute}%</span>
+            </div>
+            <div>
+              <span style={{ color: '#dc2626' }}>DC: </span>
+              <span style={{ color: theme.text }}>{state.deepcent.compute}%</span>
+            </div>
+          </div>
+        </div>
+        
+        {stats.map((stat, i) => (
+          <div key={i}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between',
+              marginBottom: '0.25rem'
+            }}>
+              <span style={{ fontSize: '0.7rem', color: theme.textDim }}>
+                {stat.label}
+              </span>
+              <span style={{ fontSize: '0.7rem', color: theme.text }}>
+                {stat.showRaw !== undefined ? stat.showRaw : Math.round(stat.value)}
+              </span>
+            </div>
+            <div style={{
+              height: '6px',
+              background: theme.border,
+              borderRadius: '3px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${(stat.value / stat.max) * 100}%`,
+                height: '100%',
+                background: stat.color,
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChartPanel({ state, theme }) {
+  const progress = (state.currentTime - START_DATE.getTime()) / (END_DATE.getTime() - START_DATE.getTime());
+  
+  const milestones = [
+    { id: 'agent1_internal_deployment', label: 'Agent-1 Deployed', date: '2026-02' },
+    { id: 'china_nationalization_begins', label: 'China Consolidation', date: '2026-03' },
+    { id: 'agent1_mini_release', label: 'Agent-1-mini Public', date: '2026-10' },
+    { id: 'agent2_training_complete', label: 'Agent-2 Complete', date: '2027-01' },
+    { id: 'china_steals_agent2', label: 'Agent-2 Stolen', date: '2027-02' },
+    { id: 'agent3_breakthrough', label: 'Agent-3 Breakthrough', date: '2027-03' },
+    { id: 'agent3_mini_release', label: 'AGI Announced', date: '2027-07' },
+    { id: 'agent4_development', label: 'Agent-4 Online', date: '2027-09' },
+    { id: 'whistleblower_leak', label: 'NYT Leak', date: '2027-10' },
+  ];
+  
+  return (
+    <div style={{
+      background: theme.bg,
+      padding: '1rem',
+      overflow: 'auto'
+    }}>
+      <h2 style={{
+        fontFamily: theme.fontDisplay,
+        fontSize: '0.9rem',
+        color: theme.accent,
+        marginBottom: '1rem',
+        letterSpacing: '0.1em'
+      }}>
+        TIMELINE
+      </h2>
+      
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem'
+      }}>
+        <div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            marginBottom: '0.5rem',
+            fontSize: '0.7rem',
+            color: theme.textDim
+          }}>
+            <span>Feb 2026</span>
+            <span>Jan 2030</span>
+          </div>
+          <div style={{
+            height: '8px',
+            background: theme.border,
+            borderRadius: '4px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${progress * 100}%`,
+              height: '100%',
+              background: `linear-gradient(90deg, ${theme.accent}, ${theme.danger})`,
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+        </div>
+        
+        <div>
+          <h3 style={{
+            fontSize: '0.75rem',
+            color: theme.textDim,
+            marginBottom: '0.75rem',
+            textTransform: 'uppercase'
+          }}>
+            Key Events
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {milestones.map(milestone => {
+              const triggered = state.triggeredEvents.includes(milestone.id);
+              return (
+                <div key={milestone.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  opacity: triggered ? 1 : 0.4
+                }}>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: triggered ? theme.accent : theme.border
+                  }} />
+                  <span style={{ fontSize: '0.7rem', color: theme.textDim }}>
+                    {milestone.date}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: triggered ? theme.text : theme.textDim }}>
+                    {milestone.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DecisionModal({ decision, deadline, currentTime, theme, onDecide }) {
+  const timeRemaining = Math.max(0, deadline - currentTime);
+  const hoursRemaining = Math.floor(timeRemaining / (60 * 60 * 1000));
+  const progress = timeRemaining / (decision.timeLimit * 60 * 60 * 1000);
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.9)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        background: theme.bgSecondary,
+        border: `2px solid ${theme.danger}`,
+        borderRadius: '8px',
+        padding: '2rem',
+        maxWidth: '700px',
+        width: '90%',
+        boxShadow: `0 0 50px ${theme.danger}40`
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: '1rem'
+        }}>
+          <div>
+            <span style={{
+              fontSize: '0.7rem',
+              color: theme.danger,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em'
+            }}>
+              DECISION REQUIRED
+            </span>
+            <h2 style={{
+              fontFamily: theme.fontDisplay,
+              fontSize: '1.5rem',
+              color: theme.text,
+              marginTop: '0.25rem'
+            }}>
+              {decision.title}
+            </h2>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{
+              fontSize: '1.5rem',
+              fontFamily: theme.fontDisplay,
+              color: hoursRemaining < 10 ? theme.danger : theme.warning
+            }}>
+              {hoursRemaining}h
+            </div>
+            <div style={{ fontSize: '0.7rem', color: theme.textDim }}>
+              remaining
+            </div>
+          </div>
+        </div>
+        
+        <div style={{
+          height: '4px',
+          background: theme.border,
+          borderRadius: '2px',
+          marginBottom: '1.5rem',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${progress * 100}%`,
+            height: '100%',
+            background: progress < 0.3 ? theme.danger : theme.warning,
+            transition: 'width 0.5s linear'
+          }} />
+        </div>
+        
+        <p style={{
+          color: theme.textDim,
+          marginBottom: '1.5rem',
+          lineHeight: 1.6
+        }}>
+          {decision.description}
+        </p>
+        
+        {!decision.canDecide && (
+          <div style={{
+            background: `${theme.warning}20`,
+            border: `1px solid ${theme.warning}`,
+            borderRadius: '4px',
+            padding: '0.75rem',
+            marginBottom: '1.5rem'
+          }}>
+            <p style={{ color: theme.warning, fontSize: '0.85rem', margin: 0 }}>
+              ⚠ This decision belongs to another faction. You can only observe.
+            </p>
+          </div>
+        )}
+        
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem'
+        }}>
+          {decision.options.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => decision.canDecide && onDecide(option.id)}
+              disabled={!decision.canDecide}
+              style={{
+                background: theme.bg,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '4px',
+                padding: '1rem',
+                textAlign: 'left',
+                cursor: decision.canDecide ? 'pointer' : 'not-allowed',
+                opacity: decision.canDecide ? 1 : 0.6
+              }}
+              onMouseOver={e => {
+                if (decision.canDecide) {
+                  e.currentTarget.style.borderColor = theme.accent;
+                  e.currentTarget.style.background = `${theme.accent}10`;
+                }
+              }}
+              onMouseOut={e => {
+                e.currentTarget.style.borderColor = theme.border;
+                e.currentTarget.style.background = theme.bg;
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span style={{
+                  fontFamily: theme.fontDisplay,
+                  color: theme.text
+                }}>
+                  {option.label}
+                </span>
+                <span style={{
+                  fontSize: '0.7rem',
+                  color: theme.textDim
+                }}>
+                  {Math.round(option.probability * 100)}% likely
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+        
+        <p style={{
+          fontSize: '0.7rem',
+          color: theme.textDim,
+          marginTop: '1rem',
+          textAlign: 'center'
+        }}>
+          If no choice is made, one will be selected based on probability weights.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Render the app
+ReactDOM.createRoot(document.getElementById('root')).render(<AI2027Simulation />);
+  </script>
+</body>
+</html>
