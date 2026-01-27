@@ -929,6 +929,15 @@ a -> b dotted blue /slashdot.org Extra text that will be associated with edge fr
     }
   }
 
+  let lastNavTime = 0;
+  function openUrl(url) {
+    if (!url) return;
+    const now = performance.now();
+    if (now - lastNavTime < 250) return;
+    lastNavTime = now;
+    safeOpen(url);
+  }
+
   // -----------------------------
   // Dragging
   // -----------------------------
@@ -983,9 +992,16 @@ a -> b dotted blue /slashdot.org Extra text that will be associated with edge fr
 
   function endDrag(ev) {
     if (!dragging) return;
+    const finishedId = dragging.id;
+    const finishedMoved = dragMoved;
     try { $svg.releasePointerCapture(dragging.pointerId); } catch {}
     dragging = null;
-    if (dragMoved) syncHash({ replace: true });
+    if (finishedMoved) {
+      syncHash({ replace: true });
+    } else {
+      const n = diagram && diagram.nodes ? diagram.nodes.get(finishedId) : null;
+      if (n && n.url) openUrl(n.url);
+    }
   }
 
   $svg.addEventListener("pointermove", (ev) => moveDrag(ev));
