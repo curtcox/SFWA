@@ -183,16 +183,6 @@
             URL token: <code>/example.com</code> becomes <code>https://example.com</code>.
             You can also use <code>https://...</code> directly.
           </div>
-          <div style="margin-top:10px;">
-            Examples:
-            <pre style="margin:0; padding:8px 10px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); overflow:auto;"># nodes
-n square red /google.com Extra text that will be associated with node n
-
-# edges
-n1 -> n2          # define 2 connected nodes
-n1 -> n2 -> n3    # 3 connected nodes
-a -> b dotted blue /slashdot.org Extra text that will be associated with edge from a to b</pre>
-          </div>
         </div>
 
         <h3>Reserved words</h3>
@@ -1018,7 +1008,7 @@ a -> b dotted blue /slashdot.org Extra text that will be associated with edge fr
   function makeDefaultState() {
     return {
       src: [
-        "# Hash Diagram Game — edit this text, then copy the URL",
+        "# Diagram Editor — edit this text, then copy the URL",
         "",
         "# nodes (id  [shape] [color] [url] [text...])",
         "n square red /google.com Node N",
