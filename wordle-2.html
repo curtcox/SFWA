@@ -127,23 +127,14 @@
     .small{font-size:12px; color:var(--muted)}
     .hr{height:1px; background:var(--border); margin:10px 0}
 
-    .keyboard{margin-top:12px; display:flex; flex-direction:column; gap:8px}
-    .krow{display:flex; gap:6px; justify-content:center; flex-wrap:wrap}
-    .key{
-      min-width:34px;
-      padding:10px 10px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-      cursor:pointer;
-      font-weight:700;
-      user-select:none;
+    .kbdInput{
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
     }
-    .key.wide{min-width:64px}
-    .key:active{transform: translateY(1px)}
-    .key.green{background: rgba(46,160,67,.26); border-color: rgba(46,160,67,.6)}
-    .key.yellow{background: rgba(210,153,34,.22); border-color: rgba(210,153,34,.55)}
-    .key.gray{background: rgba(58,68,90,.25); border-color: rgba(58,68,90,.55)}
 
     details.panel{padding:0; width: fit-content; max-width:100%}
     details.panel > summary{
@@ -194,6 +185,8 @@
       <div class="panel board">
         <div id="grid" class="grid" aria-label="Wordle grid"></div>
 
+        <input id="kbdInput" class="kbdInput" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-hidden="true" />
+
         <div class="msg" role="status" aria-live="polite">
           <div class="status">
             <span id="message">Loading dictionary…</span>
@@ -202,12 +195,6 @@
           <div class="kbdhint">
             Shortcuts: <span class="mono">Ctrl/Cmd+Z</span> undo, <span class="mono">Ctrl/Cmd+Y</span> redo
           </div>
-        </div>
-
-        <div class="keyboard" aria-label="On-screen keyboard">
-          <div class="krow" id="krow1"></div>
-          <div class="krow" id="krow2"></div>
-          <div class="krow" id="krow3"></div>
         </div>
       </div>
     </div>
@@ -704,9 +691,12 @@ const elDictSize = document.getElementById("dictSize");
 const elRemainingNow = document.getElementById("remainingNow");
 const elReductionNow = document.getElementById("reductionNow");
 
-const krow1 = document.getElementById("krow1");
-const krow2 = document.getElementById("krow2");
-const krow3 = document.getElementById("krow3");
+const elKbdInput = document.getElementById("kbdInput");
+
+function focusKbdInput(){
+  if (!elKbdInput) return;
+  elKbdInput.focus({ preventScroll: true });
+}
 
 function setMessage(text, kind="info"){
   elMsg.textContent = text;
@@ -720,50 +710,6 @@ function gameStatus(){
   if (last && last.g === target) return "won";
   if (state.rows.length >= MAX_ROWS) return "lost";
   return "play";
-}
-function computeKeyboardStatus(){
-  const status = {};
-  for (const r of state.rows){
-    for (let i=0;i<WORD_LEN;i++){
-      const ch = r.g[i];
-      const v = r.f[i] | 0;
-      status[ch] = Math.max(status[ch]||0, v);
-    }
-  }
-  return status;
-}
-function buildKeyboard(){
-  const rows = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
-  const containers = [krow1,krow2,krow3];
-  containers.forEach(c => c.innerHTML = "");
-  const status = computeKeyboardStatus();
-
-  function makeKey(label, cls="", onClick){
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "key " + cls;
-    b.textContent = label;
-    b.addEventListener("click", onClick);
-    return b;
-  }
-
-  for (const ch of rows[0]){
-    const v = status[ch]||0;
-    const cls = v===2?"green":(v===1?"yellow":(v===0 && ch in status ? "gray": ""));
-    krow1.appendChild(makeKey(ch, cls, () => handleLetter(ch)));
-  }
-  for (const ch of rows[1]){
-    const v = status[ch]||0;
-    const cls = v===2?"green":(v===1?"yellow":(v===0 && ch in status ? "gray": ""));
-    krow2.appendChild(makeKey(ch, cls, () => handleLetter(ch)));
-  }
-  krow3.appendChild(makeKey("Enter", "wide secondary", () => handleEnter()));
-  for (const ch of rows[2]){
-    const v = status[ch]||0;
-    const cls = v===2?"green":(v===1?"yellow":(v===0 && ch in status ? "gray": ""));
-    krow3.appendChild(makeKey(ch, cls, () => handleLetter(ch)));
-  }
-  krow3.appendChild(makeKey("⌫", "wide secondary", () => handleBackspace()));
 }
 function render(){
   elWordTotal.textContent = String(WORDS.length);
@@ -839,8 +785,6 @@ function render(){
     metaDiv.innerHTML = meta;
     elGrid.appendChild(metaDiv);
   }
-
-  buildKeyboard();
 }
 
 /* =========================
@@ -996,7 +940,7 @@ document.getElementById("wordNum").addEventListener("keydown", (e) => {
 
 window.addEventListener("keydown", (e) => {
   const active = document.activeElement;
-  if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+  if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active !== elKbdInput) return;
 
   const mod = e.ctrlKey || e.metaKey;
   if (mod && (e.key === "z" || e.key === "Z")){
@@ -1014,6 +958,24 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     handleLetter(k);
   }
+});
+
+// Mobile: tapping the board brings up the platform keyboard.
+elGrid.addEventListener("pointerdown", () => focusKbdInput());
+elMsg.addEventListener("pointerdown", () => focusKbdInput());
+
+// Mobile: use the platform keyboard's text input.
+elKbdInput.addEventListener("input", () => {
+  const s = String(elKbdInput.value || "");
+  elKbdInput.value = "";
+  for (const ch of s.toUpperCase()){
+    if (/^[A-Z]$/.test(ch)) handleLetter(ch);
+  }
+});
+
+elKbdInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter"){ e.preventDefault(); handleEnter(); return; }
+  if (e.key === "Backspace"){ e.preventDefault(); handleBackspace(); return; }
 });
 
 /* =========================
