@@ -270,6 +270,69 @@
       font-size: 12px;
       min-width: 60px;
     }
+    .promptHistorySection {
+      border-top: 1px solid rgba(127,127,127,.25);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .promptHistoryHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .promptHistoryHeader label {
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .promptHistoryList {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .promptHistoryItem {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(127,127,127,.08);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .promptHistoryItem:hover {
+      background: rgba(127,127,127,.15);
+    }
+    .promptHistoryItem .promptText {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .promptHistoryItem .promptMeta {
+      font-size: 10px;
+      opacity: 0.6;
+      white-space: nowrap;
+    }
+    .promptHistoryItem .deletePrompt {
+      opacity: 0.5;
+      padding: 2px 6px;
+      font-size: 10px;
+      border-radius: 4px;
+    }
+    .promptHistoryItem .deletePrompt:hover {
+      opacity: 1;
+      background: rgba(220, 38, 38, 0.2);
+    }
+    .promptHistoryEmpty {
+      font-size: 12px;
+      opacity: 0.5;
+      font-style: italic;
+    }
   </style>
 </head>
 
@@ -334,10 +397,19 @@
         <div id="aiPromptMode" class="aiPromptArea">
           <textarea id="aiPrompt" placeholder="Describe the app you want to create or the changes you want to make..."></textarea>
           <div class="aiButtons">
-            <button id="btnAiNew" class="primary" title="Generate a new app from scratch (ignores existing source)">New</button>
+            <button id="btnAiNew" class="primary" title="Generate a new app from scratch (clears prompt history)">New</button>
             <button id="btnAiChange" class="primary" title="Modify the existing app based on your instructions">Change</button>
+            <button id="btnDeleteHistory" title="Delete all prompt history">Delete History</button>
           </div>
           <div id="aiStatusBox" class="aiStatus" style="display:none;"></div>
+          <div class="promptHistorySection">
+            <div class="promptHistoryHeader">
+              <label>Recent Prompts</label>
+            </div>
+            <div id="promptHistoryList" class="promptHistoryList">
+              <div class="promptHistoryEmpty">No prompts yet</div>
+            </div>
+          </div>
         </div>
         <!-- Settings mode -->
         <div id="aiSettingsMode" class="settingsArea" style="display:none;">
@@ -599,14 +671,22 @@
 
   // ---------------------------
   // Editor state in URL hash:
-  //   #c=<gz|lzw>&src=<payload>&h=<appHash>
+  //   #c=<gz|lzw>&src=<payload>&h=<appHash>&ph=<promptHistory>
   // ---------------------------
   function readHashParams() {
     const p = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : "");
+    let promptHistory = [];
+    try {
+      const phParam = p.get("ph");
+      if (phParam) {
+        promptHistory = JSON.parse(decodeURIComponent(phParam));
+      }
+    } catch (_) {}
     return {
       codec: p.get("c") || "",
       srcPayload: p.get("src") || "",
       appHash: p.get("h") || "",
+      promptHistory: promptHistory,
     };
   }
 
@@ -615,6 +695,9 @@
     p.set("c", state.codec);
     p.set("src", state.srcPayload);
     if (state.appHash) p.set("h", state.appHash);
+    if (state.promptHistory && state.promptHistory.length > 0) {
+      p.set("ph", encodeURIComponent(JSON.stringify(state.promptHistory)));
+    }
 
     const newUrl = "#" + p.toString();
     if (replace) history.replaceState(null, "", newUrl);
@@ -626,6 +709,44 @@
   // ---------------------------
   const AI_SETTINGS_KEY = "sfwa-ai-settings";
   const AI_MODELS_CACHE_KEY = "sfwa-ai-models-cache";
+  const MAX_PROMPT_HISTORY = 20;
+
+  function getPromptHistory() {
+    return state.promptHistory || [];
+  }
+
+  function setPromptHistory(history) {
+    state.promptHistory = history;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, promptHistory: state.promptHistory }, { replace: true });
+  }
+
+  function addToPromptHistory(prompt, type) {
+    const history = getPromptHistory();
+    const entry = {
+      id: Date.now(),
+      prompt: prompt,
+      type: type, // 'new' or 'change'
+      timestamp: new Date().toISOString()
+    };
+    // Add to beginning, remove duplicates, limit size
+    const filtered = history.filter(h => h.prompt !== prompt);
+    filtered.unshift(entry);
+    const limited = filtered.slice(0, MAX_PROMPT_HISTORY);
+    setPromptHistory(limited);
+    return limited;
+  }
+
+  function deleteFromPromptHistory(id) {
+    const history = getPromptHistory();
+    const filtered = history.filter(h => h.id !== id);
+    setPromptHistory(filtered);
+    return filtered;
+  }
+
+  function clearPromptHistory() {
+    setPromptHistory([]);
+    return [];
+  }
 
   function loadAISettings() {
     try {
@@ -705,6 +826,8 @@
     btnAiNew: $("btnAiNew"),
     btnAiChange: $("btnAiChange"),
     aiStatusBox: $("aiStatusBox"),
+    promptHistoryList: $("promptHistoryList"),
+    btnDeleteHistory: $("btnDeleteHistory"),
     aiApiKey: $("aiApiKey"),
     btnToggleApiKey: $("btnToggleApiKey"),
     aiModel: $("aiModel"),
@@ -785,6 +908,7 @@
     srcPayload: "",
     srcText: DEFAULT_APP_SOURCE,
     appHash: "",
+    promptHistory: [],
 
     // preview bookkeeping
     previewBlobUrl: "",
@@ -1043,7 +1167,9 @@
       // First run: seed the URL with the demo app.
       ui.srcEditor.value = DEFAULT_APP_SOURCE;
       state.appHash = "";
+      state.promptHistory = [];
       await commitSource(DEFAULT_APP_SOURCE);
+      renderPromptHistory();
       return;
     }
 
@@ -1054,17 +1180,21 @@
       state.srcPayload = h.srcPayload;
       state.srcText = text;
       state.appHash = h.appHash || "";
+      state.promptHistory = h.promptHistory || [];
 
       ui.srcEditor.value = state.srcText;
       syncStatus();
       loadPreview();
+      renderPromptHistory();
       setMsg("Loaded.", "ok");
     } catch (e) {
       ui.srcEditor.value = DEFAULT_APP_SOURCE;
       state.srcText = DEFAULT_APP_SOURCE;
       state.appHash = "";
+      state.promptHistory = [];
       syncStatus();
       loadPreview();
+      renderPromptHistory();
       setMsg("Couldn't decode URL hash; loaded demo instead.", "warn");
     }
   }
@@ -1303,14 +1433,62 @@ function writeState(s, replace=true) {
       return;
     }
 
+    // Clear prompt history when using New (not Change)
+    if (!includeSource) {
+      clearPromptHistory();
+    }
+
     const html = await callOpenRouter(prompt, includeSource);
     if (html) {
+      // Save prompt to history
+      addToPromptHistory(prompt, includeSource ? 'change' : 'new');
+      renderPromptHistory();
+
       ui.srcEditor.value = html;
       state.srcText = html;
       state.appHash = "";
       await commitSource(html);
       setViewMode("source");
     }
+  }
+
+  function renderPromptHistory() {
+    const history = getPromptHistory();
+    ui.promptHistoryList.innerHTML = '';
+
+    if (history.length === 0) {
+      ui.promptHistoryList.innerHTML = '<div class="promptHistoryEmpty">No prompts yet</div>';
+      return;
+    }
+
+    history.forEach(entry => {
+      const item = document.createElement('div');
+      item.className = 'promptHistoryItem';
+
+      const date = new Date(entry.timestamp);
+      const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const typeLabel = entry.type === 'new' ? '✨' : '🔄';
+
+      item.innerHTML = `
+        <span class="promptText" title="${entry.prompt.replace(/"/g, '&quot;')}">${typeLabel} ${entry.prompt}</span>
+        <span class="promptMeta">${timeStr}</span>
+        <button class="deletePrompt" title="Delete this prompt">✕</button>
+      `;
+
+      // Click to use prompt
+      item.querySelector('.promptText').addEventListener('click', () => {
+        ui.aiPrompt.value = entry.prompt;
+      });
+
+      // Delete button
+      item.querySelector('.deletePrompt').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteFromPromptHistory(entry.id);
+        renderPromptHistory();
+      });
+
+      ui.promptHistoryList.appendChild(item);
+    });
   }
 
   // ---------------------------
@@ -1377,6 +1555,14 @@ function writeState(s, replace=true) {
   // AI actions
   ui.btnAiNew.addEventListener("click", () => handleAiGenerate(false));
   ui.btnAiChange.addEventListener("click", () => handleAiGenerate(true));
+
+  // Prompt history
+  ui.btnDeleteHistory.addEventListener("click", () => {
+    if (confirm("Delete all prompt history?")) {
+      clearPromptHistory();
+      renderPromptHistory();
+    }
+  });
 
   // AI settings
   ui.aiApiKey.addEventListener("input", () => {
