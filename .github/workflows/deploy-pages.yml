@@ -98,6 +98,9 @@ jobs:
             cp "_site/README.html" "_site/index.html"
           fi
 
+      - name: Generate site index
+        run: node .github/workflows/templates/generate-index.js _site
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
