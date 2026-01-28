@@ -27,26 +27,25 @@ jobs:
           node-version: '20'
 
       - name: Install markdown converter
-        run: npm install -g marked
+        run: npm install -g marked@12.0.0
 
       - name: Convert markdown to HTML
         run: |
           # Create output directory
           mkdir -p _site
           
-          # Copy all existing HTML files to _site
-          find . -name "*.html" -not -path "./_site/*" -not -path "./.git/*" -exec cp {} _site/ \;
-          
-          # Copy directories (abi, harness) to _site
-          if [ -d "abi" ]; then
-            cp -r abi _site/
-          fi
-          if [ -d "harness" ]; then
-            cp -r harness _site/
-          fi
+          # Copy all existing HTML files to _site preserving directory structure
+          find . -name "*.html" -not -path "./_site/*" -not -path "./.git/*" -type f | while read -r file; do
+            # Remove leading ./
+            file=${file#./}
+            # Create directory if needed
+            mkdir -p "_site/$(dirname "$file")"
+            # Copy file
+            cp "$file" "_site/$file"
+          done
           
           # Convert all markdown files to HTML
-          find . -name "*.md" -not -path "./_site/*" -not -path "./.git/*" | while read -r file; do
+          find . -name "*.md" -not -path "./_site/*" -not -path "./.git/*" -type f | while read -r file; do
             filename=$(basename "$file" .md)
             dirname=$(dirname "$file")
             
@@ -62,10 +61,19 @@ jobs:
             outfile="$outdir/${filename}.html"
             
             # Convert markdown to HTML using marked
-            content=$(marked "$file")
+            if ! content=$(marked "$file" 2>&1); then
+              echo "Error converting $file: $content"
+              exit 1
+            fi
             
-            # Get title from first h1 or use filename
-            title=$(echo "$content" | grep -oP '(?<=<h1>)[^<]+' | head -1 || echo "$filename")
+            # Get title from first h1 using sed (more portable than grep -P)
+            title=$(echo "$content" | sed -n 's/.*<h1[^>]*>\([^<]*\)<\/h1>.*/\1/p' | head -1)
+            if [ -z "$title" ]; then
+              title="$filename"
+            fi
+            
+            # Escape special characters in title for safe sed usage
+            title=$(echo "$title" | sed 's/[\/&]/\\&/g')
             
             # Generate HTML file
             cat > "$outfile" << 'EOF'
