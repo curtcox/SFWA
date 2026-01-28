@@ -1,0 +1,1487 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA AI Editor (Single-File / All-State-in-Hash)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(127,127,127,.35);
+      background: color-mix(in oklab, Canvas 92%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .label { font-size: 12px; opacity: .8; }
+    .field {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      width: min(1400px, 100%);
+    }
+    .field input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: color-mix(in oklab, Canvas 96%, transparent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+    .field input[readonly] { opacity: .85; }
+    button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: color-mix(in oklab, Canvas 90%, transparent);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    button:hover { filter: brightness(1.05); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button:disabled:hover { filter: none; }
+    .navBtn { padding: 8px 12px; font-weight: 600; }
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      height: calc(100vh - 120px);
+    }
+    .pane {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+      border-right: 1px solid rgba(127,127,127,.35);
+    }
+    .pane:last-child { border-right: none; }
+    .paneHead {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(127,127,127,.35);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .paneTitle { font-weight: 600; }
+    textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 0;
+      outline: none;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: Canvas;
+      color: CanvasText;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: white;
+    }
+    .status {
+      padding: 8px 12px;
+      border-top: 1px solid rgba(127,127,127,.35);
+      font-size: 12px;
+      opacity: .85;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+    .pill {
+      padding: 2px 8px;
+      border: 1px solid rgba(127,127,127,.45);
+      border-radius: 999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+    }
+    .warn { color: #b45309; }
+    .ok { color: #15803d; }
+    .viewBtn { font-weight: 500; }
+    .viewBtn.active { background: color-mix(in oklab, Canvas 70%, CanvasText 15%); }
+    .main.view-source { grid-template-columns: 1fr 1fr; }
+    .main.view-debug { grid-template-columns: 1fr 1fr; }
+    .main.view-preview { grid-template-columns: 1fr; }
+    .main.view-ai { grid-template-columns: 1fr 1fr; }
+    .main.view-source .pane-source,
+    .main.view-source .pane-preview { display: grid; }
+    .main.view-source .pane-debug,
+    .main.view-source .pane-ai { display: none; }
+    .main.view-debug .pane-debug,
+    .main.view-debug .pane-preview { display: grid; }
+    .main.view-debug .pane-source,
+    .main.view-debug .pane-ai { display: none; }
+    .main.view-preview .pane-preview { display: grid; }
+    .main.view-preview .pane-source,
+    .main.view-preview .pane-debug,
+    .main.view-preview .pane-ai { display: none; }
+    .main.view-ai .pane-ai,
+    .main.view-ai .pane-preview { display: grid; }
+    .main.view-ai .pane-source,
+    .main.view-ai .pane-debug { display: none; }
+    .debugOutput {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: Canvas;
+      color: CanvasText;
+    }
+    .debugLine { padding: 2px 0; border-bottom: 1px solid rgba(127,127,127,.15); }
+    .debugLine.log { color: CanvasText; }
+    .debugLine.warn { color: #b45309; }
+    .debugLine.error { color: #dc2626; }
+    .debugLine.info { color: #2563eb; }
+
+    /* AI Pane Styles */
+    .aiContent {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 12px;
+      background: Canvas;
+      color: CanvasText;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .aiPromptArea {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .aiPromptArea textarea {
+      flex: 1;
+      min-height: 150px;
+      border: 1px solid rgba(127,127,127,.45);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .aiButtons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .aiButtons button {
+      padding: 10px 16px;
+      font-weight: 500;
+    }
+    .aiButtons button.primary {
+      background: #2563eb;
+      color: white;
+      border-color: #1d4ed8;
+    }
+    .aiButtons button.primary:hover {
+      filter: brightness(1.1);
+    }
+    .aiButtons button.primary:disabled {
+      background: #93c5fd;
+      border-color: #93c5fd;
+    }
+    .settingsArea {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .settingsField {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .settingsField label {
+      font-weight: 500;
+      font-size: 13px;
+    }
+    .settingsField input,
+    .settingsField select {
+      padding: 10px 12px;
+      border: 1px solid rgba(127,127,127,.45);
+      border-radius: 10px;
+      font-size: 13px;
+      background: color-mix(in oklab, Canvas 96%, transparent);
+    }
+    .settingsField input[type="password"] {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    .aiStatus {
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      background: rgba(127,127,127,.1);
+    }
+    .aiStatus.loading {
+      background: rgba(37, 99, 235, 0.1);
+      color: #2563eb;
+    }
+    .aiStatus.error {
+      background: rgba(220, 38, 38, 0.1);
+      color: #dc2626;
+    }
+    .aiStatus.success {
+      background: rgba(21, 128, 61, 0.1);
+      color: #15803d;
+    }
+    .aiModeToggle {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(127,127,127,.1);
+      border-radius: 10px;
+    }
+    .aiModeToggle button {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    .aiModeToggle button.active {
+      background: Canvas;
+      box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    }
+    .modelInfo {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+    .apiKeyWrapper {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .apiKeyWrapper input {
+      flex: 1;
+    }
+    .toggleVisibility {
+      padding: 8px 10px;
+      font-size: 12px;
+      min-width: 60px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="field">
+      <div class="row" style="gap:4px;">
+        <button id="btnBack" class="navBtn" title="Go back in app history" disabled>←</button>
+        <button id="btnForward" class="navBtn" title="Go forward in app history" disabled>→</button>
+        <input id="appUrlBar" placeholder="Paste full URL or just #hash, then press Enter" style="flex:1;" />
+      </div>
+      <div class="row">
+        <button id="btnCopyAppUrl">Copy</button>
+        <a id="linkPlayer" href="player.html" target="_blank" style="text-decoration:none;"><button type="button" title="Open in Player (view-only mode)">Play ▶</button></a>
+        <button id="btnViewSource" class="viewBtn active" title="Show source and preview">Source</button>
+        <button id="btnViewDebug" class="viewBtn" title="Show console output and preview">Debug</button>
+        <button id="btnViewAI" class="viewBtn" title="Show AI assistant and preview">AI</button>
+        <button id="btnViewPreview" class="viewBtn" title="Show preview only">Preview Only</button>
+        <button id="btnReloadNow" title="Reload preview immediately">Reload preview</button>
+        <button id="btnReset" title="Reset to the built-in demo app">Reset demo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main view-source" id="mainContainer">
+    <div class="pane pane-source">
+      <div class="paneHead">
+        <div class="paneTitle">App source (stored compressed in editor #hash)</div>
+        <div class="label">Auto-reload: 1s after you stop typing</div>
+      </div>
+      <textarea id="srcEditor" spellcheck="false"></textarea>
+      <div class="status">
+        <span class="pill" id="codecPill">codec: ?</span>
+        <span class="pill" id="urlLenPill">editor URL length: ?</span>
+        <span class="pill" id="srcLenPill">source chars: ?</span>
+        <span class="pill" id="previewPill">preview: ?</span>
+        <span id="msg" class="label"></span>
+      </div>
+    </div>
+
+    <div class="pane pane-debug">
+      <div class="paneHead">
+        <div class="paneTitle">Console output</div>
+        <button id="btnClearDebug">Clear</button>
+      </div>
+      <div class="debugOutput" id="debugOutput"></div>
+      <div class="status">
+        <span class="label">Captures console.log, console.warn, console.error, console.info from the preview.</span>
+      </div>
+    </div>
+
+    <div class="pane pane-ai">
+      <div class="paneHead">
+        <div class="paneTitle">AI Assistant</div>
+        <div class="aiModeToggle">
+          <button id="btnAiPrompt" class="active">Prompt</button>
+          <button id="btnAiSettings">Settings</button>
+        </div>
+      </div>
+      <div class="aiContent" id="aiContent">
+        <!-- Prompt mode -->
+        <div id="aiPromptMode" class="aiPromptArea">
+          <textarea id="aiPrompt" placeholder="Describe the app you want to create or the changes you want to make..."></textarea>
+          <div class="aiButtons">
+            <button id="btnAiNew" class="primary" title="Generate a new app from scratch (ignores existing source)">New</button>
+            <button id="btnAiChange" class="primary" title="Modify the existing app based on your instructions">Change</button>
+          </div>
+          <div id="aiStatusBox" class="aiStatus" style="display:none;"></div>
+        </div>
+        <!-- Settings mode -->
+        <div id="aiSettingsMode" class="settingsArea" style="display:none;">
+          <div class="settingsField">
+            <label for="aiApiKey">OpenRouter API Key</label>
+            <div class="apiKeyWrapper">
+              <input type="password" id="aiApiKey" placeholder="sk-or-v1-..." />
+              <button id="btnToggleApiKey" class="toggleVisibility" title="Show/hide API key">Show</button>
+            </div>
+            <div class="label">Get your API key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></div>
+          </div>
+          <div class="settingsField">
+            <label for="aiModel">Model</label>
+            <select id="aiModel">
+              <option value="">Loading models...</option>
+            </select>
+            <div id="modelInfo" class="modelInfo"></div>
+          </div>
+          <div class="aiButtons">
+            <button id="btnRefreshModels">Refresh Models</button>
+            <button id="btnSaveSettings">Save Settings</button>
+          </div>
+          <div id="settingsStatusBox" class="aiStatus" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="status">
+        <span class="label">Use AI to generate or modify your app. Settings are saved locally.</span>
+      </div>
+    </div>
+
+    <div class="pane pane-preview">
+      <div class="paneHead">
+        <div class="paneTitle">Live preview</div>
+        <div class="label">Hash in preview is editable via the app address bar</div>
+      </div>
+      <iframe
+        id="preview"
+        sandbox="allow-scripts allow-same-origin"
+        referrerpolicy="no-referrer"
+      ></iframe>
+      <div class="status">
+        <span class="label">Tip: your SFWA should read/write <code>location.hash</code> for state.</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // Utilities: base64url
+  // ---------------------------
+  function b64urlEncode(bytes) {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const b64 = btoa(bin);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function b64urlDecode(str) {
+    let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function nowTime() {
+    const d = new Date();
+    return d.toLocaleTimeString();
+  }
+
+  function normalizeHashFromMaybeUrl(text) {
+    const s = (text || "").trim();
+    if (!s) return "";
+    const idx = s.indexOf("#");
+    if (idx >= 0) return s.slice(idx + 1);
+    return s.startsWith("#") ? s.slice(1) : s;
+  }
+
+  // ---------------------------
+  // Compression: gzip (preferred) + LZW16 fallback
+  // ---------------------------
+  const CLEAR = 0xFFFF;      // dictionary reset marker (not a normal code)
+  const MAX_CODE = 0xFFFE;   // last usable code; 0xFFFF reserved for CLEAR
+
+  function lzwCompressToB64url(text) {
+    const input = new TextEncoder().encode(text);
+
+    // Dictionary maps (prefixCode<<8 | byte) -> code
+    // prefixCode fits in 16 bits; byte fits in 8 bits.
+    // Key computed as prefixCode * 256 + byte.
+    let dict = new Map();
+    let dictSize = 256;
+
+    const outCodes = [];
+    if (input.length === 0) return "";
+
+    let w = input[0]; // current code (0..255 or dict code)
+    for (let i = 1; i < input.length; i++) {
+      const k = input[i];
+      const key = w * 256 + k;
+
+      const hit = dict.get(key);
+      if (hit !== undefined) {
+        w = hit;
+        continue;
+      }
+
+      outCodes.push(w);
+
+      // Add new entry if possible; else emit CLEAR and reset.
+      if (dictSize <= MAX_CODE) {
+        dict.set(key, dictSize++);
+      } else {
+        outCodes.push(CLEAR);
+        dict = new Map();
+        dictSize = 256;
+      }
+
+      w = k;
+    }
+    outCodes.push(w);
+
+    const bytes = new Uint8Array(outCodes.length * 2);
+    for (let i = 0; i < outCodes.length; i++) {
+      const c = outCodes[i];
+      bytes[i * 2] = (c >>> 8) & 0xFF;
+      bytes[i * 2 + 1] = c & 0xFF;
+    }
+    return b64urlEncode(bytes);
+  }
+
+  function lzwDecompressFromB64url(payload) {
+    const bytes = b64urlDecode(payload || "");
+    if (bytes.length === 0) return "";
+
+    const codes = new Uint16Array(bytes.length / 2);
+    for (let i = 0; i < codes.length; i++) {
+      codes[i] = (bytes[i * 2] << 8) | bytes[i * 2 + 1];
+    }
+
+    // Dictionary entries: for codes >= 256, store {p: prefixCode, b: lastByte}
+    let prefix = new Uint16Array(MAX_CODE + 1);
+    let lastByte = new Uint8Array(MAX_CODE + 1);
+    let dictSize = 256;
+
+    function reset() {
+      dictSize = 256;
+    }
+    reset();
+
+    const out = [];
+    let prevCode = null;
+
+    function firstByteOf(code) {
+      while (code >= 256) code = prefix[code];
+      return code & 0xFF;
+    }
+
+    function emitSequence(code) {
+      const stack = [];
+      while (code >= 256) {
+        stack.push(lastByte[code]);
+        code = prefix[code];
+      }
+      stack.push(code & 0xFF);
+      for (let i = stack.length - 1; i >= 0; i--) out.push(stack[i]);
+    }
+
+    for (let i = 0; i < codes.length; i++) {
+      const code = codes[i];
+
+      if (code === CLEAR) {
+        reset();
+        prevCode = null;
+        continue;
+      }
+
+      if (prevCode === null) {
+        emitSequence(code);
+        prevCode = code;
+        continue;
+      }
+
+      if (code < dictSize) {
+        emitSequence(code);
+        // Add dict entry: prev + firstByte(code)
+        if (dictSize <= MAX_CODE) {
+          prefix[dictSize] = prevCode;
+          lastByte[dictSize] = firstByteOf(code);
+          dictSize++;
+        }
+        prevCode = code;
+        continue;
+      }
+
+      // Special case: code == dictSize means entry is prev + firstByte(prev)
+      if (code === dictSize) {
+        emitSequence(prevCode);
+        const fb = firstByteOf(prevCode);
+        out.push(fb);
+
+        if (dictSize <= MAX_CODE) {
+          prefix[dictSize] = prevCode;
+          lastByte[dictSize] = fb;
+          dictSize++;
+        }
+        prevCode = code;
+        continue;
+      }
+
+      throw new Error("LZW decode error: invalid code");
+    }
+
+    return new TextDecoder().decode(new Uint8Array(out));
+  }
+
+  const hasGzip = typeof CompressionStream !== "undefined" && typeof DecompressionStream !== "undefined";
+
+  async function gzipCompressToB64url(text) {
+    const raw = new TextEncoder().encode(text);
+    const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream("gzip"));
+    const ab = await new Response(stream).arrayBuffer();
+    return b64urlEncode(new Uint8Array(ab));
+  }
+
+  async function gzipDecompressFromB64url(payload) {
+    const bytes = b64urlDecode(payload || "");
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const ab = await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(ab);
+  }
+
+  async function compressText(text) {
+    if (hasGzip) {
+      try {
+        return { codec: "gz", payload: await gzipCompressToB64url(text) };
+      } catch (_) {
+        // fall through
+      }
+    }
+    return { codec: "lzw", payload: lzwCompressToB64url(text) };
+  }
+
+  async function decompressText(codec, payload) {
+    if (!payload) return "";
+    if (codec === "gz") return await gzipDecompressFromB64url(payload);
+    if (codec === "lzw") return lzwDecompressFromB64url(payload);
+    // Legacy/unknown: try gzip then lzw then treat as plain
+    try { return await gzipDecompressFromB64url(payload); } catch (_) {}
+    try { return lzwDecompressFromB64url(payload); } catch (_) {}
+    return payload;
+  }
+
+  // ---------------------------
+  // Editor state in URL hash:
+  //   #c=<gz|lzw>&src=<payload>&h=<appHash>
+  // ---------------------------
+  function readHashParams() {
+    const p = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : "");
+    return {
+      codec: p.get("c") || "",
+      srcPayload: p.get("src") || "",
+      appHash: p.get("h") || "",
+    };
+  }
+
+  function writeHashParams(state, { replace = true } = {}) {
+    const p = new URLSearchParams();
+    p.set("c", state.codec);
+    p.set("src", state.srcPayload);
+    if (state.appHash) p.set("h", state.appHash);
+
+    const newUrl = "#" + p.toString();
+    if (replace) history.replaceState(null, "", newUrl);
+    else history.pushState(null, "", newUrl);
+  }
+
+  // ---------------------------
+  // AI Settings (LocalStorage)
+  // ---------------------------
+  const AI_SETTINGS_KEY = "sfwa-ai-settings";
+  const AI_MODELS_CACHE_KEY = "sfwa-ai-models-cache";
+
+  function loadAISettings() {
+    try {
+      const stored = localStorage.getItem(AI_SETTINGS_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (_) {}
+    return {
+      apiKey: "",
+      model: "anthropic/claude-sonnet-4",
+    };
+  }
+
+  function saveAISettings(settings) {
+    try {
+      localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(settings));
+    } catch (_) {}
+  }
+
+  function loadModelsCache() {
+    try {
+      const stored = localStorage.getItem(AI_MODELS_CACHE_KEY);
+      if (stored) {
+        const cache = JSON.parse(stored);
+        // Cache valid for 1 hour
+        if (cache.timestamp && Date.now() - cache.timestamp < 3600000) {
+          return cache.models;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function saveModelsCache(models) {
+    try {
+      localStorage.setItem(AI_MODELS_CACHE_KEY, JSON.stringify({
+        timestamp: Date.now(),
+        models: models
+      }));
+    } catch (_) {}
+  }
+
+  // ---------------------------
+  // UI + Preview
+  // ---------------------------
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    appUrlBar: $("appUrlBar"),
+    srcEditor: $("srcEditor"),
+    preview: $("preview"),
+    mainContainer: $("mainContainer"),
+    debugOutput: $("debugOutput"),
+    btnCopyAppUrl: $("btnCopyAppUrl"),
+    btnBack: $("btnBack"),
+    btnForward: $("btnForward"),
+    btnViewSource: $("btnViewSource"),
+    btnViewDebug: $("btnViewDebug"),
+    btnViewAI: $("btnViewAI"),
+    btnViewPreview: $("btnViewPreview"),
+    btnClearDebug: $("btnClearDebug"),
+    btnReloadNow: $("btnReloadNow"),
+    btnReset: $("btnReset"),
+    linkPlayer: $("linkPlayer"),
+    codecPill: $("codecPill"),
+    urlLenPill: $("urlLenPill"),
+    srcLenPill: $("srcLenPill"),
+    previewPill: $("previewPill"),
+    msg: $("msg"),
+    // AI elements
+    aiContent: $("aiContent"),
+    aiPromptMode: $("aiPromptMode"),
+    aiSettingsMode: $("aiSettingsMode"),
+    btnAiPrompt: $("btnAiPrompt"),
+    btnAiSettings: $("btnAiSettings"),
+    aiPrompt: $("aiPrompt"),
+    btnAiNew: $("btnAiNew"),
+    btnAiChange: $("btnAiChange"),
+    aiStatusBox: $("aiStatusBox"),
+    aiApiKey: $("aiApiKey"),
+    btnToggleApiKey: $("btnToggleApiKey"),
+    aiModel: $("aiModel"),
+    modelInfo: $("modelInfo"),
+    btnRefreshModels: $("btnRefreshModels"),
+    btnSaveSettings: $("btnSaveSettings"),
+    settingsStatusBox: $("settingsStatusBox"),
+  };
+
+  const DEFAULT_APP_SOURCE =
+`<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hash State Demo App</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  input{padding:8px 10px;border:1px solid #9996;border-radius:10px;}
+  button{padding:8px 10px;border:1px solid #9996;border-radius:10px;cursor:pointer;}
+  pre{background:#f3f3f3;padding:10px;border-radius:10px;white-space:pre-wrap;}
+</style>
+
+<h2>SFWA demo: all state in <code>location.hash</code></h2>
+
+<div class="row">
+  <button id="dec">-</button>
+  <button id="inc">+</button>
+  <label>name:</label>
+  <input id="name" placeholder="type me" />
+</div>
+
+<pre id="view"></pre>
+
+<script>
+  const DEFAULT = { counter: 0, name: "" };
+
+  function readState() {
+    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+    if (!raw) return { ...DEFAULT };
+    try { return { ...DEFAULT, ...JSON.parse(decodeURIComponent(raw)) }; }
+    catch { return { ...DEFAULT }; }
+  }
+
+  function writeState(s, replace=true) {
+    const h = "#" + encodeURIComponent(JSON.stringify(s));
+    if (replace) history.replaceState(null, "", h);
+    else history.pushState(null, "", h);
+  }
+
+  let state = readState();
+
+  function render() {
+    document.getElementById("name").value = state.name;
+    document.getElementById("view").textContent =
+      JSON.stringify({ state, hash: location.hash }, null, 2);
+  }
+
+  function update(mut, milestone=false) {
+    state = mut({ ...state });
+    writeState(state, !milestone);
+    render();
+  }
+
+  document.getElementById("dec").onclick = () => update(s => (s.counter--, s), true);
+  document.getElementById("inc").onclick = () => update(s => (s.counter++, s), true);
+  document.getElementById("name").oninput = (e) =>
+    update(s => (s.name = e.target.value, s), false);
+
+  window.addEventListener("hashchange", () => { state = readState(); render(); });
+
+  // canonicalize hash on load
+  writeState(state, true);
+  render();
+<\/script>`;
+
+  let state = {
+    codec: hasGzip ? "gz" : "lzw",
+    srcPayload: "",
+    srcText: DEFAULT_APP_SOURCE,
+    appHash: "",
+
+    // preview bookkeeping
+    previewBlobUrl: "",
+  };
+
+  let aiSettings = loadAISettings();
+  let modelsData = [];
+  let isAiLoading = false;
+
+  function setMsg(text, kind = "") {
+    ui.msg.textContent = text || "";
+    ui.msg.className = "label " + (kind || "");
+  }
+
+  function syncStatus() {
+    ui.codecPill.textContent = `codec: ${state.codec || "?"}`;
+    ui.urlLenPill.textContent = `editor URL length: ${location.href.length}`;
+    ui.srcLenPill.textContent = `source chars: ${ui.srcEditor.value.length}`;
+    // Update player link to match current hash
+    ui.linkPlayer.href = "player.html" + location.hash;
+  }
+
+  function revokePreviewBlob() {
+    if (state.previewBlobUrl) {
+      URL.revokeObjectURL(state.previewBlobUrl);
+      state.previewBlobUrl = "";
+    }
+  }
+
+  // Console capture script to inject into preview
+  const CONSOLE_CAPTURE_SCRIPT = `<script>
+(function() {
+  const methods = ['log', 'warn', 'error', 'info'];
+  methods.forEach(function(level) {
+    const orig = console[level];
+    console[level] = function() {
+      const args = Array.prototype.slice.call(arguments).map(function(a) {
+        if (typeof a === 'object') {
+          try { return JSON.parse(JSON.stringify(a)); }
+          catch(e) { return String(a); }
+        }
+        return a;
+      });
+      try {
+        parent.postMessage({ type: 'sfwa-console', level: level, args: args }, '*');
+      } catch(e) {}
+      return orig.apply(console, arguments);
+    };
+  });
+})();
+<\/script>`;
+
+  function makePreviewUrl() {
+    revokePreviewBlob();
+    // Inject console capture script at the start of <head> or after <!doctype>
+    let html = state.srcText;
+    const headMatch = html.match(/<head[^>]*>/i);
+    if (headMatch) {
+      const idx = headMatch.index + headMatch[0].length;
+      html = html.slice(0, idx) + CONSOLE_CAPTURE_SCRIPT + html.slice(idx);
+    } else {
+      // No <head>, inject after <!doctype> or at start
+      const doctypeMatch = html.match(/<!doctype[^>]*>/i);
+      if (doctypeMatch) {
+        const idx = doctypeMatch.index + doctypeMatch[0].length;
+        html = html.slice(0, idx) + CONSOLE_CAPTURE_SCRIPT + html.slice(idx);
+      } else {
+        html = CONSOLE_CAPTURE_SCRIPT + html;
+      }
+    }
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    state.previewBlobUrl = url;
+    const h = state.appHash ? "#" + state.appHash : "";
+    return url + h;
+  }
+
+  let lastKnownIframeHash = "";
+  let hashPollTimer = 0;
+
+  // App history tracking
+  let appHistory = [];      // Array of hash strings (with #)
+  let appHistoryPos = -1;   // Current position in history
+  let isNavigating = false; // Flag to prevent recording during nav
+
+  function updateNavButtons() {
+    ui.btnBack.disabled = appHistoryPos <= 0;
+    ui.btnForward.disabled = appHistoryPos >= appHistory.length - 1;
+  }
+
+  function resetAppHistory(initialHash) {
+    appHistory = [initialHash || "#"];
+    appHistoryPos = 0;
+    updateNavButtons();
+  }
+
+  function recordAppHistory(hash) {
+    // Don't record if we're navigating via back/forward
+    if (isNavigating) return;
+
+    const normalized = hash || "#";
+    // Don't record duplicates
+    if (appHistory[appHistoryPos] === normalized) return;
+
+    // Truncate any forward history and add new entry
+    appHistory = appHistory.slice(0, appHistoryPos + 1);
+    appHistory.push(normalized);
+    appHistoryPos = appHistory.length - 1;
+    updateNavButtons();
+  }
+
+  function navigateAppHistory(delta) {
+    const newPos = appHistoryPos + delta;
+    if (newPos < 0 || newPos >= appHistory.length) return;
+
+    appHistoryPos = newPos;
+    const targetHash = appHistory[appHistoryPos];
+
+    isNavigating = true;
+    try {
+      ui.preview.contentWindow.location.hash = targetHash;
+      lastKnownIframeHash = targetHash;
+      state.appHash = targetHash.startsWith("#") ? targetHash.slice(1) : targetHash;
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      syncStatus();
+      syncAppBarFromIframe();
+      setMsg(`Navigated ${delta < 0 ? 'back' : 'forward'} in app history.`, "ok");
+    } catch (_) {
+      setMsg("Couldn't navigate app history.", "warn");
+    }
+    isNavigating = false;
+    updateNavButtons();
+  }
+
+  function syncAppBarFromIframe() {
+    try {
+      const hash = ui.preview.contentWindow.location.hash || "";
+      ui.appUrlBar.value = hash || "#";
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  function onIframeHashChanged(newHash) {
+    const h = newHash.startsWith("#") ? newHash.slice(1) : newHash;
+    state.appHash = h;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    syncStatus();
+    syncAppBarFromIframe();
+    recordAppHistory(newHash.startsWith("#") ? newHash : "#" + newHash);
+    ui.previewPill.textContent = `preview: hash synced @ ${nowTime()}`;
+    ui.previewPill.className = "pill ok";
+  }
+
+  function pollIframeHash() {
+    try {
+      const currentHash = ui.preview.contentWindow.location.hash || "";
+      if (currentHash !== lastKnownIframeHash) {
+        lastKnownIframeHash = currentHash;
+        onIframeHashChanged(currentHash);
+      }
+    } catch (_) {
+      // ignore cross-origin or not-ready errors
+    }
+  }
+
+  function startHashPolling() {
+    stopHashPolling();
+    // Poll every 250ms to catch replaceState/pushState changes
+    hashPollTimer = setInterval(pollIframeHash, 250);
+  }
+
+  function stopHashPolling() {
+    if (hashPollTimer) {
+      clearInterval(hashPollTimer);
+      hashPollTimer = 0;
+    }
+  }
+
+  function attachIframeHashSync() {
+    try {
+      const w = ui.preview.contentWindow;
+      // Initialize last known hash
+      lastKnownIframeHash = w.location.hash || "";
+      // Reset app history with initial hash
+      resetAppHistory(lastKnownIframeHash || "#");
+      // Start polling for hash changes (catches replaceState/pushState)
+      startHashPolling();
+      // Also listen for hashchange events (catches direct hash assignments)
+      w.addEventListener("hashchange", () => {
+        try {
+          const currentHash = w.location.hash || "";
+          if (currentHash !== lastKnownIframeHash) {
+            lastKnownIframeHash = currentHash;
+            onIframeHashChanged(currentHash);
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  function loadPreview() {
+    stopHashPolling();
+    ui.debugOutput.innerHTML = ""; // Clear debug output on reload
+    const src = makePreviewUrl();
+    ui.previewPill.textContent = `preview: loading…`;
+    ui.previewPill.className = "pill";
+    ui.preview.src = src;
+
+    ui.preview.onload = () => {
+      ui.previewPill.textContent = `preview: loaded @ ${nowTime()}`;
+      ui.previewPill.className = "pill ok";
+      syncAppBarFromIframe();
+      attachIframeHashSync();
+    };
+  }
+
+  // Debounced commit: 1 second after typing stops
+  let commitTimer = 0;
+  let commitSeq = 0;
+
+  function scheduleCommitAndReload() {
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(() => commitSource(ui.srcEditor.value), 1000);
+  }
+
+  async function commitSource(newText) {
+    const mySeq = ++commitSeq;
+    setMsg("Compressing + saving into editor URL hash…", "");
+    ui.previewPill.textContent = "preview: waiting…";
+    ui.previewPill.className = "pill";
+
+    const { codec, payload } = await compressText(newText);
+
+    // If another commit started while we were compressing, ignore this one.
+    if (mySeq !== commitSeq) return;
+
+    state.codec = codec;
+    state.srcPayload = payload;
+    state.srcText = newText;
+
+    try {
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      setMsg("Saved to URL hash. Reloading preview…", "ok");
+    } catch (e) {
+      setMsg("Failed to write URL hash (URL may be too long).", "warn");
+    }
+
+    syncStatus();
+    loadPreview();
+  }
+
+  async function loadFromEditorUrlHash() {
+    const h = readHashParams();
+    if (!h.srcPayload) {
+      // First run: seed the URL with the demo app.
+      ui.srcEditor.value = DEFAULT_APP_SOURCE;
+      state.appHash = "";
+      await commitSource(DEFAULT_APP_SOURCE);
+      return;
+    }
+
+    setMsg("Loading from URL hash…", "");
+    try {
+      const text = await decompressText(h.codec, h.srcPayload);
+      state.codec = h.codec || (hasGzip ? "gz" : "lzw");
+      state.srcPayload = h.srcPayload;
+      state.srcText = text;
+      state.appHash = h.appHash || "";
+
+      ui.srcEditor.value = state.srcText;
+      syncStatus();
+      loadPreview();
+      setMsg("Loaded.", "ok");
+    } catch (e) {
+      ui.srcEditor.value = DEFAULT_APP_SOURCE;
+      state.srcText = DEFAULT_APP_SOURCE;
+      state.appHash = "";
+      syncStatus();
+      loadPreview();
+      setMsg("Couldn't decode URL hash; loaded demo instead.", "warn");
+    }
+  }
+
+  // ---------------------------
+  // AI Functionality
+  // ---------------------------
+  function setAiStatus(text, type = "") {
+    ui.aiStatusBox.textContent = text;
+    ui.aiStatusBox.className = "aiStatus " + type;
+    ui.aiStatusBox.style.display = text ? "block" : "none";
+  }
+
+  function setSettingsStatus(text, type = "") {
+    ui.settingsStatusBox.textContent = text;
+    ui.settingsStatusBox.className = "aiStatus " + type;
+    ui.settingsStatusBox.style.display = text ? "block" : "none";
+  }
+
+  function setAiMode(mode) {
+    if (mode === "prompt") {
+      ui.aiPromptMode.style.display = "flex";
+      ui.aiSettingsMode.style.display = "none";
+      ui.btnAiPrompt.classList.add("active");
+      ui.btnAiSettings.classList.remove("active");
+    } else {
+      ui.aiPromptMode.style.display = "none";
+      ui.aiSettingsMode.style.display = "flex";
+      ui.btnAiPrompt.classList.remove("active");
+      ui.btnAiSettings.classList.add("active");
+    }
+  }
+
+  async function fetchModels() {
+    // Try cache first
+    const cached = loadModelsCache();
+    if (cached && cached.length > 0) {
+      modelsData = cached;
+      populateModelSelect();
+      return;
+    }
+
+    setSettingsStatus("Loading models...", "loading");
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/models");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      modelsData = data.data || [];
+
+      // Sort by name
+      modelsData.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+
+      saveModelsCache(modelsData);
+      populateModelSelect();
+      setSettingsStatus("Models loaded.", "success");
+      setTimeout(() => setSettingsStatus(""), 2000);
+    } catch (err) {
+      setSettingsStatus("Failed to load models: " + err.message, "error");
+      // Add some default models
+      modelsData = [
+        { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4" },
+        { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
+        { id: "openai/gpt-4o", name: "GPT-4o" },
+        { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+        { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash" },
+        { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B" },
+      ];
+      populateModelSelect();
+    }
+  }
+
+  function populateModelSelect() {
+    ui.aiModel.innerHTML = "";
+
+    // Group models by provider
+    const providers = {};
+    modelsData.forEach(m => {
+      const provider = m.id.split("/")[0] || "other";
+      if (!providers[provider]) providers[provider] = [];
+      providers[provider].push(m);
+    });
+
+    // Create optgroups
+    Object.keys(providers).sort().forEach(provider => {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = provider;
+      providers[provider].forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        optgroup.appendChild(opt);
+      });
+      ui.aiModel.appendChild(optgroup);
+    });
+
+    // Set selected value
+    if (aiSettings.model) {
+      ui.aiModel.value = aiSettings.model;
+    }
+    updateModelInfo();
+  }
+
+  function updateModelInfo() {
+    const modelId = ui.aiModel.value;
+    const model = modelsData.find(m => m.id === modelId);
+    if (model) {
+      const parts = [];
+      if (model.context_length) parts.push(`Context: ${model.context_length.toLocaleString()} tokens`);
+      if (model.pricing) {
+        const promptPrice = parseFloat(model.pricing.prompt) * 1000000;
+        const completionPrice = parseFloat(model.pricing.completion) * 1000000;
+        if (promptPrice > 0 || completionPrice > 0) {
+          parts.push(`$${promptPrice.toFixed(2)}/$${completionPrice.toFixed(2)} per 1M tokens`);
+        }
+      }
+      ui.modelInfo.textContent = parts.join(" • ");
+    } else {
+      ui.modelInfo.textContent = "";
+    }
+  }
+
+  function updateAiButtonStates() {
+    const hasApiKey = !!aiSettings.apiKey;
+    const hasModel = !!aiSettings.model;
+    const canUseAi = hasApiKey && hasModel && !isAiLoading;
+
+    ui.btnAiNew.disabled = !canUseAi;
+    ui.btnAiChange.disabled = !canUseAi;
+  }
+
+  async function callOpenRouter(prompt, includeSource) {
+    if (!aiSettings.apiKey) {
+      setAiStatus("Please set your API key in Settings.", "error");
+      return null;
+    }
+    if (!aiSettings.model) {
+      setAiStatus("Please select a model in Settings.", "error");
+      return null;
+    }
+
+    isAiLoading = true;
+    updateAiButtonStates();
+    setAiStatus("Generating...", "loading");
+
+    const systemPrompt = `You are an expert web developer. Generate a complete, single-file HTML application based on the user's request.
+
+Requirements:
+- Output ONLY the HTML code, no explanations or markdown code blocks
+- The app must be a complete, valid HTML document
+- All CSS must be in a <style> tag
+- All JavaScript must be in a <script> tag
+- The app MUST store all state in location.hash (this is critical for the SFWA format)
+- Use modern, clean HTML5/CSS3/ES6+
+- Make the UI responsive and visually appealing
+- Include proper meta tags for charset and viewport
+
+State Management Pattern:
+- Read state: parse location.hash (after #) as JSON or URL-encoded data
+- Write state: use history.replaceState() for minor updates, history.pushState() for milestones
+- Listen for hashchange events to sync UI with URL state
+- Initialize state from hash on page load
+
+Example state pattern:
+\`\`\`javascript
+function readState() {
+  const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+  if (!raw) return { /* defaults */ };
+  try { return JSON.parse(decodeURIComponent(raw)); }
+  catch { return { /* defaults */ }; }
+}
+
+function writeState(s, replace=true) {
+  const h = "#" + encodeURIComponent(JSON.stringify(s));
+  if (replace) history.replaceState(null, "", h);
+  else history.pushState(null, "", h);
+}
+\`\`\``;
+
+    let userMessage = prompt;
+    if (includeSource && state.srcText) {
+      userMessage = `Current app source code:\n\`\`\`html\n${state.srcText}\n\`\`\`\n\nRequested changes:\n${prompt}`;
+    }
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${aiSettings.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": location.origin,
+          "X-Title": "SFWA AI Editor",
+        },
+        body: JSON.stringify({
+          model: aiSettings.model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage }
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+
+      // Extract HTML from the response (in case it's wrapped in markdown code blocks)
+      let html = content;
+      const codeBlockMatch = content.match(/```(?:html)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        html = codeBlockMatch[1].trim();
+      }
+
+      setAiStatus("Generated successfully!", "success");
+      setTimeout(() => setAiStatus(""), 3000);
+
+      return html;
+    } catch (err) {
+      setAiStatus("Error: " + err.message, "error");
+      return null;
+    } finally {
+      isAiLoading = false;
+      updateAiButtonStates();
+    }
+  }
+
+  async function handleAiGenerate(includeSource) {
+    const prompt = ui.aiPrompt.value.trim();
+    if (!prompt) {
+      setAiStatus("Please enter a prompt.", "error");
+      return;
+    }
+
+    const html = await callOpenRouter(prompt, includeSource);
+    if (html) {
+      ui.srcEditor.value = html;
+      state.srcText = html;
+      state.appHash = "";
+      await commitSource(html);
+      setViewMode("source");
+    }
+  }
+
+  // ---------------------------
+  // Events
+  // ---------------------------
+  ui.srcEditor.addEventListener("input", () => {
+    scheduleCommitAndReload();
+    syncStatus();
+  });
+
+  ui.btnReloadNow.addEventListener("click", () => {
+    clearTimeout(commitTimer);
+    commitSource(ui.srcEditor.value);
+  });
+
+  ui.btnReset.addEventListener("click", () => {
+    clearTimeout(commitTimer);
+    ui.srcEditor.value = DEFAULT_APP_SOURCE;
+    state.appHash = "";
+    commitSource(DEFAULT_APP_SOURCE);
+  });
+
+  ui.btnCopyAppUrl.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(ui.appUrlBar.value || "");
+      setMsg("App address bar copied.", "ok");
+    } catch (_) {
+      setMsg("Clipboard blocked. Select + copy the App address bar field manually.", "warn");
+    }
+  });
+
+  ui.btnBack.addEventListener("click", () => {
+    navigateAppHistory(-1);
+  });
+
+  ui.btnForward.addEventListener("click", () => {
+    navigateAppHistory(1);
+  });
+
+  // ---------------------------
+  // View mode switching
+  // ---------------------------
+  function setViewMode(mode) {
+    ui.mainContainer.className = "main view-" + mode;
+    ui.btnViewSource.classList.toggle("active", mode === "source");
+    ui.btnViewDebug.classList.toggle("active", mode === "debug");
+    ui.btnViewAI.classList.toggle("active", mode === "ai");
+    ui.btnViewPreview.classList.toggle("active", mode === "preview");
+  }
+
+  ui.btnViewSource.addEventListener("click", () => setViewMode("source"));
+  ui.btnViewDebug.addEventListener("click", () => setViewMode("debug"));
+  ui.btnViewAI.addEventListener("click", () => setViewMode("ai"));
+  ui.btnViewPreview.addEventListener("click", () => setViewMode("preview"));
+
+  ui.btnClearDebug.addEventListener("click", () => {
+    ui.debugOutput.innerHTML = "";
+  });
+
+  // AI mode toggle
+  ui.btnAiPrompt.addEventListener("click", () => setAiMode("prompt"));
+  ui.btnAiSettings.addEventListener("click", () => setAiMode("settings"));
+
+  // AI actions
+  ui.btnAiNew.addEventListener("click", () => handleAiGenerate(false));
+  ui.btnAiChange.addEventListener("click", () => handleAiGenerate(true));
+
+  // AI settings
+  ui.aiApiKey.addEventListener("input", () => {
+    aiSettings.apiKey = ui.aiApiKey.value;
+    updateAiButtonStates();
+  });
+
+  ui.btnToggleApiKey.addEventListener("click", () => {
+    const isPassword = ui.aiApiKey.type === "password";
+    ui.aiApiKey.type = isPassword ? "text" : "password";
+    ui.btnToggleApiKey.textContent = isPassword ? "Hide" : "Show";
+  });
+
+  ui.aiModel.addEventListener("change", () => {
+    aiSettings.model = ui.aiModel.value;
+    updateModelInfo();
+    updateAiButtonStates();
+  });
+
+  ui.btnRefreshModels.addEventListener("click", () => {
+    localStorage.removeItem(AI_MODELS_CACHE_KEY);
+    fetchModels();
+  });
+
+  ui.btnSaveSettings.addEventListener("click", () => {
+    aiSettings.apiKey = ui.aiApiKey.value;
+    aiSettings.model = ui.aiModel.value;
+    saveAISettings(aiSettings);
+    setSettingsStatus("Settings saved!", "success");
+    setTimeout(() => setSettingsStatus(""), 2000);
+    updateAiButtonStates();
+  });
+
+  // ---------------------------
+  // Console capture from iframe
+  // ---------------------------
+  function addDebugLine(type, args) {
+    const line = document.createElement("div");
+    line.className = "debugLine " + type;
+    const text = args.map(a => {
+      if (typeof a === "object") {
+        try { return JSON.stringify(a, null, 2); }
+        catch { return String(a); }
+      }
+      return String(a);
+    }).join(" ");
+    line.textContent = `[${type}] ${text}`;
+    ui.debugOutput.appendChild(line);
+    ui.debugOutput.scrollTop = ui.debugOutput.scrollHeight;
+  }
+
+  window.addEventListener("message", (e) => {
+    if (e.data && e.data.type === "sfwa-console") {
+      addDebugLine(e.data.level, e.data.args);
+    }
+  });
+
+  // Editable "address bar" for the app being edited.
+  // Paste a full URL or just #hash, press Enter to apply the hash to the preview app
+  ui.appUrlBar.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const h = normalizeHashFromMaybeUrl(ui.appUrlBar.value);
+
+    state.appHash = h;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    syncStatus();
+
+    // Update preview hash without reloading:
+    try {
+      ui.preview.contentWindow.location.hash = h ? ("#" + h) : "";
+      // After the hashchange fires, we re-sync the bar from the iframe.
+      setMsg("Applied hash to preview.", "ok");
+    } catch (_) {
+      setMsg("Couldn't set preview hash (preview not ready yet).", "warn");
+    }
+  });
+
+  // If user manually edits the *editor* URL hash in the browser, reload state.
+  window.addEventListener("hashchange", () => {
+    // Debounce-ish: don't fight with in-flight commits
+    loadFromEditorUrlHash();
+  });
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+  (async function init() {
+    ui.previewPill.textContent = "preview: (not loaded yet)";
+    ui.previewPill.className = "pill";
+    syncStatus();
+
+    // Load AI settings
+    ui.aiApiKey.value = aiSettings.apiKey || "";
+    await fetchModels();
+    updateAiButtonStates();
+
+    await loadFromEditorUrlHash();
+  })();
+
+  // Cleanup
+  window.addEventListener("beforeunload", () => {
+    revokePreviewBlob();
+    stopHashPolling();
+  });
+})();
+</script>
+</body>
+</html>
