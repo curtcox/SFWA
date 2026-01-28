@@ -42,6 +42,9 @@
       font-size: 12px;
     }
     button:hover { filter: brightness(1.05); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button:disabled:hover { filter: none; }
+    .navBtn { padding: 8px 12px; font-weight: 600; }
     .main {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -127,7 +130,11 @@
 
     <div class="field">
       <div class="label">App address bar</div>
-      <input id="appUrlBar" placeholder="Paste full URL or just #hash, then press Enter" />
+      <div class="row" style="gap:4px;">
+        <button id="btnBack" class="navBtn" title="Go back in app history" disabled>←</button>
+        <button id="btnForward" class="navBtn" title="Go forward in app history" disabled>→</button>
+        <input id="appUrlBar" placeholder="Paste full URL or just #hash, then press Enter" style="flex:1;" />
+      </div>
       <button id="btnCopyAppUrl">Copy</button>
     </div>
 
@@ -418,6 +425,8 @@
     preview: $("preview"),
     btnCopyEditorUrl: $("btnCopyEditorUrl"),
     btnCopyAppUrl: $("btnCopyAppUrl"),
+    btnBack: $("btnBack"),
+    btnForward: $("btnForward"),
     btnReloadNow: $("btnReloadNow"),
     btnReset: $("btnReset"),
     codecPill: $("codecPill"),
@@ -534,6 +543,60 @@
   let lastKnownIframeHash = "";
   let hashPollTimer = 0;
 
+  // App history tracking
+  let appHistory = [];      // Array of hash strings (with #)
+  let appHistoryPos = -1;   // Current position in history
+  let isNavigating = false; // Flag to prevent recording during nav
+
+  function updateNavButtons() {
+    ui.btnBack.disabled = appHistoryPos <= 0;
+    ui.btnForward.disabled = appHistoryPos >= appHistory.length - 1;
+  }
+
+  function resetAppHistory(initialHash) {
+    appHistory = [initialHash || "#"];
+    appHistoryPos = 0;
+    updateNavButtons();
+  }
+
+  function recordAppHistory(hash) {
+    // Don't record if we're navigating via back/forward
+    if (isNavigating) return;
+
+    const normalized = hash || "#";
+    // Don't record duplicates
+    if (appHistory[appHistoryPos] === normalized) return;
+
+    // Truncate any forward history and add new entry
+    appHistory = appHistory.slice(0, appHistoryPos + 1);
+    appHistory.push(normalized);
+    appHistoryPos = appHistory.length - 1;
+    updateNavButtons();
+  }
+
+  function navigateAppHistory(delta) {
+    const newPos = appHistoryPos + delta;
+    if (newPos < 0 || newPos >= appHistory.length) return;
+
+    appHistoryPos = newPos;
+    const targetHash = appHistory[appHistoryPos];
+
+    isNavigating = true;
+    try {
+      ui.preview.contentWindow.location.hash = targetHash;
+      lastKnownIframeHash = targetHash;
+      state.appHash = targetHash.startsWith("#") ? targetHash.slice(1) : targetHash;
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      syncStatus();
+      syncAppBarFromIframe();
+      setMsg(`Navigated ${delta < 0 ? 'back' : 'forward'} in app history.`, "ok");
+    } catch (_) {
+      setMsg("Couldn't navigate app history.", "warn");
+    }
+    isNavigating = false;
+    updateNavButtons();
+  }
+
   function syncAppBarFromIframe() {
     try {
       const hash = ui.preview.contentWindow.location.hash || "";
@@ -549,6 +612,7 @@
     writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
     syncStatus();
     syncAppBarFromIframe();
+    recordAppHistory(newHash.startsWith("#") ? newHash : "#" + newHash);
     ui.previewPill.textContent = `preview: hash synced @ ${nowTime()}`;
     ui.previewPill.className = "pill ok";
   }
@@ -583,6 +647,8 @@
       const w = ui.preview.contentWindow;
       // Initialize last known hash
       lastKnownIframeHash = w.location.hash || "";
+      // Reset app history with initial hash
+      resetAppHistory(lastKnownIframeHash || "#");
       // Start polling for hash changes (catches replaceState/pushState)
       startHashPolling();
       // Also listen for hashchange events (catches direct hash assignments)
@@ -716,6 +782,14 @@
     } catch (_) {
       setMsg("Clipboard blocked. Select + copy the App address bar field manually.", "warn");
     }
+  });
+
+  ui.btnBack.addEventListener("click", () => {
+    navigateAppHistory(-1);
+  });
+
+  ui.btnForward.addEventListener("click", () => {
+    navigateAppHistory(1);
   });
 
   // Editable "address bar" for the app being edited.
