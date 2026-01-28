@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA Wordle-Style (All State in URL Hash)</title>
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#161a22; --panel2:#111521; --text:#e8ecf1; --muted:#a7b0be;
+      --border:#273044; --accent:#7aa2ff;
+      --g:#2ea043; --y:#d29922; --x:#3a445a;
+      --key:#2a3246; --key2:#1f2637;
+      --bad:#ff6b6b; --ok:#9ef0b5;
+      --shadow: 0 12px 28px rgba(0,0,0,.35);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:radial-gradient(1200px 800px at 20% 10%, #182044 0%, var(--bg) 55%);
+      color:var(--text); font: 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+    .wrap{max-width:980px; margin:0 auto; padding:18px 14px 24px;}
+    header{
+      display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .title{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .title h1{margin:0; font-size:18px; letter-spacing:.2px}
+    .title .sub{color:var(--muted); font-size:12px; max-width:66ch}
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .topbar{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      padding:12px;
+    }
+    .group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .label{color:var(--muted); font-size:12px}
+    input[type="number"]{
+      width:92px; padding:8px 10px;
+      border-radius:10px; border:1px solid var(--border);
+      background:var(--panel2); color:var(--text);
+      outline:none;
+    }
+    input[type="number"]:focus{border-color: rgba(122,162,255,.75); box-shadow:0 0 0 3px rgba(122,162,255,.15)}
+    button{
+      padding:8px 10px;
+      border-radius:10px; border:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(122,162,255,.18), rgba(122,162,255,.06));
+      color:var(--text);
+      cursor:pointer;
+    }
+    button.secondary{
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+    }
+    button.danger{
+      background:linear-gradient(180deg, rgba(255,107,107,.22), rgba(255,107,107,.08));
+    }
+    button:disabled{opacity:.5; cursor:not-allowed}
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 10px; border-radius:999px; border:1px solid var(--border);
+      background:rgba(0,0,0,.15);
+    }
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .accent{color:var(--accent)}
+    .content{
+      display:grid; grid-template-columns: 1fr 340px; gap:14px; align-items:start;
+      margin-top:14px;
+    }
+    @media (max-width: 920px){
+      .content{grid-template-columns:1fr}
+    }
+
+    /* Board */
+    .board{padding:14px;}
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(5, 54px) 1fr;
+      gap:8px 10px;
+      align-items:center;
+      justify-content:start;
+    }
+    @media (max-width: 480px){
+      .grid{grid-template-columns: repeat(5, 46px) 1fr}
+    }
+    .cell{
+      width:54px; height:54px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(0,0,0,.14);
+      font-weight:700; font-size:20px;
+      letter-spacing:1px;
+      user-select:none;
+    }
+    @media (max-width: 480px){
+      .cell{width:46px; height:46px; font-size:18px}
+    }
+    .cell.green{background: rgba(46,160,67,.26); border-color: rgba(46,160,67,.6)}
+    .cell.yellow{background: rgba(210,153,34,.22); border-color: rgba(210,153,34,.55)}
+    .cell.gray{background: rgba(58,68,90,.25); border-color: rgba(58,68,90,.55)}
+    .rowmeta{
+      color:var(--muted);
+      font-size:12px;
+      display:flex; flex-direction:column; gap:2px;
+      padding-left:6px;
+    }
+    .rowmeta b{color:var(--text); font-weight:700}
+    .msg{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(0,0,0,.14);
+      color:var(--muted);
+      min-height:42px;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .msg .status{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .badge{
+      padding:4px 8px; border-radius:999px; font-size:12px;
+      border:1px solid var(--border); background:rgba(0,0,0,.14);
+      color:var(--muted);
+    }
+    .badge.ok{border-color: rgba(46,160,67,.55); color: var(--ok)}
+    .badge.bad{border-color: rgba(255,107,107,.55); color: var(--bad)}
+    .kbdhint{color:var(--muted); font-size:12px}
+
+    /* Sidebar */
+    .side{padding:14px;}
+    .side h2{margin:0 0 10px 0; font-size:14px}
+    .box{
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(0,0,0,.14);
+      padding:12px;
+      margin-bottom:10px;
+    }
+    .kv{display:flex; justify-content:space-between; gap:10px; margin:6px 0; color:var(--muted)}
+    .kv span:last-child{color:var(--text)}
+    .small{font-size:12px; color:var(--muted)}
+    .hr{height:1px; background:var(--border); margin:10px 0}
+
+    /* Keyboard */
+    .keyboard{margin-top:12px; display:flex; flex-direction:column; gap:8px}
+    .krow{display:flex; gap:6px; justify-content:center; flex-wrap:wrap}
+    .key{
+      min-width:34px;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      cursor:pointer;
+      font-weight:700;
+      user-select:none;
+    }
+    .key.wide{min-width:64px}
+    .key:active{transform: translateY(1px)}
+    .key.green{background: rgba(46,160,67,.26); border-color: rgba(46,160,67,.6)}
+    .key.yellow{background: rgba(210,153,34,.22); border-color: rgba(210,153,34,.55)}
+    .key.gray{background: rgba(58,68,90,.25); border-color: rgba(58,68,90,.55)}
+    a, a:visited{color:var(--accent); text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Single-File Wordle-Style (All State in <span class="mono accent">#hash</span>)</h1>
+        <div class="sub">
+          Everything—target word number, guesses, feedback, and undo/redo—lives in the URL fragment identifier.
+          Copy the URL to clone the game state into another browser. No storage, no backend.
+        </div>
+      </div>
+    </header>
+
+    <div class="panel topbar">
+      <div class="group">
+        <span class="label">Word #</span>
+        <button id="prevWord" class="secondary" title="Previous word">Prev</button>
+        <input id="wordNum" type="number" min="1" step="1" />
+        <button id="nextWord" class="secondary" title="Next word">Next</button>
+        <span class="label">of <span id="wordTotal" class="mono"></span></span>
+      </div>
+
+      <div class="group">
+        <span class="pill">
+          <span class="label">Target</span>
+          <span id="targetWord" class="mono"></span>
+        </span>
+        <button id="peekBtn" class="secondary">Peek</button>
+      </div>
+
+      <div class="group" style="margin-left:auto">
+        <button id="undoBtn" class="secondary">Undo</button>
+        <button id="redoBtn" class="secondary">Redo</button>
+        <button id="resetBtn" class="danger" title="Reset guesses (keeps target word number)">Reset</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="panel board">
+        <div id="grid" class="grid" aria-label="Wordle grid"></div>
+
+        <div class="msg" role="status" aria-live="polite">
+          <div class="status">
+            <span id="message">Type letters. Enter to submit. Backspace to delete.</span>
+            <span id="gameBadge" class="badge">In progress</span>
+          </div>
+          <div class="kbdhint">
+            Shortcuts: <span class="mono">Ctrl/Cmd+Z</span> undo, <span class="mono">Ctrl/Cmd+Y</span> redo
+          </div>
+        </div>
+
+        <div class="keyboard" aria-label="On-screen keyboard">
+          <div class="krow" id="krow1"></div>
+          <div class="krow" id="krow2"></div>
+          <div class="krow" id="krow3"></div>
+        </div>
+      </div>
+
+      <div class="panel side">
+        <h2>Candidate Counts</h2>
+        <div class="box">
+          <div class="kv"><span>Dictionary size</span><span id="dictSize" class="mono"></span></div>
+          <div class="kv"><span>Rows</span><span class="mono">10</span></div>
+          <div class="kv"><span>Word length</span><span class="mono">5</span></div>
+          <div class="hr"></div>
+          <div class="kv"><span>Remaining after all feedback</span><span id="remainingNow" class="mono"></span></div>
+          <div class="kv"><span>Reduction</span><span id="reductionNow" class="mono"></span></div>
+          <div class="small" style="margin-top:8px">
+            For each submitted guess, the app filters the internal word list to words that would produce the same feedback
+            pattern (greens/yellows/grays) for that guess. The per-row counts shown on the board reflect the remaining candidates
+            after incorporating that row’s new information.
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="small">
+            Notes:
+            <ul style="margin:8px 0 0 18px; padding:0; color:var(--muted)">
+              <li>This uses a bundled (small) 5-letter word list. Replace <span class="mono">WORDS_TEXT</span> for a larger dictionary.</li>
+              <li>The server never sees the hash; the full state is local to the browser.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   1) Word list (replaceable)
+   =========================
+   This is intentionally moderate-sized to keep the single-file example readable.
+   You can replace WORDS_TEXT with any newline/space-separated list of 5-letter words.
+*/
+const WORDS_TEXT = `
+about above abuse actor acute admit adopt adult after again agent agree ahead alarm album alert alike alive allow alone along alter among angle angry apart apple apply arena argue arise armor aroma aside asset audio audit avoid awake award aware
+bacon badge badly baker bases basic beach began begin being below bench berry birth black blame blind block blood board boast bonus booth brain brand brass brave bread break breed brick brief bring broad broke brown build built buyer cable calmly candy carry catch cause chain chair chalk charm chase cheat check cheer chest chief child china civic claim class clean clear clerk click climb clock close coach coast color could count court cover craft crash cream crime cross crowd crown cruel crush curve cycle daily dance dated dealt death debut delay depth devil diary digit dirty doubt dozen draft drama drawn dream dress drank dried drink drive dwell eager early earth eaten eight elect elite empty enemy enjoy enter entry equal error essay event every exact exist extra faint faith false fancy fault favor feast fence fever field fifth fifty fight final first fixed flame fleet flesh float flood floor flour fluid focus force forth forty forum found frame frank fraud fresh front fruit fully funny giant given glass glide glory goods grade grain grand grant grape graph grass great green gross group guard guess guest guide habit happy harsh have heart heavy hence honey horse hotel house human humor ideal image imply index inner input issue ivory joint judge juice knife known label labor large later laugh layer learn least leave legal lemon level light limit linen local logic loose lover lower loyal lucky lunch magic major maker maple march marry match maybe mayor medal media mercy merry metal might minor minus mixed model money month moral motor mount mouse movie music needs nerve never night noise north novel nurse occur ocean offer often olive onion orbit order other ought ounce owner paint panel panic paper party peace pearl pedal penal penny phone photo piano piece pilot pitch place plain plane plant plate plead pluck poetry point polar power press price pride prime print prior prize proof proud prove queen quick quiet quite radio raise rally range rapid ratio reach react ready realm refer right rival river rocky roman rough round route royal rugby ruler sadly saint salad scale scene scope score scout sense serve seven shall shape share sharp sheet shelf shell shift shine shirt shock shoes shoot shore short shout shown sight since sixth sixty skill sleep slope small smart smile smoke solid solve sorry sound south space spare speak speed spend spice spine split sport staff stage stain stake stand stare start state steam steel steep stick still stock stone stood store storm story stove straw strip stuck study stuff style sugar suite sunny super sweet table taken taste teach teeth tempo thank their theme there these thick thing think third those three throw tight times tired title today token tonic topic total touch tough tower trace track trade trail train treat trend trial tribe trick tried truck truly trust truth twice under unify union unity until upper upset urban usage usual valid value video virus visit vital voice waste watch water weary whale wheat wheel where which while white whole whose widen widow woman women world worry worse worst worth would wound write wrong wrote yield young youth
+zebra zesty zonal
+`.trim();
+
+const WORDS = WORDS_TEXT
+  .split(/[\s,]+/)
+  .map(w => w.trim().toUpperCase())
+  .filter(w => /^[A-Z]{5}$/.test(w));
+
+const WORD_SET = new Set(WORDS);
+
+/* =========================================
+   2) Minimal LZString (EncodedURIComponent)
+   =========================================
+   This is the smallest "practical" way to keep hash size reasonable without external dependencies.
+   Source: pieroxy/lz-string (MIT). Included here in compressed form for SFWA portability.
+*/
+const LZString = (function(){
+  // Only the two functions we need: compressToEncodedURIComponent / decompressFromEncodedURIComponent
+  // plus required internals. (This is a compact, self-contained subset.)
+  const f = String.fromCharCode;
+  const keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
+  const baseReverseDic = {};
+  function getBaseValue(alphabet, character) {
+    if (!baseReverseDic[alphabet]) {
+      baseReverseDic[alphabet] = {};
+      for (let i=0; i<alphabet.length; i++) baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+    }
+    return baseReverseDic[alphabet][character];
+  }
+  function compress(uncompressed) {
+    if (uncompressed == null) return "";
+    let i, value,
+      context_dictionary = {},
+      context_dictionaryToCreate = {},
+      context_c = "",
+      context_wc = "",
+      context_w = "",
+      context_enlargeIn = 2,
+      context_dictSize = 3,
+      context_numBits = 2,
+      context_data = [],
+      context_data_val = 0,
+      context_data_position = 0;
+    for (let ii=0; ii<uncompressed.length; ii+=1) {
+      context_c = uncompressed.charAt(ii);
+      if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
+        context_dictionary[context_c] = context_dictSize++;
+        context_dictionaryToCreate[context_c] = true;
+      }
+      context_wc = context_w + context_c;
+      if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) {
+        context_w = context_wc;
+      } else {
+        if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+          if (context_w.charCodeAt(0) < 256) {
+            for (i=0; i<context_numBits; i++) {
+              context_data_val = (context_data_val << 1);
+              if (context_data_position == 5) {
+                context_data_position = 0;
+                context_data.push(f(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+            }
+            value = context_w.charCodeAt(0);
+            for (i=0; i<8; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position == 5) {
+                context_data_position = 0;
+                context_data.push(f(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value = value >> 1;
+            }
+          } else {
+            value = 1;
+            for (i=0; i<context_numBits; i++) {
+              context_data_val = (context_data_val << 1) | value;
+              if (context_data_position == 5) {
+                context_data_position = 0;
+                context_data.push(f(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value = 0;
+            }
+            value = context_w.charCodeAt(0);
+            for (i=0; i<16; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position == 5) {
+                context_data_position = 0;
+                context_data.push(f(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value = value >> 1;
+            }
+          }
+          context_enlargeIn--;
+          if (context_enlargeIn == 0) {
+            context_enlargeIn = Math.pow(2, context_numBits);
+            context_numBits++;
+          }
+          delete context_dictionaryToCreate[context_w];
+        } else {
+          value = context_dictionary[context_w];
+          for (i=0; i<context_numBits; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position == 5) {
+              context_data_position = 0;
+              context_data.push(f(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value = value >> 1;
+          }
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn == 0) {
+          context_enlargeIn = Math.pow(2, context_numBits);
+          context_numBits++;
+        }
+        context_dictionary[context_wc] = context_dictSize++;
+        context_w = String(context_c);
+      }
+    }
+    if (context_w !== "") {
+      if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+        if (context_w.charCodeAt(0) < 256) {
+          for (i=0; i<context_numBits; i++) {
+            context_data_val = (context_data_val << 1);
+            if (context_data_position == 5) {
+              context_data_position = 0;
+              context_data.push(f(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+          }
+          value = context_w.charCodeAt(0);
+          for (i=0; i<8; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position == 5) {
+              context_data_position = 0;
+              context_data.push(f(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value = value >> 1;
+          }
+        } else {
+          value = 1;
+          for (i=0; i<context_numBits; i++) {
+            context_data_val = (context_data_val << 1) | value;
+            if (context_data_position == 5) {
+              context_data_position = 0;
+              context_data.push(f(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value = 0;
+          }
+          value = context_w.charCodeAt(0);
+          for (i=0; i<16; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position == 5) {
+              context_data_position = 0;
+              context_data.push(f(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value = value >> 1;
+          }
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn == 0) {
+          context_enlargeIn = Math.pow(2, context_numBits);
+          context_numBits++;
+        }
+        delete context_dictionaryToCreate[context_w];
+      } else {
+        value = context_dictionary[context_w];
+        for (i=0; i<context_numBits; i++) {
+          context_data_val = (context_data_val << 1) | (value & 1);
+          if (context_data_position == 5) {
+            context_data_position = 0;
+            context_data.push(f(context_data_val));
+            context_data_val = 0;
+          } else context_data_position++;
+          value = value >> 1;
+        }
+      }
+      context_enlargeIn--;
+      if (context_enlargeIn == 0) {
+        context_enlargeIn = Math.pow(2, context_numBits);
+        context_numBits++;
+      }
+    }
+    value = 2;
+    for (i=0; i<context_numBits; i++) {
+      context_data_val = (context_data_val << 1) | (value & 1);
+      if (context_data_position == 5) {
+        context_data_position = 0;
+        context_data.push(f(context_data_val));
+        context_data_val = 0;
+      } else context_data_position++;
+      value = value >> 1;
+    }
+    while (true) {
+      context_data_val = (context_data_val << 1);
+      if (context_data_position == 5) {
+        context_data.push(f(context_data_val));
+        break;
+      } else context_data_position++;
+    }
+    return context_data.join("");
+  }
+  function decompress(compressed) {
+    if (compressed == null) return "";
+    if (compressed === "") return null;
+    let dictionary = [0,1,2],
+      next,
+      enlargeIn = 4,
+      dictSize = 4,
+      numBits = 3,
+      entry = "",
+      result = [],
+      i,
+      w,
+      bits, resb, maxpower, power,
+      c,
+      data = { string: compressed, val: compressed.charCodeAt(0), position: 32768, index: 1 };
+    function readBits(n) {
+      bits = 0; maxpower = Math.pow(2, n); power = 1;
+      while (power != maxpower) {
+        resb = data.val & data.position;
+        data.position >>= 1;
+        if (data.position == 0) {
+          data.position = 32768;
+          data.val = data.string.charCodeAt(data.index++);
+        }
+        bits |= (resb > 0 ? 1 : 0) * power;
+        power <<= 1;
+      }
+      return bits;
+    }
+    next = readBits(2);
+    switch (next) {
+      case 0:
+        c = f(readBits(8));
+        break;
+      case 1:
+        c = f(readBits(16));
+        break;
+      case 2:
+        return "";
+    }
+    dictionary[3] = c;
+    w = c;
+    result.push(c);
+    while (true) {
+      if (data.index > data.string.length) return "";
+      next = readBits(numBits);
+      switch (next) {
+        case 0:
+          c = f(readBits(8));
+          dictionary[dictSize++] = c;
+          next = dictSize - 1;
+          enlargeIn--;
+          break;
+        case 1:
+          c = f(readBits(16));
+          dictionary[dictSize++] = c;
+          next = dictSize - 1;
+          enlargeIn--;
+          break;
+        case 2:
+          return result.join("");
+      }
+      if (enlargeIn == 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+      if (dictionary[next]) {
+        entry = dictionary[next];
+      } else {
+        if (next === dictSize) entry = w + w.charAt(0);
+        else return null;
+      }
+      result.push(entry);
+      dictionary[dictSize++] = w + entry.charAt(0);
+      enlargeIn--;
+      w = entry;
+      if (enlargeIn == 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+    }
+  }
+  function compressToEncodedURIComponent(input) {
+    if (input == null) return "";
+    return _compress(input, 6, a => keyStrUriSafe.charAt(a));
+  }
+  function decompressFromEncodedURIComponent(input) {
+    if (input == null) return "";
+    if (input === "") return null;
+    input = input.replace(/ /g, "+");
+    return _decompress(input.length, 32, index => getBaseValue(keyStrUriSafe, input.charAt(index)));
+  }
+  function _compress(uncompressed, bitsPerChar, getCharFromInt) {
+    if (uncompressed == null) return "";
+    let i, value,
+      context_dictionary = {},
+      context_dictionaryToCreate = {},
+      context_c = "",
+      context_wc = "",
+      context_w = "",
+      context_enlargeIn = 2,
+      context_dictSize = 3,
+      context_numBits = 2,
+      context_data = [],
+      context_data_val = 0,
+      context_data_position = 0;
+    for (let ii=0; ii<uncompressed.length; ii+=1) {
+      context_c = uncompressed.charAt(ii);
+      if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
+        context_dictionary[context_c] = context_dictSize++;
+        context_dictionaryToCreate[context_c] = true;
+      }
+      context_wc = context_w + context_c;
+      if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) {
+        context_w = context_wc;
+      } else {
+        if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+          if (context_w.charCodeAt(0) < 256) {
+            for (i=0; i<context_numBits; i++) {
+              context_data_val = (context_data_val << 1);
+              if (context_data_position == bitsPerChar-1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+            }
+            value = context_w.charCodeAt(0);
+            for (i=0; i<8; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position == bitsPerChar-1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value >>= 1;
+            }
+          } else {
+            value = 1;
+            for (i=0; i<context_numBits; i++) {
+              context_data_val = (context_data_val << 1) | value;
+              if (context_data_position == bitsPerChar-1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value = 0;
+            }
+            value = context_w.charCodeAt(0);
+            for (i=0; i<16; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position == bitsPerChar-1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value >>= 1;
+            }
+          }
+          context_enlargeIn--;
+          if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+          delete context_dictionaryToCreate[context_w];
+        } else {
+          value = context_dictionary[context_w];
+          for (i=0; i<context_numBits; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position == bitsPerChar-1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value >>= 1;
+          }
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+        context_dictionary[context_wc] = context_dictSize++;
+        context_w = String(context_c);
+      }
+    }
+    if (context_w !== "") {
+      if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+        if (context_w.charCodeAt(0) < 256) {
+          for (i=0; i<context_numBits; i++) {
+            context_data_val = (context_data_val << 1);
+            if (context_data_position == bitsPerChar-1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+          }
+          value = context_w.charCodeAt(0);
+          for (i=0; i<8; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position == bitsPerChar-1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value >>= 1;
+          }
+        } else {
+          value = 1;
+          for (i=0; i<context_numBits; i++) {
+            context_data_val = (context_data_val << 1) | value;
+            if (context_data_position == bitsPerChar-1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value = 0;
+          }
+          value = context_w.charCodeAt(0);
+          for (i=0; i<16; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position == bitsPerChar-1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value >>= 1;
+          }
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+        delete context_dictionaryToCreate[context_w];
+      } else {
+        value = context_dictionary[context_w];
+        for (i=0; i<context_numBits; i++) {
+          context_data_val = (context_data_val << 1) | (value & 1);
+          if (context_data_position == bitsPerChar-1) {
+            context_data_position = 0;
+            context_data.push(getCharFromInt(context_data_val));
+            context_data_val = 0;
+          } else context_data_position++;
+          value >>= 1;
+        }
+      }
+      context_enlargeIn--;
+      if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+    }
+    value = 2;
+    for (i=0; i<context_numBits; i++) {
+      context_data_val = (context_data_val << 1) | (value & 1);
+      if (context_data_position == bitsPerChar-1) {
+        context_data_position = 0;
+        context_data.push(getCharFromInt(context_data_val));
+        context_data_val = 0;
+      } else context_data_position++;
+      value >>= 1;
+    }
+    while (true) {
+      context_data_val = (context_data_val << 1);
+      if (context_data_position == bitsPerChar-1) {
+        context_data.push(getCharFromInt(context_data_val));
+        break;
+      } else context_data_position++;
+    }
+    return context_data.join("");
+  }
+  function _decompress(length, resetValue, getNextValue) {
+    let dictionary = [], next, enlargeIn = 4, dictSize = 4, numBits = 3, entry = "", result = [],
+      i, w, bits, resb, maxpower, power, c,
+      data = { val: getNextValue(0), position: resetValue, index: 1 };
+    for (i=0; i<3; i+=1) dictionary[i] = i;
+    function readBits(n){
+      bits = 0; maxpower = Math.pow(2,n); power = 1;
+      while (power != maxpower) {
+        resb = data.val & data.position;
+        data.position >>= 1;
+        if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); }
+        bits |= (resb > 0 ? 1 : 0) * power;
+        power <<= 1;
+      }
+      return bits;
+    }
+    next = readBits(2);
+    switch (next) {
+      case 0: c = f(readBits(8)); break;
+      case 1: c = f(readBits(16)); break;
+      case 2: return "";
+    }
+    dictionary[3] = c; w = c; result.push(c);
+    while (true) {
+      if (data.index > length) return "";
+      next = readBits(numBits);
+      switch (next) {
+        case 0: c = f(readBits(8)); dictionary[dictSize++] = c; next = dictSize-1; enlargeIn--; break;
+        case 1: c = f(readBits(16)); dictionary[dictSize++] = c; next = dictSize-1; enlargeIn--; break;
+        case 2: return result.join("");
+      }
+      if (enlargeIn == 0) { enlargeIn = Math.pow(2,numBits); numBits++; }
+      if (dictionary[next]) entry = dictionary[next];
+      else { if (next === dictSize) entry = w + w.charAt(0); else return null; }
+      result.push(entry);
+      dictionary[dictSize++] = w + entry.charAt(0);
+      enlargeIn--; w = entry;
+      if (enlargeIn == 0) { enlargeIn = Math.pow(2,numBits); numBits++; }
+    }
+  }
+  return { compressToEncodedURIComponent, decompressFromEncodedURIComponent };
+})();
+
+/* =========================
+   3) Game + hash-state model
+   ========================= */
+const MAX_ROWS = 10;
+const WORD_LEN = 5;
+const HISTORY_CAP = 120;
+
+function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+function defaultState(){
+  return {
+    v: 1,
+    ti: 0,                 // target index into WORDS
+    peek: false,           // show/hide target
+    rows: [],              // submitted rows: [{ g:"APPLE", f:"20110" }]
+    cur: "",               // current guess (0..5)
+    undo: [],              // stack of prior cores
+    redo: []               // stack of undone cores
+  };
+}
+function coreOf(s){
+  return { ti:s.ti, peek:s.peek, rows:s.rows, cur:s.cur };
+}
+function applyCore(s, c){
+  s.ti = clamp((c.ti|0), 0, WORDS.length-1);
+  s.peek = !!c.peek;
+  s.rows = Array.isArray(c.rows) ? c.rows.slice(0, MAX_ROWS).map(r => ({
+    g: String(r.g||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0, WORD_LEN),
+    f: String(r.f||"").replace(/[^0-2]/g,"").slice(0, WORD_LEN)
+  })).filter(r => r.g.length===WORD_LEN && r.f.length===WORD_LEN) : [];
+  s.cur = String(c.cur||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0, WORD_LEN);
+  return s;
+}
+function pushUndo(s){
+  s.undo.push(coreOf(s));
+  if (s.undo.length > HISTORY_CAP) s.undo.splice(0, s.undo.length - HISTORY_CAP);
+  s.redo = [];
+}
+function doUndo(s){
+  if (!s.undo.length) return false;
+  s.redo.push(coreOf(s));
+  const prev = s.undo.pop();
+  applyCore(s, prev);
+  return true;
+}
+function doRedo(s){
+  if (!s.redo.length) return false;
+  s.undo.push(coreOf(s));
+  const nxt = s.redo.pop();
+  applyCore(s, nxt);
+  return true;
+}
+
+/* =========================
+   4) Wordle feedback + filtering
+   ========================= */
+function feedback(guess, target){
+  // 2=green, 1=yellow, 0=gray
+  guess = guess.toUpperCase(); target = target.toUpperCase();
+  const out = Array(WORD_LEN).fill(0);
+  const counts = {};
+  for (let i=0;i<WORD_LEN;i++){
+    const t = target[i];
+    counts[t] = (counts[t]||0) + 1;
+  }
+  // greens
+  for (let i=0;i<WORD_LEN;i++){
+    if (guess[i] === target[i]){
+      out[i] = 2;
+      counts[guess[i]] -= 1;
+    }
+  }
+  // yellows
+  for (let i=0;i<WORD_LEN;i++){
+    if (out[i] === 2) continue;
+    const g = guess[i];
+    if ((counts[g]||0) > 0){
+      out[i] = 1;
+      counts[g] -= 1;
+    }
+  }
+  return out.join("");
+}
+function countCandidates(rows){
+  // rows: [{g,f}]
+  let candidates = WORDS;
+  for (const r of rows){
+    candidates = candidates.filter(w => feedback(r.g, w) === r.f);
+    if (!candidates.length) break;
+  }
+  return candidates.length;
+}
+function perRowCounts(rows){
+  const counts = [];
+  let prev = WORDS.length;
+  for (let i=0;i<rows.length;i++){
+    const now = countCandidates(rows.slice(0,i+1));
+    counts.push({ now, prev, delta: now - prev }); // delta is typically negative
+    prev = now;
+  }
+  return counts;
+}
+
+/* =========================
+   5) Hash encode/decode
+   ========================= */
+function encodeStateToHash(s){
+  const json = JSON.stringify(s);
+  return LZString.compressToEncodedURIComponent(json);
+}
+function decodeStateFromHash(hash){
+  try{
+    const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+    if (!raw) return null;
+    const json = LZString.decompressFromEncodedURIComponent(raw);
+    if (!json) return null;
+    const obj = JSON.parse(json);
+    if (!obj || obj.v !== 1) return null;
+    const s = defaultState();
+    s.ti = clamp((obj.ti|0), 0, WORDS.length-1);
+    s.peek = !!obj.peek;
+    s.rows = Array.isArray(obj.rows) ? obj.rows : [];
+    s.cur = String(obj.cur||"");
+    s.undo = Array.isArray(obj.undo) ? obj.undo : [];
+    s.redo = Array.isArray(obj.redo) ? obj.redo : [];
+    // sanitize cores inside undo/redo
+    s.undo = s.undo.slice(-HISTORY_CAP).map(c => {
+      const t = { ti:0, peek:false, rows:[], cur:"" };
+      return applyCore(t, c);
+    });
+    s.redo = s.redo.slice(-HISTORY_CAP).map(c => {
+      const t = { ti:0, peek:false, rows:[], cur:"" };
+      return applyCore(t, c);
+    });
+    applyCore(s, s);
+    return s;
+  }catch{
+    return null;
+  }
+}
+
+let state = defaultState();
+let internalHashWrite = false;
+
+function writeHash(replace=true){
+  const h = encodeStateToHash(state);
+  internalHashWrite = true;
+  if (replace) history.replaceState(null, "", "#" + h);
+  else location.hash = h;
+  // Clear guard after stack microtask so hashchange can settle
+  Promise.resolve().then(() => internalHashWrite = false);
+}
+
+/* =========================
+   6) UI rendering
+   ========================= */
+const elGrid = document.getElementById("grid");
+const elMsg = document.getElementById("message");
+const elBadge = document.getElementById("gameBadge");
+const elWordNum = document.getElementById("wordNum");
+const elWordTotal = document.getElementById("wordTotal");
+const elTargetWord = document.getElementById("targetWord");
+const elPeekBtn = document.getElementById("peekBtn");
+const elUndoBtn = document.getElementById("undoBtn");
+const elRedoBtn = document.getElementById("redoBtn");
+const elResetBtn = document.getElementById("resetBtn");
+const elPrevWord = document.getElementById("prevWord");
+const elNextWord = document.getElementById("nextWord");
+
+const elDictSize = document.getElementById("dictSize");
+const elRemainingNow = document.getElementById("remainingNow");
+const elReductionNow = document.getElementById("reductionNow");
+
+const krow1 = document.getElementById("krow1");
+const krow2 = document.getElementById("krow2");
+const krow3 = document.getElementById("krow3");
+
+function setMessage(text, kind="info"){
+  elMsg.textContent = text;
+  elBadge.className = "badge";
+  if (kind === "ok") elBadge.classList.add("ok");
+  if (kind === "bad") elBadge.classList.add("bad");
+}
+function gameStatus(){
+  const target = WORDS[state.ti];
+  const last = state.rows[state.rows.length-1];
+  if (last && last.g === target) return "won";
+  if (state.rows.length >= MAX_ROWS) return "lost";
+  return "play";
+}
+function computeKeyboardStatus(){
+  // Map A..Z -> best status seen in feedback digits, based on actual feedback vs current target.
+  // (This is Wordle-like: greens override yellows override grays.)
+  const status = {};
+  for (const r of state.rows){
+    for (let i=0;i<WORD_LEN;i++){
+      const ch = r.g[i];
+      const v = r.f[i] | 0;
+      status[ch] = Math.max(status[ch]||0, v);
+    }
+  }
+  return status; // 0/1/2
+}
+function buildKeyboard(){
+  const rows = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+  const containers = [krow1,krow2,krow3];
+  containers.forEach(c => c.innerHTML = "");
+  const status = computeKeyboardStatus();
+
+  function makeKey(label, cls="", onClick){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "key " + cls;
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  // Row 1
+  for (const ch of rows[0]){
+    const v = status[ch]||0;
+    const cls = v===2?"green":(v===1?"yellow":(v===0 && ch in status ? "gray": ""));
+    krow1.appendChild(makeKey(ch, cls, () => handleLetter(ch)));
+  }
+  // Row 2
+  for (const ch of rows[1]){
+    const v = status[ch]||0;
+    const cls = v===2?"green":(v===1?"yellow":(v===0 && ch in status ? "gray": ""));
+    krow2.appendChild(makeKey(ch, cls, () => handleLetter(ch)));
+  }
+  // Row 3 with Enter/Backspace
+  krow3.appendChild(makeKey("Enter", "wide secondary", () => handleEnter()));
+  for (const ch of rows[2]){
+    const v = status[ch]||0;
+    const cls = v===2?"green":(v===1?"yellow":(v===0 && ch in status ? "gray": ""));
+    krow3.appendChild(makeKey(ch, cls, () => handleLetter(ch)));
+  }
+  krow3.appendChild(makeKey("⌫", "wide secondary", () => handleBackspace()));
+}
+function render(){
+  // Header info
+  elWordTotal.textContent = String(WORDS.length);
+  elWordNum.value = String(state.ti + 1);
+
+  const target = WORDS[state.ti];
+  elTargetWord.textContent = state.peek ? target : "•••••";
+  elPeekBtn.textContent = state.peek ? "Hide" : "Peek";
+
+  elUndoBtn.disabled = state.undo.length === 0;
+  elRedoBtn.disabled = state.redo.length === 0;
+
+  // Candidate stats
+  elDictSize.textContent = String(WORDS.length);
+  const remaining = countCandidates(state.rows);
+  elRemainingNow.textContent = String(remaining);
+  const reduction = WORDS.length ? Math.round((1 - remaining/WORDS.length) * 1000)/10 : 0;
+  elReductionNow.textContent = `${reduction}%`;
+
+  // Game status badge
+  const st = gameStatus();
+  if (st === "won"){
+    elBadge.textContent = "Solved";
+    elBadge.className = "badge ok";
+  } else if (st === "lost"){
+    elBadge.textContent = "Out of rows";
+    elBadge.className = "badge bad";
+  } else {
+    elBadge.textContent = "In progress";
+    elBadge.className = "badge";
+  }
+
+  // Grid
+  const counts = perRowCounts(state.rows);
+  elGrid.innerHTML = "";
+
+  for (let r=0; r<MAX_ROWS; r++){
+    let letters = "";
+    let fb = "";
+    let meta = "";
+    if (r < state.rows.length){
+      letters = state.rows[r].g;
+      fb = state.rows[r].f;
+      const c = counts[r];
+      const delta = c.delta; // negative
+      const deltaTxt = (delta === 0) ? "0" : (delta < 0 ? `−${Math.abs(delta)}` : `+${delta}`);
+      meta = `<b class="mono">${c.now}</b> remaining<br><span class="mono">${deltaTxt}</span> change`;
+    } else if (r === state.rows.length){
+      letters = state.cur.padEnd(WORD_LEN, "");
+      fb = "";
+      meta = `<span class="mono">${countCandidates(state.rows)}</span> now`;
+    } else {
+      letters = "".padEnd(WORD_LEN, "");
+      fb = "";
+      meta = "";
+    }
+
+    for (let c=0; c<WORD_LEN; c++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const ch = letters[c] || "";
+      cell.textContent = ch;
+      if (r < state.rows.length){
+        const d = fb[c];
+        if (d === "2") cell.classList.add("green");
+        else if (d === "1") cell.classList.add("yellow");
+        else cell.classList.add("gray");
+      }
+      elGrid.appendChild(cell);
+    }
+
+    const metaDiv = document.createElement("div");
+    metaDiv.className = "rowmeta";
+    metaDiv.innerHTML = meta;
+    elGrid.appendChild(metaDiv);
+  }
+
+  buildKeyboard();
+}
+
+/* =========================
+   7) Mutations (all URL-backed)
+   ========================= */
+function mutate(fn, { message=null, messageKind="info" } = {}){
+  fn();
+  writeHash(true);
+  render();
+  if (message) setMessage(message, messageKind);
+}
+
+function resetGuessesKeepTarget(){
+  mutate(() => {
+    pushUndo(state);
+    state.rows = [];
+    state.cur = "";
+  }, { message:"Reset complete (target word unchanged).", messageKind:"info" });
+}
+
+function setTargetIndex(newIndex){
+  newIndex = clamp(newIndex|0, 0, WORDS.length-1);
+  if (newIndex === state.ti) return;
+
+  mutate(() => {
+    pushUndo(state);
+    state.ti = newIndex;
+    state.rows = [];
+    state.cur = "";
+  }, { message:`Switched to Word #${newIndex+1}. Guesses reset.`, messageKind:"info" });
+}
+
+function togglePeek(){
+  mutate(() => {
+    pushUndo(state);
+    state.peek = !state.peek;
+  }, { message: state.peek ? "Peek enabled (target revealed)." : "Peek disabled (target hidden).", messageKind:"info" });
+}
+
+function handleLetter(ch){
+  const st = gameStatus();
+  if (st !== "play"){
+    setMessage("Game is finished. Change the word number or reset to play again.", "bad");
+    return;
+  }
+  if (state.rows.length >= MAX_ROWS) return;
+  if (state.cur.length >= WORD_LEN) return;
+  mutate(() => {
+    pushUndo(state);
+    state.cur += ch;
+  });
+}
+
+function handleBackspace(){
+  const st = gameStatus();
+  if (st !== "play") return;
+  if (!state.cur.length) return;
+  mutate(() => {
+    pushUndo(state);
+    state.cur = state.cur.slice(0, -1);
+  });
+}
+
+function handleEnter(){
+  const st = gameStatus();
+  if (st !== "play"){
+    setMessage("Game is finished. Change the word number or reset to play again.", "bad");
+    return;
+  }
+  if (state.rows.length >= MAX_ROWS){
+    setMessage("No rows remaining.", "bad");
+    return;
+  }
+  if (state.cur.length !== WORD_LEN){
+    setMessage("Not enough letters.", "bad");
+    return;
+  }
+  const guess = state.cur.toUpperCase();
+  if (!WORD_SET.has(guess)){
+    setMessage("Word not in the bundled dictionary. (Replace WORDS_TEXT to change.)", "bad");
+    return;
+  }
+  const target = WORDS[state.ti];
+  const f = feedback(guess, target);
+
+  mutate(() => {
+    pushUndo(state);
+    state.rows = state.rows.concat([{ g: guess, f }]);
+    state.cur = "";
+  }, { message: (guess === target) ? "Solved." : "Submitted.", messageKind: (guess === target) ? "ok" : "info" });
+
+  const after = gameStatus();
+  if (after === "lost"){
+    setMessage(`Out of rows. Target was ${target}.`, "bad");
+  }
+}
+
+function doUndoUI(){
+  if (!state.undo.length) return;
+  mutate(() => { doUndo(state); }, { message:"Undo.", messageKind:"info" });
+}
+function doRedoUI(){
+  if (!state.redo.length) return;
+  mutate(() => { doRedo(state); }, { message:"Redo.", messageKind:"info" });
+}
+
+/* =========================
+   8) Wiring: load from hash, controls, keyboard
+   ========================= */
+function loadFromHashOrInit(){
+  const decoded = decodeStateFromHash(location.hash);
+  if (decoded){
+    state = decoded;
+    // sanitize core again (covers any weirdness)
+    applyCore(state, state);
+    render();
+    setMessage("Loaded state from URL.", "info");
+  } else {
+    state = defaultState();
+    writeHash(true);
+    render();
+    setMessage("Initialized new state (now stored in the URL).", "info");
+  }
+}
+
+window.addEventListener("hashchange", () => {
+  if (internalHashWrite) return;
+  const decoded = decodeStateFromHash(location.hash);
+  if (decoded){
+    state = decoded;
+    render();
+    setMessage("State updated from URL (hashchange).", "info");
+  } else {
+    setMessage("Invalid hash state; keeping current state.", "bad");
+  }
+});
+
+// Buttons
+elPeekBtn.addEventListener("click", togglePeek);
+elUndoBtn.addEventListener("click", doUndoUI);
+elRedoBtn.addEventListener("click", doRedoUI);
+elResetBtn.addEventListener("click", resetGuessesKeepTarget);
+
+elPrevWord.addEventListener("click", () => setTargetIndex(state.ti - 1));
+elNextWord.addEventListener("click", () => setTargetIndex(state.ti + 1));
+
+function commitWordNumber(){
+  const n = parseInt(elWordNum.value, 10);
+  if (!Number.isFinite(n)) return;
+  setTargetIndex(n - 1);
+}
+elWordNum.addEventListener("change", commitWordNumber);
+elWordNum.addEventListener("keydown", (e) => {
+  if (e.key === "Enter"){
+    e.preventDefault();
+    commitWordNumber();
+    elWordNum.blur();
+  }
+});
+
+// Global key handling (avoid interfering with the number input)
+window.addEventListener("keydown", (e) => {
+  const active = document.activeElement;
+  if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+
+  // Undo/redo shortcuts
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && (e.key === "z" || e.key === "Z")){
+    e.preventDefault();
+    doUndoUI();
+    return;
+  }
+  if (mod && (e.key === "y" || e.key === "Y")){
+    e.preventDefault();
+    doRedoUI();
+    return;
+  }
+
+  if (e.key === "Enter"){ e.preventDefault(); handleEnter(); return; }
+  if (e.key === "Backspace"){ e.preventDefault(); handleBackspace(); return; }
+
+  const k = e.key.toUpperCase();
+  if (/^[A-Z]$/.test(k)){
+    e.preventDefault();
+    handleLetter(k);
+  }
+});
+
+/* =========================
+   9) Start
+   ========================= */
+loadFromHashOrInit();
+</script>
+</body>
+</html>
