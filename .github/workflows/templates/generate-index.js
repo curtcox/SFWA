@@ -17,7 +17,7 @@ const OUTPUT_FILE = path.join(SITE_DIR, 'site-index.html');
 function extractTitle(htmlContent, filename) {
   // Try to find <title> tag first
   const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
-  if (titleMatch && titleMatch[1].trim() && titleMatch[1].trim() !== 'Title Placeholder') {
+  if (titleMatch && titleMatch[1].trim() && titleMatch[1].trim().toLowerCase() !== 'title placeholder') {
     return titleMatch[1].trim();
   }
   
@@ -114,7 +114,7 @@ function generateIndex() {
   }
   
   // Sort pages by title
-  pages.sort((a, b) => a.title.localeCompare(b.title));
+  pages.sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' }));
   
   // Generate HTML
   const html = `<!DOCTYPE html>
@@ -331,7 +331,7 @@ function generateIndex() {
             
             <div class="apps-grid" id="appsGrid">
                 ${pages.map(page => `
-                <a href="${page.path}" class="app-card" data-title="${page.title.toLowerCase()}" data-description="${page.description.toLowerCase()}">
+                <a href="${escapeHtml(page.path)}" class="app-card" data-title="${escapeHtml(page.title.toLowerCase())}" data-description="${escapeHtml(page.description.toLowerCase())}">
                     <h3>${escapeHtml(page.title)}</h3>
                     ${page.description ? `<p>${escapeHtml(page.description)}</p>` : '<p>Click to explore this app</p>'}
                     <div class="path">${escapeHtml(page.path)}</div>
