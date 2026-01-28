@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA Hash Editor (Single-File / All-State-in-Hash)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(127,127,127,.35);
+      background: color-mix(in oklab, Canvas 92%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .label { font-size: 12px; opacity: .8; }
+    .field {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      width: min(1400px, 100%);
+    }
+    .field input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: color-mix(in oklab, Canvas 96%, transparent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+    .field input[readonly] { opacity: .85; }
+    button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: color-mix(in oklab, Canvas 90%, transparent);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    button:hover { filter: brightness(1.05); }
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      height: calc(100vh - 120px);
+    }
+    .pane {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+      border-right: 1px solid rgba(127,127,127,.35);
+    }
+    .pane:last-child { border-right: none; }
+    .paneHead {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(127,127,127,.35);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .paneTitle { font-weight: 600; }
+    textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 0;
+      outline: none;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: Canvas;
+      color: CanvasText;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: white;
+    }
+    .status {
+      padding: 8px 12px;
+      border-top: 1px solid rgba(127,127,127,.35);
+      font-size: 12px;
+      opacity: .85;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+    .pill {
+      padding: 2px 8px;
+      border: 1px solid rgba(127,127,127,.45);
+      border-radius: 999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+    }
+    .warn { color: #b45309; }
+    .ok { color: #15803d; }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="row" style="justify-content:space-between;">
+      <div style="font-weight:700;">SFWA Hash Editor</div>
+      <div class="row">
+        <button id="btnReloadNow" title="Reload preview immediately">Reload preview</button>
+        <button id="btnReset" title="Reset to the built-in demo app">Reset demo</button>
+      </div>
+    </div>
+
+    <div style="height:8px;"></div>
+
+    <div class="field">
+      <div class="label">Editor URL</div>
+      <input id="editorUrl" readonly />
+      <button id="btnCopyEditorUrl">Copy</button>
+    </div>
+
+    <div style="height:8px;"></div>
+
+    <div class="field">
+      <div class="label">App address bar</div>
+      <input id="appUrlBar" placeholder="Paste full URL or just #hash, then press Enter" />
+      <button id="btnCopyAppUrl">Copy</button>
+    </div>
+
+    <div class="row" style="margin-top:6px;">
+      <div class="label">
+        Notes: The preview runs your code. Don’t paste secrets. Very large apps may exceed URL length limits.
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="pane">
+      <div class="paneHead">
+        <div class="paneTitle">App source (stored compressed in editor #hash)</div>
+        <div class="label">Auto-reload: 1s after you stop typing</div>
+      </div>
+      <textarea id="srcEditor" spellcheck="false"></textarea>
+      <div class="status">
+        <span class="pill" id="codecPill">codec: ?</span>
+        <span class="pill" id="urlLenPill">editor URL length: ?</span>
+        <span class="pill" id="srcLenPill">source chars: ?</span>
+        <span class="pill" id="previewPill">preview: ?</span>
+        <span id="msg" class="label"></span>
+      </div>
+    </div>
+
+    <div class="pane">
+      <div class="paneHead">
+        <div class="paneTitle">Live preview</div>
+        <div class="label">Hash in preview is editable via the app address bar</div>
+      </div>
+      <iframe
+        id="preview"
+        sandbox="allow-scripts allow-same-origin"
+        referrerpolicy="no-referrer"
+      ></iframe>
+      <div class="status">
+        <span class="label">Tip: your SFWA should read/write <code>location.hash</code> for state.</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // Utilities: base64url
+  // ---------------------------
+  function b64urlEncode(bytes) {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const b64 = btoa(bin);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function b64urlDecode(str) {
+    let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function nowTime() {
+    const d = new Date();
+    return d.toLocaleTimeString();
+  }
+
+  function normalizeHashFromMaybeUrl(text) {
+    const s = (text || "").trim();
+    if (!s) return "";
+    const idx = s.indexOf("#");
+    if (idx >= 0) return s.slice(idx + 1);
+    return s.startsWith("#") ? s.slice(1) : s;
+  }
+
+  // ---------------------------
+  // Compression: gzip (preferred) + LZW16 fallback
+  // ---------------------------
+  const CLEAR = 0xFFFF;      // dictionary reset marker (not a normal code)
+  const MAX_CODE = 0xFFFE;   // last usable code; 0xFFFF reserved for CLEAR
+
+  function lzwCompressToB64url(text) {
+    const input = new TextEncoder().encode(text);
+
+    // Dictionary maps (prefixCode<<8 | byte) -> code
+    // prefixCode fits in 16 bits; byte fits in 8 bits.
+    // Key computed as prefixCode * 256 + byte.
+    let dict = new Map();
+    let dictSize = 256;
+
+    const outCodes = [];
+    if (input.length === 0) return "";
+
+    let w = input[0]; // current code (0..255 or dict code)
+    for (let i = 1; i < input.length; i++) {
+      const k = input[i];
+      const key = w * 256 + k;
+
+      const hit = dict.get(key);
+      if (hit !== undefined) {
+        w = hit;
+        continue;
+      }
+
+      outCodes.push(w);
+
+      // Add new entry if possible; else emit CLEAR and reset.
+      if (dictSize <= MAX_CODE) {
+        dict.set(key, dictSize++);
+      } else {
+        outCodes.push(CLEAR);
+        dict = new Map();
+        dictSize = 256;
+      }
+
+      w = k;
+    }
+    outCodes.push(w);
+
+    const bytes = new Uint8Array(outCodes.length * 2);
+    for (let i = 0; i < outCodes.length; i++) {
+      const c = outCodes[i];
+      bytes[i * 2] = (c >>> 8) & 0xFF;
+      bytes[i * 2 + 1] = c & 0xFF;
+    }
+    return b64urlEncode(bytes);
+  }
+
+  function lzwDecompressFromB64url(payload) {
+    const bytes = b64urlDecode(payload || "");
+    if (bytes.length === 0) return "";
+
+    const codes = new Uint16Array(bytes.length / 2);
+    for (let i = 0; i < codes.length; i++) {
+      codes[i] = (bytes[i * 2] << 8) | bytes[i * 2 + 1];
+    }
+
+    // Dictionary entries: for codes >= 256, store {p: prefixCode, b: lastByte}
+    let prefix = new Uint16Array(MAX_CODE + 1);
+    let lastByte = new Uint8Array(MAX_CODE + 1);
+    let dictSize = 256;
+
+    function reset() {
+      dictSize = 256;
+    }
+    reset();
+
+    const out = [];
+    let prevCode = null;
+
+    function firstByteOf(code) {
+      while (code >= 256) code = prefix[code];
+      return code & 0xFF;
+    }
+
+    function emitSequence(code) {
+      const stack = [];
+      while (code >= 256) {
+        stack.push(lastByte[code]);
+        code = prefix[code];
+      }
+      stack.push(code & 0xFF);
+      for (let i = stack.length - 1; i >= 0; i--) out.push(stack[i]);
+    }
+
+    for (let i = 0; i < codes.length; i++) {
+      const code = codes[i];
+
+      if (code === CLEAR) {
+        reset();
+        prevCode = null;
+        continue;
+      }
+
+      if (prevCode === null) {
+        emitSequence(code);
+        prevCode = code;
+        continue;
+      }
+
+      if (code < dictSize) {
+        emitSequence(code);
+        // Add dict entry: prev + firstByte(code)
+        if (dictSize <= MAX_CODE) {
+          prefix[dictSize] = prevCode;
+          lastByte[dictSize] = firstByteOf(code);
+          dictSize++;
+        }
+        prevCode = code;
+        continue;
+      }
+
+      // Special case: code == dictSize means entry is prev + firstByte(prev)
+      if (code === dictSize) {
+        emitSequence(prevCode);
+        const fb = firstByteOf(prevCode);
+        out.push(fb);
+
+        if (dictSize <= MAX_CODE) {
+          prefix[dictSize] = prevCode;
+          lastByte[dictSize] = fb;
+          dictSize++;
+        }
+        prevCode = code;
+        continue;
+      }
+
+      throw new Error("LZW decode error: invalid code");
+    }
+
+    return new TextDecoder().decode(new Uint8Array(out));
+  }
+
+  const hasGzip = typeof CompressionStream !== "undefined" && typeof DecompressionStream !== "undefined";
+
+  async function gzipCompressToB64url(text) {
+    const raw = new TextEncoder().encode(text);
+    const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream("gzip"));
+    const ab = await new Response(stream).arrayBuffer();
+    return b64urlEncode(new Uint8Array(ab));
+  }
+
+  async function gzipDecompressFromB64url(payload) {
+    const bytes = b64urlDecode(payload || "");
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const ab = await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(ab);
+  }
+
+  async function compressText(text) {
+    if (hasGzip) {
+      try {
+        return { codec: "gz", payload: await gzipCompressToB64url(text) };
+      } catch (_) {
+        // fall through
+      }
+    }
+    return { codec: "lzw", payload: lzwCompressToB64url(text) };
+  }
+
+  async function decompressText(codec, payload) {
+    if (!payload) return "";
+    if (codec === "gz") return await gzipDecompressFromB64url(payload);
+    if (codec === "lzw") return lzwDecompressFromB64url(payload);
+    // Legacy/unknown: try gzip then lzw then treat as plain
+    try { return await gzipDecompressFromB64url(payload); } catch (_) {}
+    try { return lzwDecompressFromB64url(payload); } catch (_) {}
+    return payload;
+  }
+
+  // ---------------------------
+  // Editor state in URL hash:
+  //   #c=<gz|lzw>&src=<payload>&h=<appHash>
+  // ---------------------------
+  function readHashParams() {
+    const p = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : "");
+    return {
+      codec: p.get("c") || "",
+      srcPayload: p.get("src") || "",
+      appHash: p.get("h") || "",
+    };
+  }
+
+  function writeHashParams(state, { replace = true } = {}) {
+    const p = new URLSearchParams();
+    p.set("c", state.codec);
+    p.set("src", state.srcPayload);
+    if (state.appHash) p.set("h", state.appHash);
+
+    const newUrl = "#" + p.toString();
+    if (replace) history.replaceState(null, "", newUrl);
+    else history.pushState(null, "", newUrl);
+  }
+
+  // ---------------------------
+  // UI + Preview
+  // ---------------------------
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    editorUrl: $("editorUrl"),
+    appUrlBar: $("appUrlBar"),
+    srcEditor: $("srcEditor"),
+    preview: $("preview"),
+    btnCopyEditorUrl: $("btnCopyEditorUrl"),
+    btnCopyAppUrl: $("btnCopyAppUrl"),
+    btnReloadNow: $("btnReloadNow"),
+    btnReset: $("btnReset"),
+    codecPill: $("codecPill"),
+    urlLenPill: $("urlLenPill"),
+    srcLenPill: $("srcLenPill"),
+    previewPill: $("previewPill"),
+    msg: $("msg"),
+  };
+
+  const DEFAULT_APP_SOURCE =
+`<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hash State Demo App</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  input{padding:8px 10px;border:1px solid #9996;border-radius:10px;}
+  button{padding:8px 10px;border:1px solid #9996;border-radius:10px;cursor:pointer;}
+  pre{background:#f3f3f3;padding:10px;border-radius:10px;white-space:pre-wrap;}
+</style>
+
+<h2>SFWA demo: all state in <code>location.hash</code></h2>
+
+<div class="row">
+  <button id="dec">-</button>
+  <button id="inc">+</button>
+  <label>name:</label>
+  <input id="name" placeholder="type me" />
+</div>
+
+<pre id="view"></pre>
+
+<script>
+  const DEFAULT = { counter: 0, name: "" };
+
+  function readState() {
+    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+    if (!raw) return { ...DEFAULT };
+    try { return { ...DEFAULT, ...JSON.parse(decodeURIComponent(raw)) }; }
+    catch { return { ...DEFAULT }; }
+  }
+
+  function writeState(s, replace=true) {
+    const h = "#" + encodeURIComponent(JSON.stringify(s));
+    if (replace) history.replaceState(null, "", h);
+    else history.pushState(null, "", h);
+  }
+
+  let state = readState();
+
+  function render() {
+    document.getElementById("name").value = state.name;
+    document.getElementById("view").textContent =
+      JSON.stringify({ state, hash: location.hash }, null, 2);
+  }
+
+  function update(mut, milestone=false) {
+    state = mut({ ...state });
+    writeState(state, !milestone);
+    render();
+  }
+
+  document.getElementById("dec").onclick = () => update(s => (s.counter--, s), true);
+  document.getElementById("inc").onclick = () => update(s => (s.counter++, s), true);
+  document.getElementById("name").oninput = (e) =>
+    update(s => (s.name = e.target.value, s), false);
+
+  window.addEventListener("hashchange", () => { state = readState(); render(); });
+
+  // canonicalize hash on load
+  writeState(state, true);
+  render();
+<\/script>`;
+
+  let state = {
+    codec: hasGzip ? "gz" : "lzw",
+    srcPayload: "",
+    srcText: DEFAULT_APP_SOURCE,
+    appHash: "",
+
+    // preview bookkeeping
+    previewBlobUrl: "",
+  };
+
+  function setMsg(text, kind = "") {
+    ui.msg.textContent = text || "";
+    ui.msg.className = "label " + (kind || "");
+  }
+
+  function syncStatus() {
+    ui.editorUrl.value = location.href;
+    ui.codecPill.textContent = `codec: ${state.codec || "?"}`;
+    ui.urlLenPill.textContent = `editor URL length: ${location.href.length}`;
+    ui.srcLenPill.textContent = `source chars: ${ui.srcEditor.value.length}`;
+  }
+
+  function revokePreviewBlob() {
+    if (state.previewBlobUrl) {
+      URL.revokeObjectURL(state.previewBlobUrl);
+      state.previewBlobUrl = "";
+    }
+  }
+
+  function makePreviewUrl() {
+    revokePreviewBlob();
+    const blob = new Blob([state.srcText], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    state.previewBlobUrl = url;
+    const h = state.appHash ? "#" + state.appHash : "";
+    return url + h;
+  }
+
+  function syncAppBarFromIframe() {
+    try {
+      const href = ui.preview.contentWindow.location.href;
+      ui.appUrlBar.value = href;
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  function attachIframeHashSync() {
+    try {
+      const w = ui.preview.contentWindow;
+      w.addEventListener("hashchange", () => {
+        try {
+          const h = w.location.hash.startsWith("#") ? w.location.hash.slice(1) : "";
+          state.appHash = h;
+          writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+          syncStatus();
+          syncAppBarFromIframe();
+          ui.previewPill.textContent = `preview: hash synced @ ${nowTime()}`;
+          ui.previewPill.className = "pill ok";
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  function loadPreview() {
+    const src = makePreviewUrl();
+    ui.previewPill.textContent = `preview: loading…`;
+    ui.previewPill.className = "pill";
+    ui.preview.src = src;
+
+    ui.preview.onload = () => {
+      ui.previewPill.textContent = `preview: loaded @ ${nowTime()}`;
+      ui.previewPill.className = "pill ok";
+      syncAppBarFromIframe();
+      attachIframeHashSync();
+    };
+  }
+
+  // Debounced commit: 1 second after typing stops
+  let commitTimer = 0;
+  let commitSeq = 0;
+
+  function scheduleCommitAndReload() {
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(() => commitSource(ui.srcEditor.value), 1000);
+  }
+
+  async function commitSource(newText) {
+    const mySeq = ++commitSeq;
+    setMsg("Compressing + saving into editor URL hash…", "");
+    ui.previewPill.textContent = "preview: waiting…";
+    ui.previewPill.className = "pill";
+
+    const { codec, payload } = await compressText(newText);
+
+    // If another commit started while we were compressing, ignore this one.
+    if (mySeq !== commitSeq) return;
+
+    state.codec = codec;
+    state.srcPayload = payload;
+    state.srcText = newText;
+
+    try {
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      setMsg("Saved to URL hash. Reloading preview…", "ok");
+    } catch (e) {
+      setMsg("Failed to write URL hash (URL may be too long).", "warn");
+    }
+
+    syncStatus();
+    loadPreview();
+  }
+
+  async function loadFromEditorUrlHash() {
+    const h = readHashParams();
+    if (!h.srcPayload) {
+      // First run: seed the URL with the demo app.
+      ui.srcEditor.value = DEFAULT_APP_SOURCE;
+      state.appHash = "";
+      await commitSource(DEFAULT_APP_SOURCE);
+      return;
+    }
+
+    setMsg("Loading from URL hash…", "");
+    try {
+      const text = await decompressText(h.codec, h.srcPayload);
+      state.codec = h.codec || (hasGzip ? "gz" : "lzw");
+      state.srcPayload = h.srcPayload;
+      state.srcText = text;
+      state.appHash = h.appHash || "";
+
+      ui.srcEditor.value = state.srcText;
+      syncStatus();
+      loadPreview();
+      setMsg("Loaded.", "ok");
+    } catch (e) {
+      ui.srcEditor.value = DEFAULT_APP_SOURCE;
+      state.srcText = DEFAULT_APP_SOURCE;
+      state.appHash = "";
+      syncStatus();
+      loadPreview();
+      setMsg("Couldn’t decode URL hash; loaded demo instead.", "warn");
+    }
+  }
+
+  // ---------------------------
+  // Events
+  // ---------------------------
+  ui.srcEditor.addEventListener("input", () => {
+    scheduleCommitAndReload();
+    syncStatus();
+  });
+
+  ui.btnReloadNow.addEventListener("click", () => {
+    clearTimeout(commitTimer);
+    commitSource(ui.srcEditor.value);
+  });
+
+  ui.btnReset.addEventListener("click", () => {
+    clearTimeout(commitTimer);
+    ui.srcEditor.value = DEFAULT_APP_SOURCE;
+    state.appHash = "";
+    commitSource(DEFAULT_APP_SOURCE);
+  });
+
+  ui.btnCopyEditorUrl.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      setMsg("Editor URL copied.", "ok");
+    } catch (_) {
+      setMsg("Clipboard blocked. Select + copy the Editor URL field manually.", "warn");
+    }
+  });
+
+  ui.btnCopyAppUrl.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(ui.appUrlBar.value || "");
+      setMsg("App address bar copied.", "ok");
+    } catch (_) {
+      setMsg("Clipboard blocked. Select + copy the App address bar field manually.", "warn");
+    }
+  });
+
+  // Editable "address bar" for the app being edited.
+  // Paste a full URL or just #hash, press Enter to apply the hash to the preview app
+  ui.appUrlBar.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const h = normalizeHashFromMaybeUrl(ui.appUrlBar.value);
+
+    state.appHash = h;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    syncStatus();
+
+    // Update preview hash without reloading:
+    try {
+      ui.preview.contentWindow.location.hash = h ? ("#" + h) : "";
+      // After the hashchange fires, we re-sync the bar from the iframe.
+      setMsg("Applied hash to preview.", "ok");
+    } catch (_) {
+      setMsg("Couldn’t set preview hash (preview not ready yet).", "warn");
+    }
+  });
+
+  // If user manually edits the *editor* URL hash in the browser, reload state.
+  window.addEventListener("hashchange", () => {
+    // Debounce-ish: don’t fight with in-flight commits
+    loadFromEditorUrlHash();
+  });
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+  (async function init() {
+    ui.previewPill.textContent = "preview: (not loaded yet)";
+    ui.previewPill.className = "pill";
+    syncStatus();
+    await loadFromEditorUrlHash();
+  })();
+
+  // Cleanup
+  window.addEventListener("beforeunload", revokePreviewBlob);
+})();
+</script>
+</body>
+</html>
