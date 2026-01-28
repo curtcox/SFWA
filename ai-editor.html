@@ -270,6 +270,50 @@
       font-size: 12px;
       min-width: 60px;
     }
+    .filterRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .filterRow .settingsField {
+      margin: 0;
+    }
+    .modelSelectRow {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .modelSelectRow select {
+      flex: 1;
+    }
+    .favoriteBtn {
+      padding: 6px 10px;
+      font-size: 14px;
+      min-width: 36px;
+    }
+    .favoriteBtn.is-favorite {
+      background: #fef3c7;
+      border-color: #f59e0b;
+    }
+    .modelViewToggle {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .modelViewToggle button {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+    }
+    .modelViewToggle button.active {
+      background: color-mix(in oklab, Canvas 70%, CanvasText 15%);
+    }
+    .filterInfo {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
     .promptHistorySection {
       border-top: 1px solid rgba(127,127,127,.25);
       padding-top: 12px;
@@ -421,12 +465,37 @@
             </div>
             <div class="label">Get your API key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></div>
           </div>
+          <div class="filterRow">
+            <div class="settingsField">
+              <label for="minContext">Min Context (tokens)</label>
+              <input type="number" id="minContext" placeholder="e.g. 32000" min="0" step="1000" />
+            </div>
+            <div class="settingsField">
+              <label for="maxPrice">Max Price ($/1M tokens)</label>
+              <input type="number" id="maxPrice" placeholder="e.g. 10" min="0" step="0.5" />
+            </div>
+          </div>
           <div class="settingsField">
-            <label for="aiModel">Model</label>
-            <select id="aiModel">
-              <option value="">Loading models...</option>
-            </select>
+            <label>Pricing</label>
+            <div class="modelViewToggle">
+              <button id="btnShowFreeAndPaid" class="active">Free and Paid</button>
+              <button id="btnShowFreeOnly">Free Only</button>
+            </div>
+          </div>
+          <div class="settingsField">
+            <label>Model</label>
+            <div class="modelViewToggle">
+              <button id="btnShowAllModels" class="active">All Models</button>
+              <button id="btnShowFavorites">Favorites Only</button>
+            </div>
+            <div class="modelSelectRow">
+              <select id="aiModel">
+                <option value="">Loading models...</option>
+              </select>
+              <button id="btnToggleFavorite" class="favoriteBtn" title="Add/remove from favorites">☆</button>
+            </div>
             <div id="modelInfo" class="modelInfo"></div>
+            <div id="filterInfo" class="filterInfo"></div>
           </div>
           <div class="aiButtons">
             <button id="btnRefreshModels">Refresh Models</button>
@@ -752,12 +821,26 @@
     try {
       const stored = localStorage.getItem(AI_SETTINGS_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        return {
+          apiKey: parsed.apiKey || "",
+          model: parsed.model || "anthropic/claude-sonnet-4",
+          minContext: parsed.minContext || 0,
+          maxPrice: parsed.maxPrice || 0,
+          favorites: parsed.favorites || [],
+          showFavoritesOnly: parsed.showFavoritesOnly || false,
+          freeOnly: parsed.freeOnly || false,
+        };
       }
     } catch (_) {}
     return {
       apiKey: "",
       model: "anthropic/claude-sonnet-4",
+      minContext: 0,
+      maxPrice: 0,
+      favorites: [],
+      showFavoritesOnly: false,
+      freeOnly: false,
     };
   }
 
@@ -830,8 +913,16 @@
     btnDeleteHistory: $("btnDeleteHistory"),
     aiApiKey: $("aiApiKey"),
     btnToggleApiKey: $("btnToggleApiKey"),
+    minContext: $("minContext"),
+    maxPrice: $("maxPrice"),
+    btnShowFreeAndPaid: $("btnShowFreeAndPaid"),
+    btnShowFreeOnly: $("btnShowFreeOnly"),
+    btnShowAllModels: $("btnShowAllModels"),
+    btnShowFavorites: $("btnShowFavorites"),
     aiModel: $("aiModel"),
+    btnToggleFavorite: $("btnToggleFavorite"),
     modelInfo: $("modelInfo"),
+    filterInfo: $("filterInfo"),
     btnRefreshModels: $("btnRefreshModels"),
     btnSaveSettings: $("btnSaveSettings"),
     settingsStatusBox: $("settingsStatusBox"),
@@ -1268,12 +1359,51 @@
     }
   }
 
+  function getFilteredModels() {
+    let filtered = modelsData;
+
+    // Filter by free only
+    if (aiSettings.freeOnly) {
+      filtered = filtered.filter(m => {
+        if (!m.pricing) return false;
+        const promptPrice = parseFloat(m.pricing.prompt || 0);
+        const completionPrice = parseFloat(m.pricing.completion || 0);
+        return promptPrice === 0 && completionPrice === 0;
+      });
+    }
+
+    // Filter by min context
+    const minCtx = aiSettings.minContext || 0;
+    if (minCtx > 0) {
+      filtered = filtered.filter(m => (m.context_length || 0) >= minCtx);
+    }
+
+    // Filter by max price (prompt price per 1M tokens)
+    const maxPr = aiSettings.maxPrice || 0;
+    if (maxPr > 0) {
+      filtered = filtered.filter(m => {
+        if (!m.pricing) return true; // Include models without pricing info
+        const promptPrice = parseFloat(m.pricing.prompt || 0) * 1000000;
+        return promptPrice <= maxPr;
+      });
+    }
+
+    // Filter by favorites if showing favorites only
+    if (aiSettings.showFavoritesOnly) {
+      filtered = filtered.filter(m => aiSettings.favorites.includes(m.id));
+    }
+
+    return filtered;
+  }
+
   function populateModelSelect() {
     ui.aiModel.innerHTML = "";
 
+    const filteredModels = getFilteredModels();
+
     // Group models by provider
     const providers = {};
-    modelsData.forEach(m => {
+    filteredModels.forEach(m => {
       const provider = m.id.split("/")[0] || "other";
       if (!providers[provider]) providers[provider] = [];
       providers[provider].push(m);
@@ -1286,17 +1416,81 @@
       providers[provider].forEach(m => {
         const opt = document.createElement("option");
         opt.value = m.id;
-        opt.textContent = m.name || m.id;
+        const isFav = aiSettings.favorites.includes(m.id);
+        opt.textContent = (isFav ? "★ " : "") + (m.name || m.id);
         optgroup.appendChild(opt);
       });
       ui.aiModel.appendChild(optgroup);
     });
 
     // Set selected value
-    if (aiSettings.model) {
+    if (aiSettings.model && filteredModels.some(m => m.id === aiSettings.model)) {
       ui.aiModel.value = aiSettings.model;
+    } else if (filteredModels.length > 0) {
+      ui.aiModel.value = filteredModels[0].id;
     }
+
     updateModelInfo();
+    updateFilterInfo(filteredModels.length);
+    updateFavoriteButton();
+  }
+
+  function updateFilterInfo(count) {
+    const total = modelsData.length;
+    if (count === total) {
+      ui.filterInfo.textContent = `${count} models available`;
+    } else {
+      ui.filterInfo.textContent = `Showing ${count} of ${total} models (filtered)`;
+    }
+  }
+
+  function updateFavoriteButton() {
+    const modelId = ui.aiModel.value;
+    const isFavorite = aiSettings.favorites.includes(modelId);
+    ui.btnToggleFavorite.textContent = isFavorite ? "★" : "☆";
+    ui.btnToggleFavorite.classList.toggle("is-favorite", isFavorite);
+    ui.btnToggleFavorite.title = isFavorite ? "Remove from favorites" : "Add to favorites";
+  }
+
+  function toggleFavorite() {
+    const modelId = ui.aiModel.value;
+    if (!modelId) return;
+
+    const idx = aiSettings.favorites.indexOf(modelId);
+    if (idx >= 0) {
+      aiSettings.favorites.splice(idx, 1);
+    } else {
+      aiSettings.favorites.push(modelId);
+    }
+    saveAISettings(aiSettings);
+    updateFavoriteButton();
+
+    // If showing favorites only, repopulate to remove unfavorited model
+    if (aiSettings.showFavoritesOnly) {
+      populateModelSelect();
+    } else {
+      // Just update the option text to show/hide star
+      const opt = ui.aiModel.querySelector(`option[value="${modelId}"]`);
+      if (opt) {
+        const model = modelsData.find(m => m.id === modelId);
+        const isFav = aiSettings.favorites.includes(modelId);
+        opt.textContent = (isFav ? "★ " : "") + (model?.name || modelId);
+      }
+    }
+  }
+
+  function setModelViewMode(favoritesOnly) {
+    aiSettings.showFavoritesOnly = favoritesOnly;
+    ui.btnShowAllModels.classList.toggle("active", !favoritesOnly);
+    ui.btnShowFavorites.classList.toggle("active", favoritesOnly);
+    populateModelSelect();
+  }
+
+  function setPricingMode(freeOnly) {
+    aiSettings.freeOnly = freeOnly;
+    ui.btnShowFreeAndPaid.classList.toggle("active", !freeOnly);
+    ui.btnShowFreeOnly.classList.toggle("active", freeOnly);
+    populateModelSelect();
   }
 
   function updateModelInfo() {
@@ -1316,6 +1510,7 @@
     } else {
       ui.modelInfo.textContent = "";
     }
+    updateFavoriteButton();
   }
 
   function updateAiButtonStates() {
@@ -1576,6 +1771,25 @@ function writeState(s, replace=true) {
     ui.btnToggleApiKey.textContent = isPassword ? "Hide" : "Show";
   });
 
+  // Model filtering
+  ui.minContext.addEventListener("change", () => {
+    aiSettings.minContext = parseInt(ui.minContext.value) || 0;
+    populateModelSelect();
+  });
+
+  ui.maxPrice.addEventListener("change", () => {
+    aiSettings.maxPrice = parseFloat(ui.maxPrice.value) || 0;
+    populateModelSelect();
+  });
+
+  ui.btnShowFreeAndPaid.addEventListener("click", () => setPricingMode(false));
+  ui.btnShowFreeOnly.addEventListener("click", () => setPricingMode(true));
+
+  ui.btnShowAllModels.addEventListener("click", () => setModelViewMode(false));
+  ui.btnShowFavorites.addEventListener("click", () => setModelViewMode(true));
+
+  ui.btnToggleFavorite.addEventListener("click", () => toggleFavorite());
+
   ui.aiModel.addEventListener("change", () => {
     aiSettings.model = ui.aiModel.value;
     updateModelInfo();
@@ -1590,6 +1804,8 @@ function writeState(s, replace=true) {
   ui.btnSaveSettings.addEventListener("click", () => {
     aiSettings.apiKey = ui.aiApiKey.value;
     aiSettings.model = ui.aiModel.value;
+    aiSettings.minContext = parseInt(ui.minContext.value) || 0;
+    aiSettings.maxPrice = parseFloat(ui.maxPrice.value) || 0;
     saveAISettings(aiSettings);
     setSettingsStatus("Settings saved!", "success");
     setTimeout(() => setSettingsStatus(""), 2000);
@@ -1654,8 +1870,15 @@ function writeState(s, replace=true) {
     ui.previewPill.className = "pill";
     syncStatus();
 
-    // Load AI settings
+    // Load AI settings into UI
     ui.aiApiKey.value = aiSettings.apiKey || "";
+    ui.minContext.value = aiSettings.minContext || "";
+    ui.maxPrice.value = aiSettings.maxPrice || "";
+    ui.btnShowAllModels.classList.toggle("active", !aiSettings.showFavoritesOnly);
+    ui.btnShowFavorites.classList.toggle("active", aiSettings.showFavoritesOnly);
+    ui.btnShowFreeAndPaid.classList.toggle("active", !aiSettings.freeOnly);
+    ui.btnShowFreeOnly.classList.toggle("active", aiSettings.freeOnly);
+
     await fetchModels();
     updateAiButtonStates();
 
