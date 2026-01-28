@@ -148,6 +148,7 @@
       </div>
       <div class="row">
         <button id="btnCopyAppUrl">Copy</button>
+        <a id="linkPlayer" href="player.html" target="_blank" style="text-decoration:none;"><button type="button" title="Open in Player (view-only mode)">Play ▶</button></a>
         <button id="btnViewSource" class="viewBtn active" title="Show source and preview">Source</button>
         <button id="btnViewDebug" class="viewBtn" title="Show console output and preview">Debug</button>
         <button id="btnViewPreview" class="viewBtn" title="Show preview only">Preview Only</button>
@@ -456,6 +457,7 @@
     btnClearDebug: $("btnClearDebug"),
     btnReloadNow: $("btnReloadNow"),
     btnReset: $("btnReset"),
+    linkPlayer: $("linkPlayer"),
     codecPill: $("codecPill"),
     urlLenPill: $("urlLenPill"),
     srcLenPill: $("srcLenPill"),
@@ -548,6 +550,8 @@
     ui.codecPill.textContent = `codec: ${state.codec || "?"}`;
     ui.urlLenPill.textContent = `editor URL length: ${location.href.length}`;
     ui.srcLenPill.textContent = `source chars: ${ui.srcEditor.value.length}`;
+    // Update player link to match current hash
+    ui.linkPlayer.href = "player.html" + location.hash;
   }
 
   function revokePreviewBlob() {
