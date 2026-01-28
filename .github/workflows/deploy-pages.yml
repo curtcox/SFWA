@@ -145,14 +145,14 @@ jobs:
                 </style>
             </head>
             <body>
-            EOFHTML
+EOFHTML
             # Add the content
             echo "$content" >> "$outfile"
             # Close HTML
             cat >> "$outfile" << 'EOFHTML'
             </body>
             </html>
-            EOFHTML
+EOFHTML
             # Update title
             sed -i "s|<title>Title Placeholder</title>|<title>$title</title>|" "$outfile"
           done
