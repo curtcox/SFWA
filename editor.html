@@ -105,6 +105,36 @@
     }
     .warn { color: #b45309; }
     .ok { color: #15803d; }
+    .viewBtn { font-weight: 500; }
+    .viewBtn.active { background: color-mix(in oklab, Canvas 70%, CanvasText 15%); }
+    .main.view-source { grid-template-columns: 1fr 1fr; }
+    .main.view-debug { grid-template-columns: 1fr 1fr; }
+    .main.view-preview { grid-template-columns: 1fr; }
+    .main.view-source .pane-source,
+    .main.view-source .pane-preview { display: grid; }
+    .main.view-source .pane-debug { display: none; }
+    .main.view-debug .pane-debug,
+    .main.view-debug .pane-preview { display: grid; }
+    .main.view-debug .pane-source { display: none; }
+    .main.view-preview .pane-preview { display: grid; }
+    .main.view-preview .pane-source,
+    .main.view-preview .pane-debug { display: none; }
+    .debugOutput {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: Canvas;
+      color: CanvasText;
+    }
+    .debugLine { padding: 2px 0; border-bottom: 1px solid rgba(127,127,127,.15); }
+    .debugLine.log { color: CanvasText; }
+    .debugLine.warn { color: #b45309; }
+    .debugLine.error { color: #dc2626; }
+    .debugLine.info { color: #2563eb; }
   </style>
 </head>
 
@@ -118,14 +148,17 @@
       </div>
       <div class="row">
         <button id="btnCopyAppUrl">Copy</button>
+        <button id="btnViewSource" class="viewBtn active" title="Show source and preview">Source</button>
+        <button id="btnViewDebug" class="viewBtn" title="Show console output and preview">Debug</button>
+        <button id="btnViewPreview" class="viewBtn" title="Show preview only">Preview Only</button>
         <button id="btnReloadNow" title="Reload preview immediately">Reload preview</button>
         <button id="btnReset" title="Reset to the built-in demo app">Reset demo</button>
       </div>
     </div>
   </div>
 
-  <div class="main">
-    <div class="pane">
+  <div class="main view-source" id="mainContainer">
+    <div class="pane pane-source">
       <div class="paneHead">
         <div class="paneTitle">App source (stored compressed in editor #hash)</div>
         <div class="label">Auto-reload: 1s after you stop typing</div>
@@ -140,7 +173,18 @@
       </div>
     </div>
 
-    <div class="pane">
+    <div class="pane pane-debug">
+      <div class="paneHead">
+        <div class="paneTitle">Console output</div>
+        <button id="btnClearDebug">Clear</button>
+      </div>
+      <div class="debugOutput" id="debugOutput"></div>
+      <div class="status">
+        <span class="label">Captures console.log, console.warn, console.error, console.info from the preview.</span>
+      </div>
+    </div>
+
+    <div class="pane pane-preview">
       <div class="paneHead">
         <div class="paneTitle">Live preview</div>
         <div class="label">Hash in preview is editable via the app address bar</div>
@@ -401,9 +445,15 @@
     appUrlBar: $("appUrlBar"),
     srcEditor: $("srcEditor"),
     preview: $("preview"),
+    mainContainer: $("mainContainer"),
+    debugOutput: $("debugOutput"),
     btnCopyAppUrl: $("btnCopyAppUrl"),
     btnBack: $("btnBack"),
     btnForward: $("btnForward"),
+    btnViewSource: $("btnViewSource"),
+    btnViewDebug: $("btnViewDebug"),
+    btnViewPreview: $("btnViewPreview"),
+    btnClearDebug: $("btnClearDebug"),
     btnReloadNow: $("btnReloadNow"),
     btnReset: $("btnReset"),
     codecPill: $("codecPill"),
@@ -507,9 +557,48 @@
     }
   }
 
+  // Console capture script to inject into preview
+  const CONSOLE_CAPTURE_SCRIPT = `<script>
+(function() {
+  const methods = ['log', 'warn', 'error', 'info'];
+  methods.forEach(function(level) {
+    const orig = console[level];
+    console[level] = function() {
+      const args = Array.prototype.slice.call(arguments).map(function(a) {
+        if (typeof a === 'object') {
+          try { return JSON.parse(JSON.stringify(a)); }
+          catch(e) { return String(a); }
+        }
+        return a;
+      });
+      try {
+        parent.postMessage({ type: 'sfwa-console', level: level, args: args }, '*');
+      } catch(e) {}
+      return orig.apply(console, arguments);
+    };
+  });
+})();
+<\/script>`;
+
   function makePreviewUrl() {
     revokePreviewBlob();
-    const blob = new Blob([state.srcText], { type: "text/html;charset=utf-8" });
+    // Inject console capture script at the start of <head> or after <!doctype>
+    let html = state.srcText;
+    const headMatch = html.match(/<head[^>]*>/i);
+    if (headMatch) {
+      const idx = headMatch.index + headMatch[0].length;
+      html = html.slice(0, idx) + CONSOLE_CAPTURE_SCRIPT + html.slice(idx);
+    } else {
+      // No <head>, inject after <!doctype> or at start
+      const doctypeMatch = html.match(/<!doctype[^>]*>/i);
+      if (doctypeMatch) {
+        const idx = doctypeMatch.index + doctypeMatch[0].length;
+        html = html.slice(0, idx) + CONSOLE_CAPTURE_SCRIPT + html.slice(idx);
+      } else {
+        html = CONSOLE_CAPTURE_SCRIPT + html;
+      }
+    }
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     state.previewBlobUrl = url;
     const h = state.appHash ? "#" + state.appHash : "";
@@ -642,6 +731,7 @@
 
   function loadPreview() {
     stopHashPolling();
+    ui.debugOutput.innerHTML = ""; // Clear debug output on reload
     const src = makePreviewUrl();
     ui.previewPill.textContent = `preview: loading…`;
     ui.previewPill.className = "pill";
@@ -757,6 +847,48 @@
 
   ui.btnForward.addEventListener("click", () => {
     navigateAppHistory(1);
+  });
+
+  // ---------------------------
+  // View mode switching
+  // ---------------------------
+  function setViewMode(mode) {
+    ui.mainContainer.className = "main view-" + mode;
+    ui.btnViewSource.classList.toggle("active", mode === "source");
+    ui.btnViewDebug.classList.toggle("active", mode === "debug");
+    ui.btnViewPreview.classList.toggle("active", mode === "preview");
+  }
+
+  ui.btnViewSource.addEventListener("click", () => setViewMode("source"));
+  ui.btnViewDebug.addEventListener("click", () => setViewMode("debug"));
+  ui.btnViewPreview.addEventListener("click", () => setViewMode("preview"));
+
+  ui.btnClearDebug.addEventListener("click", () => {
+    ui.debugOutput.innerHTML = "";
+  });
+
+  // ---------------------------
+  // Console capture from iframe
+  // ---------------------------
+  function addDebugLine(type, args) {
+    const line = document.createElement("div");
+    line.className = "debugLine " + type;
+    const text = args.map(a => {
+      if (typeof a === "object") {
+        try { return JSON.stringify(a, null, 2); }
+        catch { return String(a); }
+      }
+      return String(a);
+    }).join(" ");
+    line.textContent = `[${type}] ${text}`;
+    ui.debugOutput.appendChild(line);
+    ui.debugOutput.scrollTop = ui.debugOutput.scrollHeight;
+  }
+
+  window.addEventListener("message", (e) => {
+    if (e.data && e.data.type === "sfwa-console") {
+      addDebugLine(e.data.level, e.data.args);
+    }
   });
 
   // Editable "address bar" for the app being edited.
