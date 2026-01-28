@@ -531,33 +531,75 @@
     return url + h;
   }
 
+  let lastKnownIframeHash = "";
+  let hashPollTimer = 0;
+
   function syncAppBarFromIframe() {
     try {
-      const href = ui.preview.contentWindow.location.href;
-      ui.appUrlBar.value = href;
+      const hash = ui.preview.contentWindow.location.hash || "";
+      ui.appUrlBar.value = hash || "#";
     } catch (_) {
       // ignore
+    }
+  }
+
+  function onIframeHashChanged(newHash) {
+    const h = newHash.startsWith("#") ? newHash.slice(1) : newHash;
+    state.appHash = h;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    syncStatus();
+    syncAppBarFromIframe();
+    ui.previewPill.textContent = `preview: hash synced @ ${nowTime()}`;
+    ui.previewPill.className = "pill ok";
+  }
+
+  function pollIframeHash() {
+    try {
+      const currentHash = ui.preview.contentWindow.location.hash || "";
+      if (currentHash !== lastKnownIframeHash) {
+        lastKnownIframeHash = currentHash;
+        onIframeHashChanged(currentHash);
+      }
+    } catch (_) {
+      // ignore cross-origin or not-ready errors
+    }
+  }
+
+  function startHashPolling() {
+    stopHashPolling();
+    // Poll every 250ms to catch replaceState/pushState changes
+    hashPollTimer = setInterval(pollIframeHash, 250);
+  }
+
+  function stopHashPolling() {
+    if (hashPollTimer) {
+      clearInterval(hashPollTimer);
+      hashPollTimer = 0;
     }
   }
 
   function attachIframeHashSync() {
     try {
       const w = ui.preview.contentWindow;
+      // Initialize last known hash
+      lastKnownIframeHash = w.location.hash || "";
+      // Start polling for hash changes (catches replaceState/pushState)
+      startHashPolling();
+      // Also listen for hashchange events (catches direct hash assignments)
       w.addEventListener("hashchange", () => {
         try {
-          const h = w.location.hash.startsWith("#") ? w.location.hash.slice(1) : "";
-          state.appHash = h;
-          writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
-          syncStatus();
-          syncAppBarFromIframe();
-          ui.previewPill.textContent = `preview: hash synced @ ${nowTime()}`;
-          ui.previewPill.className = "pill ok";
+          const currentHash = w.location.hash || "";
+          if (currentHash !== lastKnownIframeHash) {
+            lastKnownIframeHash = currentHash;
+            onIframeHashChanged(currentHash);
+          }
         } catch (_) {}
       });
     } catch (_) {}
   }
 
   function loadPreview() {
+    stopHashPolling();
     const src = makePreviewUrl();
     ui.previewPill.textContent = `preview: loading…`;
     ui.previewPill.className = "pill";
@@ -713,7 +755,10 @@
   })();
 
   // Cleanup
-  window.addEventListener("beforeunload", revokePreviewBlob);
+  window.addEventListener("beforeunload", () => {
+    revokePreviewBlob();
+    stopHashPolling();
+  });
 })();
 </script>
 </body>
