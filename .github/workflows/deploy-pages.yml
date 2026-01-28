@@ -76,7 +76,8 @@ jobs:
             title=$(echo "$title" | sed 's/[\/&]/\\&/g')
             
             # Generate HTML file (using temp file to avoid YAML heredoc issues)
-            tmpfile=$(mktemp)
+            tmpfile=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
+            trap 'rm -f "$tmpfile"' EXIT
             cat > "$tmpfile" << 'HTML_TEMPLATE_EOF'
               <!DOCTYPE html>
               <html lang="en">
@@ -151,7 +152,7 @@ jobs:
             echo "$content" >> "$outfile"
             echo "</body>" >> "$outfile"
             echo "</html>" >> "$outfile"
-            rm "$tmpfile"
+            # tmpfile cleanup handled by trap
             
             # Update title
             sed -i "s|<title>Title Placeholder</title>|<title>$title</title>|" "$outfile"
