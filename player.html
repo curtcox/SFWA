@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA Player</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(127,127,127,.35);
+      background: color-mix(in oklab, Canvas 92%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .field {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      width: min(1400px, 100%);
+    }
+    .field input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: color-mix(in oklab, Canvas 96%, transparent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+    button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: color-mix(in oklab, Canvas 90%, transparent);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    button:hover { filter: brightness(1.05); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button:disabled:hover { filter: none; }
+    .navBtn { padding: 8px 12px; font-weight: 600; }
+    .main {
+      height: calc(100vh - 60px);
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: white;
+    }
+    .label { font-size: 12px; opacity: .8; }
+    .status {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .pill {
+      padding: 2px 8px;
+      border: 1px solid rgba(127,127,127,.45);
+      border-radius: 999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+    }
+    .warn { color: #b45309; }
+    .ok { color: #15803d; }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="field">
+      <div class="row" style="gap:4px;">
+        <button id="btnBack" class="navBtn" title="Go back in app history" disabled>←</button>
+        <button id="btnForward" class="navBtn" title="Go forward in app history" disabled>→</button>
+        <input id="appUrlBar" placeholder="App state hash" style="flex:1;" />
+      </div>
+      <div class="row">
+        <button id="btnCopyAppUrl">Copy</button>
+        <button id="btnReload" title="Reload the app">Reload</button>
+        <button id="btnOpenInEditor" title="Open in Editor">Edit</button>
+        <div class="status">
+          <span class="pill" id="statusPill">loading…</span>
+          <span id="msg" class="label"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <iframe
+      id="preview"
+      sandbox="allow-scripts allow-same-origin"
+      referrerpolicy="no-referrer"
+    ></iframe>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // Utilities: base64url
+  // ---------------------------
+  function b64urlEncode(bytes) {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const b64 = btoa(bin);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function b64urlDecode(str) {
+    let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function nowTime() {
+    const d = new Date();
+    return d.toLocaleTimeString();
+  }
+
+  function normalizeHashFromMaybeUrl(text) {
+    const s = (text || "").trim();
+    if (!s) return "";
+    const idx = s.indexOf("#");
+    if (idx >= 0) return s.slice(idx + 1);
+    return s.startsWith("#") ? s.slice(1) : s;
+  }
+
+  // ---------------------------
+  // Compression: gzip (preferred) + LZW16 fallback
+  // ---------------------------
+  const CLEAR = 0xFFFF;
+  const MAX_CODE = 0xFFFE;
+
+  function lzwDecompressFromB64url(payload) {
+    const bytes = b64urlDecode(payload || "");
+    if (bytes.length === 0) return "";
+
+    const codes = new Uint16Array(bytes.length / 2);
+    for (let i = 0; i < codes.length; i++) {
+      codes[i] = (bytes[i * 2] << 8) | bytes[i * 2 + 1];
+    }
+
+    let prefix = new Uint16Array(MAX_CODE + 1);
+    let lastByte = new Uint8Array(MAX_CODE + 1);
+    let dictSize = 256;
+
+    function reset() {
+      dictSize = 256;
+    }
+    reset();
+
+    const out = [];
+    let prevCode = null;
+
+    function firstByteOf(code) {
+      while (code >= 256) code = prefix[code];
+      return code & 0xFF;
+    }
+
+    function emitSequence(code) {
+      const stack = [];
+      while (code >= 256) {
+        stack.push(lastByte[code]);
+        code = prefix[code];
+      }
+      stack.push(code & 0xFF);
+      for (let i = stack.length - 1; i >= 0; i--) out.push(stack[i]);
+    }
+
+    for (let i = 0; i < codes.length; i++) {
+      const code = codes[i];
+
+      if (code === CLEAR) {
+        reset();
+        prevCode = null;
+        continue;
+      }
+
+      if (prevCode === null) {
+        emitSequence(code);
+        prevCode = code;
+        continue;
+      }
+
+      if (code < dictSize) {
+        emitSequence(code);
+        if (dictSize <= MAX_CODE) {
+          prefix[dictSize] = prevCode;
+          lastByte[dictSize] = firstByteOf(code);
+          dictSize++;
+        }
+        prevCode = code;
+        continue;
+      }
+
+      if (code === dictSize) {
+        emitSequence(prevCode);
+        const fb = firstByteOf(prevCode);
+        out.push(fb);
+
+        if (dictSize <= MAX_CODE) {
+          prefix[dictSize] = prevCode;
+          lastByte[dictSize] = fb;
+          dictSize++;
+        }
+        prevCode = code;
+        continue;
+      }
+
+      throw new Error("LZW decode error: invalid code");
+    }
+
+    return new TextDecoder().decode(new Uint8Array(out));
+  }
+
+  const hasGzip = typeof CompressionStream !== "undefined" && typeof DecompressionStream !== "undefined";
+
+  async function gzipDecompressFromB64url(payload) {
+    const bytes = b64urlDecode(payload || "");
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const ab = await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(ab);
+  }
+
+  async function decompressText(codec, payload) {
+    if (!payload) return "";
+    if (codec === "gz") return await gzipDecompressFromB64url(payload);
+    if (codec === "lzw") return lzwDecompressFromB64url(payload);
+    // Legacy/unknown: try gzip then lzw then treat as plain
+    try { return await gzipDecompressFromB64url(payload); } catch (_) {}
+    try { return lzwDecompressFromB64url(payload); } catch (_) {}
+    return payload;
+  }
+
+  // ---------------------------
+  // URL hash parsing (same format as editor.html):
+  //   #c=<gz|lzw>&src=<payload>&h=<appHash>
+  // ---------------------------
+  function readHashParams() {
+    const p = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : "");
+    return {
+      codec: p.get("c") || "",
+      srcPayload: p.get("src") || "",
+      appHash: p.get("h") || "",
+    };
+  }
+
+  function writeHashParams(state, { replace = true } = {}) {
+    const p = new URLSearchParams();
+    p.set("c", state.codec);
+    p.set("src", state.srcPayload);
+    if (state.appHash) p.set("h", state.appHash);
+
+    const newUrl = "#" + p.toString();
+    if (replace) history.replaceState(null, "", newUrl);
+    else history.pushState(null, "", newUrl);
+  }
+
+  // ---------------------------
+  // UI + Preview
+  // ---------------------------
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    appUrlBar: $("appUrlBar"),
+    preview: $("preview"),
+    btnCopyAppUrl: $("btnCopyAppUrl"),
+    btnBack: $("btnBack"),
+    btnForward: $("btnForward"),
+    btnReload: $("btnReload"),
+    btnOpenInEditor: $("btnOpenInEditor"),
+    statusPill: $("statusPill"),
+    msg: $("msg"),
+  };
+
+  let state = {
+    codec: "",
+    srcPayload: "",
+    srcText: "",
+    appHash: "",
+    previewBlobUrl: "",
+  };
+
+  function setMsg(text, kind = "") {
+    ui.msg.textContent = text || "";
+    ui.msg.className = "label " + (kind || "");
+  }
+
+  function revokePreviewBlob() {
+    if (state.previewBlobUrl) {
+      URL.revokeObjectURL(state.previewBlobUrl);
+      state.previewBlobUrl = "";
+    }
+  }
+
+  function makePreviewUrl() {
+    revokePreviewBlob();
+    const html = state.srcText;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    state.previewBlobUrl = url;
+    const h = state.appHash ? "#" + state.appHash : "";
+    return url + h;
+  }
+
+  let lastKnownIframeHash = "";
+  let hashPollTimer = 0;
+
+  // App history tracking
+  let appHistory = [];
+  let appHistoryPos = -1;
+  let isNavigating = false;
+
+  function updateNavButtons() {
+    ui.btnBack.disabled = appHistoryPos <= 0;
+    ui.btnForward.disabled = appHistoryPos >= appHistory.length - 1;
+  }
+
+  function resetAppHistory(initialHash) {
+    appHistory = [initialHash || "#"];
+    appHistoryPos = 0;
+    updateNavButtons();
+  }
+
+  function recordAppHistory(hash) {
+    if (isNavigating) return;
+    const normalized = hash || "#";
+    if (appHistory[appHistoryPos] === normalized) return;
+    appHistory = appHistory.slice(0, appHistoryPos + 1);
+    appHistory.push(normalized);
+    appHistoryPos = appHistory.length - 1;
+    updateNavButtons();
+  }
+
+  function navigateAppHistory(delta) {
+    const newPos = appHistoryPos + delta;
+    if (newPos < 0 || newPos >= appHistory.length) return;
+
+    appHistoryPos = newPos;
+    const targetHash = appHistory[appHistoryPos];
+
+    isNavigating = true;
+    try {
+      ui.preview.contentWindow.location.hash = targetHash;
+      lastKnownIframeHash = targetHash;
+      state.appHash = targetHash.startsWith("#") ? targetHash.slice(1) : targetHash;
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      syncAppBarFromIframe();
+      setMsg(`Navigated ${delta < 0 ? 'back' : 'forward'} in app history.`, "ok");
+    } catch (_) {
+      setMsg("Couldn't navigate app history.", "warn");
+    }
+    isNavigating = false;
+    updateNavButtons();
+  }
+
+  function syncAppBarFromIframe() {
+    try {
+      const hash = ui.preview.contentWindow.location.hash || "";
+      ui.appUrlBar.value = hash || "#";
+    } catch (_) {}
+  }
+
+  function onIframeHashChanged(newHash) {
+    const h = newHash.startsWith("#") ? newHash.slice(1) : newHash;
+    state.appHash = h;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    syncAppBarFromIframe();
+    recordAppHistory(newHash.startsWith("#") ? newHash : "#" + newHash);
+  }
+
+  function pollIframeHash() {
+    try {
+      const currentHash = ui.preview.contentWindow.location.hash || "";
+      if (currentHash !== lastKnownIframeHash) {
+        lastKnownIframeHash = currentHash;
+        onIframeHashChanged(currentHash);
+      }
+    } catch (_) {}
+  }
+
+  function startHashPolling() {
+    stopHashPolling();
+    hashPollTimer = setInterval(pollIframeHash, 250);
+  }
+
+  function stopHashPolling() {
+    if (hashPollTimer) {
+      clearInterval(hashPollTimer);
+      hashPollTimer = 0;
+    }
+  }
+
+  function attachIframeHashSync() {
+    try {
+      const w = ui.preview.contentWindow;
+      lastKnownIframeHash = w.location.hash || "";
+      resetAppHistory(lastKnownIframeHash || "#");
+      startHashPolling();
+      w.addEventListener("hashchange", () => {
+        try {
+          const currentHash = w.location.hash || "";
+          if (currentHash !== lastKnownIframeHash) {
+            lastKnownIframeHash = currentHash;
+            onIframeHashChanged(currentHash);
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  function loadPreview() {
+    stopHashPolling();
+    const src = makePreviewUrl();
+    ui.statusPill.textContent = "loading…";
+    ui.statusPill.className = "pill";
+    ui.preview.src = src;
+
+    ui.preview.onload = () => {
+      ui.statusPill.textContent = `loaded @ ${nowTime()}`;
+      ui.statusPill.className = "pill ok";
+      syncAppBarFromIframe();
+      attachIframeHashSync();
+    };
+  }
+
+  async function loadFromPlayerUrlHash() {
+    const h = readHashParams();
+    if (!h.srcPayload) {
+      ui.statusPill.textContent = "no app";
+      ui.statusPill.className = "pill warn";
+      setMsg("No app loaded. Paste a player/editor URL to load an app.", "warn");
+      return;
+    }
+
+    setMsg("Loading…", "");
+    try {
+      const text = await decompressText(h.codec, h.srcPayload);
+      state.codec = h.codec || (hasGzip ? "gz" : "lzw");
+      state.srcPayload = h.srcPayload;
+      state.srcText = text;
+      state.appHash = h.appHash || "";
+
+      loadPreview();
+      setMsg("", "");
+    } catch (e) {
+      ui.statusPill.textContent = "error";
+      ui.statusPill.className = "pill warn";
+      setMsg("Couldn't decode the app from URL.", "warn");
+    }
+  }
+
+  // ---------------------------
+  // Events
+  // ---------------------------
+  ui.btnCopyAppUrl.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(ui.appUrlBar.value || "");
+      setMsg("App hash copied.", "ok");
+    } catch (_) {
+      setMsg("Clipboard blocked.", "warn");
+    }
+  });
+
+  ui.btnBack.addEventListener("click", () => {
+    navigateAppHistory(-1);
+  });
+
+  ui.btnForward.addEventListener("click", () => {
+    navigateAppHistory(1);
+  });
+
+  ui.btnReload.addEventListener("click", () => {
+    loadPreview();
+  });
+
+  ui.btnOpenInEditor.addEventListener("click", () => {
+    // Open editor.html with the same hash
+    const editorUrl = "editor.html" + location.hash;
+    window.open(editorUrl, "_blank");
+  });
+
+  // Editable "address bar" for the app hash
+  ui.appUrlBar.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const h = normalizeHashFromMaybeUrl(ui.appUrlBar.value);
+
+    state.appHash = h;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+
+    try {
+      ui.preview.contentWindow.location.hash = h ? ("#" + h) : "";
+      setMsg("Applied hash to app.", "ok");
+    } catch (_) {
+      setMsg("Couldn't set app hash.", "warn");
+    }
+  });
+
+  // If user manually edits the player URL hash in the browser, reload state.
+  window.addEventListener("hashchange", () => {
+    loadFromPlayerUrlHash();
+  });
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+  (async function init() {
+    ui.statusPill.textContent = "initializing…";
+    ui.statusPill.className = "pill";
+    await loadFromPlayerUrlHash();
+  })();
+
+  // Cleanup
+  window.addEventListener("beforeunload", () => {
+    revokePreviewBlob();
+    stopHashPolling();
+  });
+})();
+</script>
+</body>
+</html>
