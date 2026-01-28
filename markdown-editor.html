@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Notepad</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.toolbar {
+  background: #2c3e50;
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  background: #34495e;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background: #415b76;
+}
+
+.btn.active {
+  background: #3498db;
+}
+
+.key-input {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 200px;
+}
+
+.key-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lock-icon {
+  font-size: 16px;
+}
+
+.container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  margin: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.pane.hidden {
+  display: none;
+}
+
+.editor {
+  flex: 1;
+  padding: 20px;
+  border: none;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+.preview {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.preview h1 { font-size: 2em; margin: 0.67em 0; }
+.preview h2 { font-size: 1.5em; margin: 0.75em 0; }
+.preview h3 { font-size: 1.17em; margin: 0.83em 0; }
+.preview h4 { font-size: 1em; margin: 1em 0; }
+.preview h5 { font-size: 0.83em; margin: 1.5em 0; }
+.preview h6 { font-size: 0.67em; margin: 2em 0; }
+.preview p { margin: 1em 0; }
+.preview code {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+.preview pre {
+  background: #f4f4f4;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.preview pre code {
+  background: none;
+  padding: 0;
+}
+.preview blockquote {
+  border-left: 4px solid #ddd;
+  padding-left: 16px;
+  margin: 1em 0;
+  color: #666;
+}
+.preview ul, .preview ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+.preview a {
+  color: #3498db;
+  text-decoration: none;
+}
+.preview a:hover {
+  text-decoration: underline;
+}
+.preview hr {
+  border: none;
+  border-top: 2px solid #ddd;
+  margin: 1.5em 0;
+}
+.preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+.preview th, .preview td {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-align: left;
+}
+.preview th {
+  background: #f4f4f4;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .key-input {
+    width: 150px;
+  }
+
+  .container {
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="toolbar-group">
+    <button class="btn" id="btnMarkdown">Markdown</button>
+    <button class="btn active" id="btnSplit">Split</button>
+    <button class="btn" id="btnPreview">Preview</button>
+  </div>
+  <div class="toolbar-group">
+    <span class="key-label"><span class="lock-icon">🔒</span> Key:</span>
+    <input type="password" class="key-input" id="keyInput" placeholder="Optional encryption key">
+  </div>
+</div>
+
+<div class="container">
+  <div class="pane" id="editorPane">
+    <textarea class="editor" id="editor" placeholder="Start typing markdown here..."></textarea>
+  </div>
+  <div class="pane" id="previewPane">
+    <div class="preview" id="preview"></div>
+  </div>
+</div>
+
+<script>
+// Simple AES-like encryption using Web Crypto API
+async function encrypt(text, password) {
+  if (!password) return text;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const passwordData = encoder.encode(password);
+  const passwordHash = await crypto.subtle.digest('SHA-256', passwordData);
+  const key = await crypto.subtle.importKey('raw', passwordHash, { name: 'AES-GCM' }, false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decrypt(encryptedText, password) {
+  if (!password) return encryptedText;
+  try {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const passwordData = encoder.encode(password);
+    const passwordHash = await crypto.subtle.digest('SHA-256', passwordData);
+    const key = await crypto.subtle.importKey('raw', passwordHash, { name: 'AES-GCM' }, false, ['decrypt']);
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    return decoder.decode(decrypted);
+  } catch {
+    return null;
+  }
+}
+
+// LZ-String compression
+const LZString={_keyStr:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",compressToBase64:function(e){if(null==e)return"";var t=LZString._compress(e,6,function(e){return LZString._keyStr.charAt(e)});switch(t.length%4){default:case 0:return t;case 1:return t+"===";case 2:return t+"==";case 3:return t+"="}},decompressFromBase64:function(e){return null==e?"":""==e?null:LZString._decompress(e.length,32,function(t){return LZString._getBaseValue(LZString._keyStr,e.charAt(t))})},_compress:function(e,t,n){if(null==e)return"";var r,o,i,a={},s={},l="",c="",u="",d=2,p=3,f=2,h=[],m=0,g=0;for(i=0;i<e.length;i+=1)if(l=e.charAt(i),Object.prototype.hasOwnProperty.call(a,l)||(a[l]=p++,s[l]=!0),c=u+l,Object.prototype.hasOwnProperty.call(a,c))u=c;else{if(Object.prototype.hasOwnProperty.call(s,u)){if(u.charCodeAt(0)<256){for(r=0;r<f;r++)m<<=1,g==t-1?(g=0,h.push(n(m)),m=0):g++;for(o=u.charCodeAt(0),r=0;r<8;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}else{for(o=1,r=0;r<f;r++)m=m<<1|o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o=0;for(o=u.charCodeAt(0),r=0;r<16;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}0==--d&&(d=Math.pow(2,f),f++),delete s[u]}else for(o=a[u],r=0;r<f;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1;0==--d&&(d=Math.pow(2,f),f++),a[c]=p++,u=String(l)}if(""!==u){if(Object.prototype.hasOwnProperty.call(s,u)){if(u.charCodeAt(0)<256){for(r=0;r<f;r++)m<<=1,g==t-1?(g=0,h.push(n(m)),m=0):g++;for(o=u.charCodeAt(0),r=0;r<8;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}else{for(o=1,r=0;r<f;r++)m=m<<1|o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o=0;for(o=u.charCodeAt(0),r=0;r<16;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}0==--d&&(d=Math.pow(2,f),f++),delete s[u]}else for(o=a[u],r=0;r<f;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1;0==--d&&(d=Math.pow(2,f),f++)}for(o=2,r=0;r<f;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1;for(;;){if(m<<=1,g==t-1){h.push(n(m));break}g++}return h.join("")},_decompress:function(e,t,n){var r,o,i,a,s,l,c,u=[],d=4,p=4,f=3,h="",m=[],g={val:n(0),position:t,index:1};for(r=0;r<3;r+=1)u[r]=r;for(i=0,s=Math.pow(2,2),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;switch(i){case 0:for(i=0,s=Math.pow(2,8),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;c=String.fromCharCode(i);break;case 1:for(i=0,s=Math.pow(2,16),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;c=String.fromCharCode(i);break;case 2:return""}for(u[3]=c,o=c,m.push(c);;){if(g.index>e)return"";for(i=0,s=Math.pow(2,f),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;switch(c=i){case 0:for(i=0,s=Math.pow(2,8),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;u[p++]=String.fromCharCode(i),c=p-1,d--;break;case 1:for(i=0,s=Math.pow(2,16),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;u[p++]=String.fromCharCode(i),c=p-1,d--;break;case 2:return m.join("")}if(0==d&&(d=Math.pow(2,f),f++),u[c])h=u[c];else{if(c!==p)return null;h=o+o.charAt(0)}m.push(h),u[p++]=o+h.charAt(0),o=h,0==--d&&(d=Math.pow(2,f),f++)}},_getBaseValue:function(e,t){return e.indexOf(t)}};
+
+// Markdown parser
+function parseMarkdown(md) {
+  let html = md;
+
+  // Code blocks
+  html = html.replace(/
