@@ -39,7 +39,7 @@ jobs:
           mkdir -p _site
           
           # Copy all existing HTML files to _site preserving directory structure
-          find . -name "*.html" -not -path "./_site/*" -not -path "./.git/*" -type f | while read -r file; do
+          find . -name "*.html" -not -path "./_site/*" -not -path "./.git/*" -not -path "./.github/*" -type f | while read -r file; do
             # Remove leading ./
             file=${file#./}
             # Create directory if needed
@@ -81,7 +81,10 @@ jobs:
             
             # Generate HTML file using external template
             # NOTE: Use external files instead of heredocs to avoid YAML parsing issues
-            cat ".github/workflows/templates/html-template.html" > "$outfile"
+            if ! cat ".github/workflows/templates/html-template.html" > "$outfile"; then
+              echo "Error: Template file not found or unreadable"
+              exit 1
+            fi
             echo "$content" >> "$outfile"
             echo "</body>" >> "$outfile"
             echo "</html>" >> "$outfile"
