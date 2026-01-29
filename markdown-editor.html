@@ -6,9 +6,9 @@
 <title>Markdown Notepad</title>
 <style>
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
@@ -24,7 +24,7 @@ body {
   color: white;
   padding: 12px 20px;
   display: flex;
-  gap: 15px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -36,7 +36,14 @@ body {
   align-items: center;
 }
 
-.btn {
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background: rgba(255,255,255,0.2);
+  margin: 0 4px;
+}
+
+button {
   background: #34495e;
   color: white;
   border: none;
@@ -47,57 +54,54 @@ body {
   transition: background 0.2s;
 }
 
-.btn:hover {
+button:hover {
   background: #415b76;
 }
 
-.btn.active {
+button.active {
   background: #3498db;
 }
 
-.key-input {
+button.active:hover {
+  background: #2980b9;
+}
+
+input[type="password"] {
   padding: 8px 12px;
-  border: none;
+  border: 1px solid #34495e;
   border-radius: 4px;
   font-size: 14px;
-  width: 200px;
+  background: white;
+  min-width: 200px;
 }
 
-.key-label {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.lock-icon {
-  font-size: 16px;
-}
-
-.container {
+.content {
   flex: 1;
   display: flex;
   overflow: hidden;
 }
 
-.pane {
+.editor-pane, .preview-pane {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
-  margin: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   overflow: hidden;
 }
 
-.pane.hidden {
-  display: none;
+.editor-pane {
+  background: #ffffff;
+  border-right: 1px solid #ddd;
 }
 
-.editor {
+.preview-pane {
+  background: #ffffff;
+}
+
+textarea {
   flex: 1;
-  padding: 20px;
   border: none;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  padding: 20px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 14px;
   line-height: 1.6;
   resize: none;
@@ -111,79 +115,51 @@ body {
   line-height: 1.6;
 }
 
-.preview h1 { font-size: 2em; margin: 0.67em 0; }
-.preview h2 { font-size: 1.5em; margin: 0.75em 0; }
+.preview h1 { font-size: 2em; margin: 0.67em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+.preview h2 { font-size: 1.5em; margin: 0.75em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
 .preview h3 { font-size: 1.17em; margin: 0.83em 0; }
 .preview h4 { font-size: 1em; margin: 1em 0; }
 .preview h5 { font-size: 0.83em; margin: 1.5em 0; }
 .preview h6 { font-size: 0.67em; margin: 2em 0; }
 .preview p { margin: 1em 0; }
-.preview code {
-  background: #f4f4f4;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-}
-.preview pre {
-  background: #f4f4f4;
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 1em 0;
-}
-.preview pre code {
-  background: none;
-  padding: 0;
-}
-.preview blockquote {
-  border-left: 4px solid #ddd;
-  padding-left: 16px;
-  margin: 1em 0;
-  color: #666;
-}
-.preview ul, .preview ol {
-  margin: 1em 0;
-  padding-left: 2em;
-}
-.preview a {
-  color: #3498db;
-  text-decoration: none;
-}
-.preview a:hover {
-  text-decoration: underline;
-}
-.preview hr {
-  border: none;
-  border-top: 2px solid #ddd;
-  margin: 1.5em 0;
-}
-.preview table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1em 0;
-}
-.preview th, .preview td {
-  border: 1px solid #ddd;
-  padding: 8px 12px;
-  text-align: left;
-}
-.preview th {
-  background: #f4f4f4;
-  font-weight: 600;
+.preview ul, .preview ol { margin: 1em 0; padding-left: 2em; }
+.preview li { margin: 0.5em 0; }
+.preview code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+.preview pre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; margin: 1em 0; }
+.preview pre code { background: none; padding: 0; }
+.preview blockquote { border-left: 4px solid #ddd; padding-left: 16px; color: #666; margin: 1em 0; }
+.preview a { color: #3498db; text-decoration: none; }
+.preview a:hover { text-decoration: underline; }
+.preview img { max-width: 100%; height: auto; }
+.preview table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.preview th, .preview td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.preview th { background: #f4f4f4; font-weight: bold; }
+.preview hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+
+.hidden { display: none !important; }
+
+.lock-icon {
+  font-size: 16px;
+  margin-right: 4px;
 }
 
 @media (max-width: 768px) {
   .toolbar {
-    padding: 10px;
-    gap: 10px;
+    padding: 8px 12px;
   }
-
-  .key-input {
-    width: 150px;
+  
+  input[type="password"] {
+    min-width: 120px;
+    font-size: 13px;
   }
-
-  .container {
+  
+  .content.split {
     flex-direction: column;
+  }
+  
+  .editor-pane {
+    border-right: none;
+    border-bottom: 1px solid #ddd;
   }
 }
 </style>
@@ -192,66 +168,333 @@ body {
 
 <div class="toolbar">
   <div class="toolbar-group">
-    <button class="btn" id="btnMarkdown">Markdown</button>
-    <button class="btn active" id="btnSplit">Split</button>
-    <button class="btn" id="btnPreview">Preview</button>
+    <button id="btnMarkdown" class="mode-btn">✏️ Edit</button>
+    <button id="btnRendered" class="mode-btn">👁️ Preview</button>
+    <button id="btnSplit" class="mode-btn active">↔️ Split</button>
   </div>
+  
+  <div class="toolbar-separator"></div>
+  
   <div class="toolbar-group">
-    <span class="key-label"><span class="lock-icon">🔒</span> Key:</span>
-    <input type="password" class="key-input" id="keyInput" placeholder="Optional encryption key">
+    <span class="lock-icon" id="lockIcon">🔓</span>
+    <input type="password" id="keyInput" placeholder="Encryption key (optional)">
   </div>
 </div>
 
-<div class="container">
-  <div class="pane" id="editorPane">
-    <textarea class="editor" id="editor" placeholder="Start typing markdown here..."></textarea>
+<div class="content split" id="content">
+  <div class="editor-pane" id="editorPane">
+    <textarea id="editor" placeholder="Start typing markdown..."></textarea>
   </div>
-  <div class="pane" id="previewPane">
+  <div class="preview-pane" id="previewPane">
     <div class="preview" id="preview"></div>
   </div>
 </div>
 
 <script>
 // Simple AES-like encryption using Web Crypto API
-async function encrypt(text, password) {
-  if (!password) return text;
+async function encrypt(text, key) {
+  if (!key) return text;
+  
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
-  const passwordData = encoder.encode(password);
-  const passwordHash = await crypto.subtle.digest('SHA-256', passwordData);
-  const key = await crypto.subtle.importKey('raw', passwordHash, { name: 'AES-GCM' }, false, ['encrypt']);
+  
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(key),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+  
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  const derivedKey = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt']
+  );
+  
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encrypted), iv.length);
-  return btoa(String.fromCharCode(...combined));
+  
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    derivedKey,
+    data
+  );
+  
+  const result = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+  result.set(salt, 0);
+  result.set(iv, salt.length);
+  result.set(new Uint8Array(encrypted), salt.length + iv.length);
+  
+  return btoa(String.fromCharCode(...result));
 }
 
-async function decrypt(encryptedText, password) {
-  if (!password) return encryptedText;
+async function decrypt(encryptedText, key) {
+  if (!key) return encryptedText;
+  
   try {
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    const passwordData = encoder.encode(password);
-    const passwordHash = await crypto.subtle.digest('SHA-256', passwordData);
-    const key = await crypto.subtle.importKey('raw', passwordHash, { name: 'AES-GCM' }, false, ['decrypt']);
-    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-    return decoder.decode(decrypted);
-  } catch {
-    return null;
+    const data = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    
+    const salt = data.slice(0, 16);
+    const iv = data.slice(16, 28);
+    const encrypted = data.slice(28);
+    
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(key),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits', 'deriveKey']
+    );
+    
+    const derivedKey = await crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      derivedKey,
+      encrypted
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (e) {
+    console.error('Decryption failed:', e);
+    return '';
   }
 }
 
-// LZ-String compression
-const LZString={_keyStr:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",compressToBase64:function(e){if(null==e)return"";var t=LZString._compress(e,6,function(e){return LZString._keyStr.charAt(e)});switch(t.length%4){default:case 0:return t;case 1:return t+"===";case 2:return t+"==";case 3:return t+"="}},decompressFromBase64:function(e){return null==e?"":""==e?null:LZString._decompress(e.length,32,function(t){return LZString._getBaseValue(LZString._keyStr,e.charAt(t))})},_compress:function(e,t,n){if(null==e)return"";var r,o,i,a={},s={},l="",c="",u="",d=2,p=3,f=2,h=[],m=0,g=0;for(i=0;i<e.length;i+=1)if(l=e.charAt(i),Object.prototype.hasOwnProperty.call(a,l)||(a[l]=p++,s[l]=!0),c=u+l,Object.prototype.hasOwnProperty.call(a,c))u=c;else{if(Object.prototype.hasOwnProperty.call(s,u)){if(u.charCodeAt(0)<256){for(r=0;r<f;r++)m<<=1,g==t-1?(g=0,h.push(n(m)),m=0):g++;for(o=u.charCodeAt(0),r=0;r<8;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}else{for(o=1,r=0;r<f;r++)m=m<<1|o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o=0;for(o=u.charCodeAt(0),r=0;r<16;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}0==--d&&(d=Math.pow(2,f),f++),delete s[u]}else for(o=a[u],r=0;r<f;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1;0==--d&&(d=Math.pow(2,f),f++),a[c]=p++,u=String(l)}if(""!==u){if(Object.prototype.hasOwnProperty.call(s,u)){if(u.charCodeAt(0)<256){for(r=0;r<f;r++)m<<=1,g==t-1?(g=0,h.push(n(m)),m=0):g++;for(o=u.charCodeAt(0),r=0;r<8;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}else{for(o=1,r=0;r<f;r++)m=m<<1|o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o=0;for(o=u.charCodeAt(0),r=0;r<16;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1}0==--d&&(d=Math.pow(2,f),f++),delete s[u]}else for(o=a[u],r=0;r<f;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1;0==--d&&(d=Math.pow(2,f),f++)}for(o=2,r=0;r<f;r++)m=m<<1|1&o,g==t-1?(g=0,h.push(n(m)),m=0):g++,o>>=1;for(;;){if(m<<=1,g==t-1){h.push(n(m));break}g++}return h.join("")},_decompress:function(e,t,n){var r,o,i,a,s,l,c,u=[],d=4,p=4,f=3,h="",m=[],g={val:n(0),position:t,index:1};for(r=0;r<3;r+=1)u[r]=r;for(i=0,s=Math.pow(2,2),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;switch(i){case 0:for(i=0,s=Math.pow(2,8),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;c=String.fromCharCode(i);break;case 1:for(i=0,s=Math.pow(2,16),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;c=String.fromCharCode(i);break;case 2:return""}for(u[3]=c,o=c,m.push(c);;){if(g.index>e)return"";for(i=0,s=Math.pow(2,f),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;switch(c=i){case 0:for(i=0,s=Math.pow(2,8),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;u[p++]=String.fromCharCode(i),c=p-1,d--;break;case 1:for(i=0,s=Math.pow(2,16),l=1;l!=s;)a=g.val&g.position,g.position>>=1,0==g.position&&(g.position=t,g.val=n(g.index++)),i|=(a>0?1:0)*l,l<<=1;u[p++]=String.fromCharCode(i),c=p-1,d--;break;case 2:return m.join("")}if(0==d&&(d=Math.pow(2,f),f++),u[c])h=u[c];else{if(c!==p)return null;h=o+o.charAt(0)}m.push(h),u[p++]=o+h.charAt(0),o=h,0==--d&&(d=Math.pow(2,f),f++)}},_getBaseValue:function(e,t){return e.indexOf(t)}};
-
-// Markdown parser
+// Markdown parser (simplified)
 function parseMarkdown(md) {
   let html = md;
-
+  
   // Code blocks
-  html = html.replace(/
+  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  
+  // Headers
+  html = html.replace(/^##### (.*$)/gm, '<h5>$1</h5>');
+  html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+  
+  // Bold and italic
+  html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/\_\_\_(.*?)\_\_\_/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\_\_(.*?)\_\_/g, '<strong>$1</strong>');
+  html = html.replace(/\_(.*?)\_/g, '<em>$1</em>');
+  
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2">$1</a>');
+  
+  // Images
+  html = html.replace(/!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1">');
+  
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Horizontal rule
+  html = html.replace(/^---$/gm, '<hr>');
+  
+  // Blockquotes
+  html = html.replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>');
+  
+  // Lists
+  const lines = html.split('\n');
+  let inList = false;
+  let listType = '';
+  let result = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const ulMatch = line.match(/^[\*\-] (.+)$/);
+    const olMatch = line.match(/^\d+\. (.+)$/);
+    
+    if (ulMatch) {
+      if (!inList || listType !== 'ul') {
+        if (inList) result.push(`</${listType}>`);
+        result.push('<ul>');
+        listType = 'ul';
+        inList = true;
+      }
+      result.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (!inList || listType !== 'ol') {
+        if (inList) result.push(`</${listType}>`);
+        result.push('<ol>');
+        listType = 'ol';
+        inList = true;
+      }
+      result.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inList) {
+        result.push(`</${listType}>`);
+        inList = false;
+      }
+      result.push(line);
+    }
+  }
+  
+  if (inList) result.push(`</${listType}>`);
+  html = result.join('\n');
+  
+  // Paragraphs
+  html = html.replace(/^(?!<[h|u|o|p|b|hr|pre])(.*$)/gm, (match, p1) => {
+    return p1.trim() ? `<p>${p1}</p>` : '';
+  });
+  
+  return html;
+}
+
+// State management
+let currentKey = '';
+let updateTimeout = null;
+
+async function readState() {
+  const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+  if (!raw) return { text: '', mode: 'split' };
+  
+  try {
+    const decoded = decodeURIComponent(raw);
+    const state = JSON.parse(decoded);
+    
+    if (state.encrypted && currentKey) {
+      const decrypted = await decrypt(state.text, currentKey);
+      return { text: decrypted, mode: state.mode || 'split' };
+    }
+    
+    return state;
+  } catch {
+    return { text: '', mode: 'split' };
+  }
+}
+
+async function writeState(state, replace = true) {
+  const toSave = { ...state };
+  
+  if (currentKey && state.text) {
+    toSave.text = await encrypt(state.text, currentKey);
+    toSave.encrypted = true;
+  } else {
+    toSave.encrypted = false;
+  }
+  
+  const h = "#" + encodeURIComponent(JSON.stringify(toSave));
+  if (replace) {
+    history.replaceState(null, "", h);
+  } else {
+    history.pushState(null, "", h);
+  }
+}
+
+// UI elements
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+const content = document.getElementById('content');
+const editorPane = document.getElementById('editorPane');
+const previewPane = document.getElementById('previewPane');
+const btnMarkdown = document.getElementById('btnMarkdown');
+const btnRendered = document.getElementById('btnRendered');
+const btnSplit = document.getElementById('btnSplit');
+const keyInput = document.getElementById('keyInput');
+const lockIcon = document.getElementById('lockIcon');
+
+// Mode switching
+function setMode(mode) {
+  content.className = 'content';
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  
+  switch(mode) {
+    case 'markdown':
+      content.classList.add('markdown');
+      editorPane.classList.remove('hidden');
+      previewPane.classList.add('hidden');
+      btnMarkdown.classList.add('active');
+      break;
+    case 'rendered':
+      content.classList.add('rendered');
+      editorPane.classList.add('hidden');
+      previewPane.classList.remove('hidden');
+      btnRendered.classList.add('active');
+      break;
+    case 'split':
+      content.classList.add('split');
+      editorPane.classList.remove('hidden');
+      previewPane.classList.remove('hidden');
+      btnSplit.classList.add('active');
+      break;
+  }
+  
+  writeState({ text: editor.value, mode });
+}
+
+btnMarkdown.addEventListener('click', () => setMode('markdown'));
+btnRendered.addEventListener('click', () => setMode('rendered'));
+btnSplit.addEventListener('click', () => setMode('split'));
+
+// Editor updates
+function updatePreview() {
+  preview.innerHTML = parseMarkdown(editor.value);
+}
+
+editor.addEventListener('input', () => {
+  updatePreview();
+  
+  clearTimeout(updateTimeout);
+  updateTimeout = setTimeout(() => {
+    writeState({ text: editor.value, mode: getCurrentMode() });
+  }, 500);
+});
+
+function getCurrentMode() {
+  if (btnMarkdown.classList.contains('active')) return 'markdown';
+  if (btnRendered.classList.contains('active')) return 'rendered';
+  return 'split';
+}
+
+// Key handling
+keyInput.addEventListener('change', async () => {
+  const oldKey = currentKey;
+  currentKey = keyInput.value;
+  lockIcon.textContent = currentKey ? '🔒' : '🔓';
+  
+  // Re-encrypt or decrypt existing content
+  if (editor.value) {
+    await writeState({ text: editor.value, mode: getCurrentMode() }, false);
+  }
+});
+
+// Initialize
+async function init() {
+  const state = await readState();
+  editor.value = state.text || '';
+  updatePreview();
+  setMode(state.mode || 'split');
+}
+
+window.addEventListener('hashchange', init);
+init();
+</script>
+
+</body>
+</html>
