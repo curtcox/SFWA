@@ -772,7 +772,8 @@
 
   // ---------------------------
   // Editor state in URL hash:
-  //   #c=<gz|lzw>&src=<payload>&h=<appHash>&ph=<promptHistory>
+  //   #c=<gz|lzw>&src=<payload>&h=<appHash>&ap=<aiPrompt>&ph=<promptHistory>
+  // Note: promptHistory in URL only stores id, prompt, type, timestamp (not OpenRouter details)
   // ---------------------------
   function readHashParams() {
     const p = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : "");
@@ -787,6 +788,7 @@
       codec: p.get("c") || "",
       srcPayload: p.get("src") || "",
       appHash: p.get("h") || "",
+      aiPrompt: p.get("ap") || "",
       promptHistory: promptHistory,
     };
   }
@@ -796,8 +798,17 @@
     p.set("c", state.codec);
     p.set("src", state.srcPayload);
     if (state.appHash) p.set("h", state.appHash);
+    if (state.aiPrompt) p.set("ap", state.aiPrompt);
     if (state.promptHistory && state.promptHistory.length > 0) {
-      p.set("ph", encodeURIComponent(JSON.stringify(state.promptHistory)));
+      // Only store minimal info in URL (no OpenRouter details)
+      const minimalHistory = state.promptHistory.map(h => ({
+        id: h.id,
+        prompt: h.prompt,
+        type: h.type,
+        timestamp: h.timestamp,
+        hasDetails: h.hasDetails || false,
+      }));
+      p.set("ph", encodeURIComponent(JSON.stringify(minimalHistory)));
     }
 
     const newUrl = "#" + p.toString();
@@ -878,10 +889,9 @@
   function setPromptHistory(history) {
     state.promptHistory = history;
     try {
-      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, promptHistory: state.promptHistory }, { replace: true });
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
     } catch (e) {
       // If prompt history gets too large for the URL, we still keep it in memory for this session.
-      // The user will also see any apply errors in the AI status box.
       setAiStatus("Warning: couldn't save prompt history to URL (too long).", "error");
     }
   }
@@ -1145,6 +1155,7 @@
     srcText: DEFAULT_APP_SOURCE,
     appHash: "",
     promptHistory: [],
+    aiPrompt: "",
 
     // preview bookkeeping
     previewBlobUrl: "",
@@ -1268,7 +1279,7 @@
       ui.preview.contentWindow.location.hash = targetHash;
       lastKnownIframeHash = targetHash;
       state.appHash = targetHash.startsWith("#") ? targetHash.slice(1) : targetHash;
-      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
       syncStatus();
       syncAppBarFromIframe();
       setMsg(`Navigated ${delta < 0 ? 'back' : 'forward'} in app history.`, "ok");
@@ -1291,7 +1302,7 @@
   function onIframeHashChanged(newHash) {
     const h = newHash.startsWith("#") ? newHash.slice(1) : newHash;
     state.appHash = h;
-    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
     syncStatus();
     syncAppBarFromIframe();
     recordAppHistory(newHash.startsWith("#") ? newHash : "#" + newHash);
@@ -1402,7 +1413,7 @@
     state.srcText = newText;
 
     try {
-      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+      writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
       setMsg("Saved to URL hash. Reloading preview…", "ok");
     } catch (e) {
       const msg = e && e.message ? e.message : "Failed to write URL hash (URL may be too long).";
@@ -1423,6 +1434,8 @@
       ui.srcEditor.value = DEFAULT_APP_SOURCE;
       state.appHash = "";
       state.promptHistory = [];
+      state.aiPrompt = h.aiPrompt || "";
+      ui.aiPrompt.value = state.aiPrompt;
       await commitSource(DEFAULT_APP_SOURCE);
       renderPromptHistory();
       return;
@@ -1436,8 +1449,10 @@
       state.srcText = text;
       state.appHash = h.appHash || "";
       state.promptHistory = h.promptHistory || [];
+      state.aiPrompt = h.aiPrompt || "";
 
       ui.srcEditor.value = state.srcText;
+      ui.aiPrompt.value = state.aiPrompt;
       syncStatus();
       loadPreview();
       renderPromptHistory();
@@ -1447,6 +1462,8 @@
       state.srcText = DEFAULT_APP_SOURCE;
       state.appHash = "";
       state.promptHistory = [];
+      state.aiPrompt = "";
+      ui.aiPrompt.value = "";
       syncStatus();
       loadPreview();
       renderPromptHistory();
@@ -2051,11 +2068,13 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
           return { html: null, requestRecord, responseRecord, error: processed.error, mode: "patch" };
         }
       } else {
-        // New mode - extract HTML directly
-        let html = content;
-        const codeBlockMatch = content.match(/```(?:html)?\s*([\s\S]*?)```/);
-        if (codeBlockMatch) {
-          html = codeBlockMatch[1].trim();
+        // New mode - extract HTML directly using the same safe extraction function
+        const html = extractHtmlFromResponse(content);
+
+        // Validate the new HTML
+        if (!isValidHtml(html)) {
+          setAiStatus("Generated content is not valid HTML.", "error");
+          return { html: null, requestRecord, responseRecord, error: "Generated content is not valid HTML.", mode: "new" };
         }
 
         setAiStatus("Generated successfully!", "success");
@@ -2163,6 +2182,8 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
       // Click to use prompt
       item.querySelector('.promptText').addEventListener('click', () => {
         ui.aiPrompt.value = entry.prompt;
+        state.aiPrompt = entry.prompt;
+        writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
       });
 
       const inspectBtn = item.querySelector('.inspectPrompt');
@@ -2249,6 +2270,12 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
   // AI actions
   ui.btnAiNew.addEventListener("click", () => handleAiGenerate("new"));
   ui.btnAiChange.addEventListener("click", () => handleAiGenerate("update"));
+
+  // Sync AI prompt to URL on input
+  ui.aiPrompt.addEventListener("input", () => {
+    state.aiPrompt = ui.aiPrompt.value;
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
+  });
 
   // Prompt history
   ui.btnDeleteHistory.addEventListener("click", () => {
@@ -2342,7 +2369,7 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
     const h = normalizeHashFromMaybeUrl(ui.appUrlBar.value);
 
     state.appHash = h;
-    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash }, { replace: true });
+    writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
     syncStatus();
 
     // Update preview hash without reloading:
