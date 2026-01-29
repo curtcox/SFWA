@@ -288,7 +288,7 @@
   // -----------------------------
   // Reserved vocab
   // -----------------------------
-  const NODE_SHAPES = ["circle", "square", "diamond", "triangle", "hex"];
+  const NODE_SHAPES = ["none", "circle", "square", "diamond", "triangle", "hex"];
   const EDGE_STYLES = ["solid", "dashed", "dotted", "bold"];
 
   const COLORS = {
@@ -348,6 +348,9 @@
   function shapeSvg(shape, stroke) {
     const s = stroke || "rgba(232,237,243,0.9)";
     const f = "rgba(232,237,243,0.15)";
+    if (shape === "none") {
+      return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><text x="12" y="9" text-anchor="middle" dominant-baseline="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="10" font-weight="800" fill="${s}">Aa</text></svg>`;
+    }
     if (shape === "circle") {
       return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="6" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
     }
@@ -817,6 +820,7 @@
 
   function nodeRadius(shape) {
     // Rough collision/edge endpoint offset
+    if (shape === "none") return 4;
     if (shape === "circle") return Math.max(NODE_W, NODE_H) * 0.32;
     if (shape === "triangle" || shape === "diamond" || shape === "hex") return Math.max(NODE_W, NODE_H) * 0.36;
     return Math.max(NODE_W, NODE_H) * 0.34; // square-ish
@@ -974,7 +978,9 @@
       const shape = (n.shape && NODE_SHAPES.includes(n.shape)) ? n.shape : "circle";
       let el;
 
-      if (shape === "circle") {
+      if (shape === "none") {
+        el = null;
+      } else if (shape === "circle") {
         el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         el.setAttribute("cx", x);
         el.setAttribute("cy", y);
@@ -1023,24 +1029,45 @@
         el.setAttribute("r", Math.min(NODE_W, NODE_H) * 0.42);
       }
 
-      el.setAttribute("fill", fillCol);
-      el.setAttribute("stroke", strokeCol);
-      el.setAttribute("stroke-width", "2.2");
-      el.setAttribute("filter", "drop-shadow(0px 8px 18px rgba(0,0,0,0.45))");
-      el.style.pointerEvents = "all";
+      if (el) {
+        el.setAttribute("fill", fillCol);
+        el.setAttribute("stroke", strokeCol);
+        el.setAttribute("stroke-width", "2.2");
+        el.setAttribute("filter", "drop-shadow(0px 8px 18px rgba(0,0,0,0.45))");
+        el.style.pointerEvents = "all";
 
-      // Click to follow link
-      if (n.url) {
-        el.style.cursor = "pointer";
-        el.addEventListener("click", (ev) => {
-          // If dragging, ignore click (handled by drag logic)
-          if (dragging && dragging.id === id) return;
-          ev.stopPropagation();
-          safeOpen(n.url);
-        });
+        // Click to follow link
+        if (n.url) {
+          el.style.cursor = "pointer";
+          el.addEventListener("click", (ev) => {
+            // If dragging, ignore click (handled by drag logic)
+            if (dragging && dragging.id === id) return;
+            ev.stopPropagation();
+            safeOpen(n.url);
+          });
+        }
+
+        g.appendChild(el);
+      } else {
+        // Invisible hit target so "none" nodes remain draggable/clickable.
+        const hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        hit.setAttribute("x", x - NODE_W / 2);
+        hit.setAttribute("y", y - NODE_H / 2);
+        hit.setAttribute("width", NODE_W);
+        hit.setAttribute("height", NODE_H);
+        hit.setAttribute("fill", "transparent");
+        hit.setAttribute("stroke", "none");
+        hit.style.pointerEvents = "all";
+        if (n.url) {
+          hit.style.cursor = "pointer";
+          hit.addEventListener("click", (ev) => {
+            if (dragging && dragging.id === id) return;
+            ev.stopPropagation();
+            safeOpen(n.url);
+          });
+        }
+        g.appendChild(hit);
       }
-
-      g.appendChild(el);
 
       // Label: prefer node text; fallback to id
       const labelText = n.text ? truncateLabel(n.text, 22) : id;
@@ -1052,7 +1079,7 @@
       textEl.setAttribute("font-family", "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial");
       textEl.setAttribute("font-size", "13");
       textEl.setAttribute("font-weight", "700");
-      textEl.setAttribute("fill", labelCol);
+      textEl.setAttribute("fill", (shape === "none") ? strokeCol : labelCol);
       textEl.style.pointerEvents = "none";
       textEl.textContent = labelText;
 
