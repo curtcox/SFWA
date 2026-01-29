@@ -101,6 +101,39 @@
     }
     .help ul { margin: 6px 0 0; padding-left: 16px; }
     .help li { margin: 3px 0; }
+    .help li.sample {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .help .swatch {
+      width: 26px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03);
+      flex: 0 0 auto;
+    }
+    .help .swatch.color {
+      border-radius: 999px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.35) inset;
+    }
+    .help .swatch svg {
+      width: 22px;
+      height: 14px;
+      display: block;
+    }
+    .help .label {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+    }
     .errorBox {
       display: none;
       padding: 8px 12px;
@@ -292,17 +325,87 @@
   const $colorList = document.getElementById("colorList");
   const $lineStyleList = document.getElementById("lineStyleList");
 
-  function fillList(ul, items) {
+  function fillList(ul, items, renderItem) {
     ul.innerHTML = "";
     for (const it of items) {
       const li = document.createElement("li");
-      li.textContent = it;
+      if (renderItem) renderItem(li, it);
+      else li.textContent = it;
       ul.appendChild(li);
     }
   }
-  fillList($shapeList, NODE_SHAPES);
-  fillList($lineStyleList, EDGE_STYLES);
-  fillList($colorList, Object.keys(COLORS));
+
+  function mkSwatch() {
+    const s = document.createElement("span");
+    s.className = "swatch";
+    return s;
+  }
+
+  function setSvg(el, svg) {
+    el.innerHTML = svg;
+  }
+
+  function shapeSvg(shape, stroke) {
+    const s = stroke || "rgba(232,237,243,0.9)";
+    const f = "rgba(232,237,243,0.15)";
+    if (shape === "circle") {
+      return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="6" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
+    }
+    if (shape === "square") {
+      return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="2" width="12" height="12" rx="3" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
+    }
+    if (shape === "diamond") {
+      return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><polygon points="12,1 21,8 12,15 3,8" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
+    }
+    if (shape === "triangle") {
+      return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><polygon points="12,1 21,15 3,15" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
+    }
+    if (shape === "hex") {
+      return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><polygon points="7,1 17,1 22,8 17,15 7,15 2,8" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
+    }
+    return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="6" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
+  }
+
+  function lineSvg(style, stroke) {
+    const s = stroke || "rgba(232,237,243,0.9)";
+    const dash = (style === "dashed") ? "7 5" : (style === "dotted") ? "2 5" : "";
+    const w = (style === "bold") ? 3.5 : 2.2;
+    return `<svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg"><line x1="2" y1="8" x2="22" y2="8" stroke="${s}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${dash}"/></svg>`;
+  }
+
+  fillList($shapeList, NODE_SHAPES, (li, shape) => {
+    li.className = "sample";
+    const sw = mkSwatch();
+    setSvg(sw, shapeSvg(shape));
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = shape;
+    li.appendChild(sw);
+    li.appendChild(label);
+  });
+
+  fillList($lineStyleList, EDGE_STYLES, (li, style) => {
+    li.className = "sample";
+    const sw = mkSwatch();
+    setSvg(sw, lineSvg(style));
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = style;
+    li.appendChild(sw);
+    li.appendChild(label);
+  });
+
+  fillList($colorList, Object.keys(COLORS), (li, name) => {
+    li.className = "sample";
+    const sw = document.createElement("span");
+    sw.className = "swatch color";
+    sw.style.background = COLORS[name];
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = name;
+    li.appendChild(sw);
+    li.appendChild(label);
+  });
 
   function setViewMode(mode) {
     $app.classList.remove("mode-source", "mode-diagram", "mode-help");
