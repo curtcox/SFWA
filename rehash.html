@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rehash</title>
+  <style>
+    :root {
+      --bg-color: #f5f7fa;
+      --card-bg: #ffffff;
+      --text-color: #2d3748;
+      --border-color: #e2e8f0;
+      --primary-color: #3182ce;
+      --primary-hover: #2c5282;
+      --success-color: #38a169;
+      --error-color: #e53e3e;
+      --neutral-color: #718096;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-color);
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+
+    .field-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--text-color);
+    }
+
+    label .hint {
+      font-weight: normal;
+      color: var(--neutral-color);
+      font-size: 0.85rem;
+      margin-left: 0.5rem;
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      resize: vertical;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+    }
+
+    .status {
+      padding: 0.75rem;
+      border-radius: 6px;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      min-height: 3rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .status .valid {
+      color: var(--success-color);
+    }
+
+    .status .invalid {
+      color: var(--error-color);
+    }
+
+    .status .neutral {
+      color: var(--neutral-color);
+    }
+
+    .results {
+      margin-top: 1.5rem;
+    }
+
+    .results h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: var(--text-color);
+    }
+
+    .links-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .link-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg-color);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      word-break: break-all;
+    }
+
+    .link-item a {
+      color: var(--primary-color);
+      text-decoration: none;
+      flex: 1;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+
+    .link-item a:hover {
+      text-decoration: underline;
+    }
+
+    button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 1.5rem;
+      }
+
+      .link-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Rehash</h1>
+
+    <div class="field-group">
+      <label for="sourceUrl">
+        Source URL
+        <span class="hint">(not persisted)</span>
+      </label>
+      <input
+        type="text"
+        id="sourceUrl"
+        placeholder="https://example.com/path?query=1#fragment"
+        autocomplete="off"
+      >
+    </div>
+
+    <div class="field-group">
+      <label for="baseUrls">
+        Base URLs
+        <span class="hint">(one per line, saved in URL)</span>
+      </label>
+      <textarea
+        id="baseUrls"
+        rows="6"
+        placeholder="https://site1.com&#10;https://site2.com&#10;https://site3.com:8080"
+      ></textarea>
+    </div>
+
+    <div id="validationStatus" class="status">
+      <span class="neutral">Enter URLs to begin</span>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    // State Management
+    function readState() {
+      const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+      if (!raw) return { baseUrls: "" };
+      try {
+        const parsed = JSON.parse(decodeURIComponent(raw));
+        return { baseUrls: typeof parsed.baseUrls === 'string' ? parsed.baseUrls : "" };
+      } catch {
+        return { baseUrls: "" };
+      }
+    }
+
+    function writeState(state, replace = true) {
+      const hash = "#" + encodeURIComponent(JSON.stringify(state));
+      if (replace) {
+        history.replaceState(null, "", hash);
+      } else {
+        history.pushState(null, "", hash);
+      }
+    }
+
+    // URL Utilities
+    function parseLines(text) {
+      return text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    }
+
+    function isValidUrl(string) {
+      try {
+        new URL(string);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function generateCombinedUrls(sourceUrl, baseUrl) {
+      try {
+        const source = new URL(sourceUrl);
+        const base = new URL(baseUrl);
+
+        // Link without base path: protocol + host + source path (original behavior)
+        const withoutBasePath = `${base.protocol}//${base.host}${source.pathname}${source.search}${source.hash}`;
+        const withoutBasePathLabel = `${base.protocol}//${base.host}`;
+
+        // Link with base path: include base pathname
+        let basePath = base.pathname;
+        if (basePath === '/') {
+          basePath = '';
+        } else if (basePath.endsWith('/')) {
+          basePath = basePath.slice(0, -1);
+        }
+
+        const withBasePath = `${base.protocol}//${base.host}${basePath}${source.pathname}${source.search}${source.hash}`;
+        const withBasePathLabel = `${base.protocol}//${base.host}${basePath}`;
+
+        return { withBasePath, withoutBasePath, withBasePathLabel, withoutBasePathLabel };
+      } catch {
+        return null;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // DOM Elements
+    const sourceInput = document.getElementById('sourceUrl');
+    const baseInput = document.getElementById('baseUrls');
+    const statusDiv = document.getElementById('validationStatus');
+    const resultsDiv = document.getElementById('results');
+
+    // Core Logic
+    function updateUI() {
+      const sourceRaw = sourceInput.value.trim();
+      const baseRaw = baseInput.value;
+
+      // Persist only base URLs to state
+      writeState({ baseUrls: baseRaw });
+
+      const baseUrls = parseLines(baseRaw);
+      const validationIssues = [];
+      let sourceValid = false;
+      let sourceObj = null;
+
+      // Validate source
+      if (sourceRaw) {
+        sourceValid = isValidUrl(sourceRaw);
+        if (sourceValid) {
+          sourceObj = new URL(sourceRaw);
+        } else {
+          validationIssues.push('Source URL is invalid');
+        }
+      }
+
+      // Validate base URLs
+      const invalidBaseLines = [];
+      baseUrls.forEach((url, index) => {
+        if (!isValidUrl(url)) {
+          invalidBaseLines.push(index + 1);
+        }
+      });
+
+      if (invalidBaseLines.length > 0) {
+        const lineText = invalidBaseLines.length === 1 ? 'line' : 'lines';
+        validationIssues.push(`Invalid base URL on ${lineText}: ${invalidBaseLines.join(', ')}`);
+      }
+
+      // Update validation status
+      if (validationIssues.length > 0) {
+        statusDiv.innerHTML = `<span class="invalid">${validationIssues.join('; ')}</span>`;
+        resultsDiv.innerHTML = '';
+      } else if (!sourceRaw && baseUrls.length === 0) {
+        statusDiv.innerHTML = '<span class="neutral">Enter URLs to begin</span>';
+        resultsDiv.innerHTML = '';
+      } else if (!sourceRaw) {
+        statusDiv.innerHTML = '<span class="neutral">Enter a source URL to generate links</span>';
+        resultsDiv.innerHTML = '';
+      } else if (baseUrls.length === 0) {
+        statusDiv.innerHTML = '<span class="neutral">Enter at least one base URL</span>';
+        resultsDiv.innerHTML = '';
+      } else {
+        statusDiv.innerHTML = '<span class="valid">All URLs valid ✓</span>';
+
+        // Generate and display links
+        const linkPairs = baseUrls.map(base => generateCombinedUrls(sourceRaw, base)).filter(l => l !== null);
+
+        if (linkPairs.length > 0) {
+          resultsDiv.innerHTML = `
+            <h3>Generated Links (${linkPairs.length * 2})</h3>
+            <div class="links-list">
+              ${linkPairs.map(({ withBasePath, withoutBasePath, withBasePathLabel, withoutBasePathLabel }) => `
+                <div class="link-item">
+                  <span style="font-size: 0.75rem; color: var(--neutral-color); min-width: 110px;">With base path</span>
+                  <a href="${escapeHtml(withBasePath)}" target="_blank" rel="noopener noreferrer">${escapeHtml(withBasePathLabel)}</a>
+                  <button onclick="navigator.clipboard.writeText('${escapeHtml(withBasePath)}').then(() => { this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000); })">
+                    Copy
+                  </button>
+                </div>
+                <div class="link-item">
+                  <span style="font-size: 0.75rem; color: var(--neutral-color); min-width: 110px;">Base path removed</span>
+                  <a href="${escapeHtml(withoutBasePath)}" target="_blank" rel="noopener noreferrer">${escapeHtml(withoutBasePathLabel)}</a>
+                  <button onclick="navigator.clipboard.writeText('${escapeHtml(withoutBasePath)}').then(() => { this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000); })">
+                    Copy
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Event Listeners
+    sourceInput.addEventListener('input', updateUI);
+    baseInput.addEventListener('input', updateUI);
+
+    // Handle browser back/forward
+    window.addEventListener('hashchange', () => {
+      const state = readState();
+      // Only restore base URLs, leave source URL as-is per requirements
+      if (baseInput.value !== state.baseUrls) {
+        baseInput.value = state.baseUrls;
+        updateUI();
+      }
+    });
+
+    // Initialize
+    const initialState = readState();
+    baseInput.value = initialState.baseUrls;
+    updateUI();
+  </script>
+</body>
+</html>
