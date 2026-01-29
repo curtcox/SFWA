@@ -542,9 +542,6 @@
           <div id="settingsStatusBox" class="aiStatus" style="display:none;"></div>
         </div>
       </div>
-      <div class="status">
-        <span class="label">Use AI to generate or modify your app. Settings are saved locally.</span>
-      </div>
     </div>
 
     <div class="pane pane-preview">
@@ -557,9 +554,6 @@
         sandbox="allow-scripts allow-same-origin"
         referrerpolicy="no-referrer"
       ></iframe>
-      <div class="status">
-        <span class="label">Tip: your SFWA should read/write <code>location.hash</code> for state.</span>
-      </div>
     </div>
   </div>
 
@@ -1692,21 +1686,8 @@
     ui.btnAiChange.disabled = !canUseAi;
   }
 
-  async function callOpenRouter(prompt, includeSource) {
-    if (!aiSettings.apiKey) {
-      setAiStatus("Please set your API key in Settings.", "error");
-      return null;
-    }
-    if (!aiSettings.model) {
-      setAiStatus("Please select a model in Settings.", "error");
-      return null;
-    }
-
-    isAiLoading = true;
-    updateAiButtonStates();
-    setAiStatus("Generating...", "loading");
-
-    const systemPrompt = `You are an expert web developer. Generate a complete, single-file HTML application based on the user's request.
+  // System prompt for creating new apps from scratch
+  const SYSTEM_PROMPT_NEW = `You are an expert web developer. Generate a complete, single-file HTML application based on the user's request.
 
 Requirements:
 - Output ONLY the HTML code, no explanations or markdown code blocks
@@ -1740,8 +1721,256 @@ function writeState(s, replace=true) {
 }
 \`\`\``;
 
+  // System prompt for updating existing apps
+  const SYSTEM_PROMPT_UPDATE = `You are an expert web developer. You will modify an existing single-file HTML application based on the user's request.
+
+You have two options for your response:
+
+1. **PATCH MODE** - For small, targeted changes (preferred when possible):
+   Start your response with exactly "PATCH:" on its own line, then provide one or more patch operations in this format:
+   <<<FIND>>>
+   exact text to find in the source
+   <<<REPLACE>>>
+   replacement text
+   <<<END>>>
+   
+   You can include multiple FIND/REPLACE/END blocks for multiple changes.
+   The FIND text must match EXACTLY (including whitespace/indentation).
+
+2. **REPLACE MODE** - For large changes or complete rewrites:
+   Output the complete new HTML document directly (no prefix needed).
+   The app must be a complete, valid HTML document.
+
+Use PATCH MODE when:
+- Changing a few lines of code
+- Adding a small feature
+- Fixing a bug
+- Modifying styles
+- The changes are localized to specific parts of the file
+
+Use REPLACE MODE when:
+- The user asks for a complete rewrite
+- Changes affect most of the file
+- Structural changes are needed throughout
+- It would require many patches
+
+Requirements for both modes:
+- All CSS must be in a <style> tag
+- All JavaScript must be in a <script> tag  
+- The app MUST store all state in location.hash (this is critical for the SFWA format)
+- Use modern, clean HTML5/CSS3/ES6+
+- Preserve the existing state management pattern unless asked to change it
+
+Do NOT include any explanations, markdown code blocks, or commentary - just the patch operations or complete HTML.`;
+
+  // Validate that content looks like valid HTML
+  function isValidHtml(html) {
+    if (!html || typeof html !== "string") return false;
+    const trimmed = html.trim();
+    
+    // Must have minimum length to be a valid HTML document
+    if (trimmed.length < 20) return false;
+    
+    // Must contain at least one HTML tag
+    if (!/<[a-zA-Z][^>]*>/.test(trimmed)) return false;
+    
+    // Should contain basic HTML structure indicators
+    const hasDoctype = /<!doctype\s+html/i.test(trimmed);
+    const hasHtmlTag = /<html[^>]*>/i.test(trimmed);
+    const hasHeadOrBody = /<(head|body)[^>]*>/i.test(trimmed);
+    const hasScript = /<script[^>]*>/i.test(trimmed);
+    const hasStyle = /<style[^>]*>/i.test(trimmed);
+    const hasMeta = /<meta[^>]*>/i.test(trimmed);
+    const hasTitle = /<title[^>]*>/i.test(trimmed);
+    
+    // Must have at least some HTML structure
+    const structureScore = (hasDoctype ? 1 : 0) + (hasHtmlTag ? 1 : 0) + 
+                          (hasHeadOrBody ? 1 : 0) + (hasScript ? 1 : 0) + 
+                          (hasStyle ? 1 : 0) + (hasMeta ? 1 : 0) + (hasTitle ? 1 : 0);
+    
+    // Require at least 2 structural elements for a valid SFWA app
+    if (structureScore < 2) return false;
+    
+    // Check for obviously broken/garbage content
+    // Reject if it looks like a regex pattern or code fragment
+    if (/^\([^)]*\)\s*$/.test(trimmed)) return false;
+    if (/^\[\s*\S+\s*\]\s*$/.test(trimmed)) return false;
+    
+    // Reject if mostly non-HTML characters
+    const htmlTagCount = (trimmed.match(/<[^>]+>/g) || []).length;
+    if (htmlTagCount < 3) return false;
+    
+    return true;
+  }
+
+  // Check if response looks like it could be a valid patch format
+  function looksLikePatchFormat(content) {
+    const trimmed = content.trim();
+    // Must start with PATCH: and contain at least one valid patch block
+    if (!trimmed.startsWith("PATCH:")) return false;
+    return /<<<FIND>>>/.test(trimmed) && /<<<REPLACE>>>/.test(trimmed) && /<<<END>>>/.test(trimmed);
+  }
+
+  // Extract HTML from a response, handling markdown code block wrapping
+  // Only extracts if the response STARTS with a code fence (AI wrapped output)
+  // Does NOT match backticks that appear inside HTML content
+  function extractHtmlFromResponse(content) {
+    const trimmed = content.trim();
+    
+    // Only extract from code block if response STARTS with ``` 
+    // This prevents matching backticks inside the HTML (e.g., markdown converters)
+    if (trimmed.startsWith("```")) {
+      // Match from start: ```html or ``` followed by content until closing ```
+      const codeBlockMatch = trimmed.match(/^```(?:html)?\s*\n([\s\S]*?)\n```\s*$/);
+      if (codeBlockMatch) {
+        return codeBlockMatch[1].trim();
+      }
+    }
+    
+    return trimmed;
+  }
+
+  // Check if response looks like it could be valid HTML replacement
+  function looksLikeHtmlReplacement(content) {
+    const html = extractHtmlFromResponse(content);
+    return isValidHtml(html);
+  }
+
+  // Apply patch operations to source code
+  function applyPatches(source, patchContent) {
+    const patches = [];
+    const patchRegex = /<<<FIND>>>\n([\s\S]*?)\n<<<REPLACE>>>\n([\s\S]*?)\n<<<END>>>/g;
+    let match;
+    
+    while ((match = patchRegex.exec(patchContent)) !== null) {
+      patches.push({
+        find: match[1],
+        replace: match[2]
+      });
+    }
+    
+    if (patches.length === 0) {
+      return { success: false, error: "No valid patch operations found", result: null };
+    }
+    
+    let result = source;
+    const appliedPatches = [];
+    const failedPatches = [];
+    
+    for (const patch of patches) {
+      if (result.includes(patch.find)) {
+        result = result.replace(patch.find, patch.replace);
+        appliedPatches.push(patch.find.substring(0, 50) + (patch.find.length > 50 ? "..." : ""));
+      } else {
+        failedPatches.push(patch.find.substring(0, 50) + (patch.find.length > 50 ? "..." : ""));
+      }
+    }
+    
+    if (failedPatches.length > 0 && appliedPatches.length === 0) {
+      return { 
+        success: false, 
+        error: `Could not find text to patch: ${failedPatches.join(", ")}`, 
+        result: null 
+      };
+    }
+    
+    return { 
+      success: true, 
+      error: failedPatches.length > 0 ? `Some patches failed: ${failedPatches.join(", ")}` : null,
+      result: result,
+      appliedCount: appliedPatches.length,
+      failedCount: failedPatches.length
+    };
+  }
+
+  // Determine if response is a patch or full replacement, and process accordingly
+  function processUpdateResponse(content, currentSource) {
+    const trimmed = content.trim();
+    
+    // First, determine what type of response this is
+    const isPatchFormat = looksLikePatchFormat(trimmed);
+    const isHtmlFormat = looksLikeHtmlReplacement(trimmed);
+    
+    // Reject if it's neither a valid patch nor valid HTML
+    if (!isPatchFormat && !isHtmlFormat) {
+      return {
+        mode: "invalid",
+        html: null,
+        error: "Response is neither a valid patch format nor valid HTML. The AI may have returned an explanation or malformed content instead of code."
+      };
+    }
+    
+    // Check if it starts with PATCH:
+    if (isPatchFormat) {
+      const patchContent = trimmed.substring(6).trim();
+      const patchResult = applyPatches(currentSource, patchContent);
+      
+      if (patchResult.success) {
+        // Validate that the patched result is still valid HTML
+        if (!isValidHtml(patchResult.result)) {
+          return {
+            mode: "patch",
+            html: null,
+            error: "Patch would result in invalid HTML. The original source has been preserved."
+          };
+        }
+        
+        return {
+          mode: "patch",
+          html: patchResult.result,
+          error: patchResult.error, // May contain warnings about partial failures
+          appliedCount: patchResult.appliedCount,
+          failedCount: patchResult.failedCount
+        };
+      } else {
+        // Patch failed completely, return error
+        return {
+          mode: "patch",
+          html: null,
+          error: patchResult.error
+        };
+      }
+    }
+    
+    // Not a patch - treat as full replacement
+    // Extract HTML from the response (handles markdown code block wrapping)
+    const html = extractHtmlFromResponse(trimmed);
+    
+    // Final validation of the replacement HTML
+    if (!isValidHtml(html)) {
+      return {
+        mode: "replace",
+        html: null,
+        error: "Replacement content is not valid HTML. The original source has been preserved."
+      };
+    }
+    
+    return {
+      mode: "replace",
+      html: html,
+      error: null
+    };
+  }
+
+  async function callOpenRouter(prompt, mode) {
+    if (!aiSettings.apiKey) {
+      setAiStatus("Please set your API key in Settings.", "error");
+      return null;
+    }
+    if (!aiSettings.model) {
+      setAiStatus("Please select a model in Settings.", "error");
+      return null;
+    }
+
+    isAiLoading = true;
+    updateAiButtonStates();
+    setAiStatus("Generating...", "loading");
+
+    const isUpdate = mode === "update";
+    const systemPrompt = isUpdate ? SYSTEM_PROMPT_UPDATE : SYSTEM_PROMPT_NEW;
+
     let userMessage = prompt;
-    if (includeSource && state.srcText) {
+    if (isUpdate && state.srcText) {
       userMessage = `Current app source code:\n\`\`\`html\n${state.srcText}\n\`\`\`\n\nRequested changes:\n${prompt}`;
     }
 
@@ -1801,17 +2030,39 @@ function writeState(s, replace=true) {
       const data = responseJson || {};
       const content = data.choices?.[0]?.message?.content || "";
 
-      // Extract HTML from the response (in case it's wrapped in markdown code blocks)
-      let html = content;
-      const codeBlockMatch = content.match(/```(?:html)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) {
-        html = codeBlockMatch[1].trim();
+      // Process the response based on mode
+      if (isUpdate) {
+        const processed = processUpdateResponse(content, state.srcText);
+        
+        if (processed.html) {
+          const modeLabel = processed.mode === "patch" ? "Patched" : "Replaced";
+          let statusMsg = `${modeLabel} successfully!`;
+          if (processed.mode === "patch") {
+            statusMsg += ` (${processed.appliedCount} patch${processed.appliedCount !== 1 ? "es" : ""} applied)`;
+            if (processed.failedCount > 0) {
+              statusMsg += ` Warning: ${processed.failedCount} patch${processed.failedCount !== 1 ? "es" : ""} failed.`;
+            }
+          }
+          setAiStatus(statusMsg, processed.error ? "warn" : "success");
+          setTimeout(() => setAiStatus(""), 4000);
+          return { html: processed.html, requestRecord, responseRecord, error: processed.error, mode: processed.mode };
+        } else {
+          setAiStatus("Patch failed: " + processed.error, "error");
+          return { html: null, requestRecord, responseRecord, error: processed.error, mode: "patch" };
+        }
+      } else {
+        // New mode - extract HTML directly
+        let html = content;
+        const codeBlockMatch = content.match(/```(?:html)?\s*([\s\S]*?)```/);
+        if (codeBlockMatch) {
+          html = codeBlockMatch[1].trim();
+        }
+
+        setAiStatus("Generated successfully!", "success");
+        setTimeout(() => setAiStatus(""), 3000);
+
+        return { html, requestRecord, responseRecord, error: null, mode: "new" };
       }
-
-      setAiStatus("Generated successfully!", "success");
-      setTimeout(() => setAiStatus(""), 3000);
-
-      return { html, requestRecord, responseRecord, error: null };
     } catch (err) {
       const msg = err && err.message ? err.message : String(err);
       setAiStatus("Error: " + msg, "error");
@@ -1822,23 +2073,23 @@ function writeState(s, replace=true) {
     }
   }
 
-  async function handleAiGenerate(includeSource) {
+  async function handleAiGenerate(mode) {
     const prompt = ui.aiPrompt.value.trim();
     if (!prompt) {
       setAiStatus("Please enter a prompt.", "error");
       return;
     }
 
-    // Clear prompt history when using New (not Change)
-    if (!includeSource) {
+    // Clear prompt history when using New (not Change/Update)
+    if (mode === "new") {
       clearPromptHistory();
     }
 
-    const type = includeSource ? 'change' : 'new';
+    const type = mode === "update" ? 'change' : 'new';
     const entry = addToPromptHistory(prompt, type);
     renderPromptHistory();
 
-    const result = await callOpenRouter(prompt, includeSource);
+    const result = await callOpenRouter(prompt, mode);
     updatePromptHistoryEntry(entry.id, {
       openRouterRequest: result ? result.requestRecord : null,
       openRouterResponse: result ? result.responseRecord : null,
@@ -1996,8 +2247,8 @@ function writeState(s, replace=true) {
   ui.btnAiSettings.addEventListener("click", () => setAiMode("settings"));
 
   // AI actions
-  ui.btnAiNew.addEventListener("click", () => handleAiGenerate(false));
-  ui.btnAiChange.addEventListener("click", () => handleAiGenerate(true));
+  ui.btnAiNew.addEventListener("click", () => handleAiGenerate("new"));
+  ui.btnAiChange.addEventListener("click", () => handleAiGenerate("update"));
 
   // Prompt history
   ui.btnDeleteHistory.addEventListener("click", () => {
