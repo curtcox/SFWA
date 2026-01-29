@@ -372,6 +372,28 @@
       opacity: 1;
       background: rgba(220, 38, 38, 0.2);
     }
+    .promptHistoryItem .usePrompt {
+      padding: 2px 8px;
+      font-size: 10px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .promptHistoryItem .usePrompt:hover {
+      background: rgba(21, 128, 61, 0.18);
+    }
+    .promptHistoryItem.is-current {
+      outline: 2px solid rgba(21, 128, 61, 0.6);
+      background: rgba(21, 128, 61, 0.10);
+    }
+    .promptHistoryItem .currentBadge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(21, 128, 61, 0.18);
+      color: color-mix(in oklab, CanvasText 80%, #15803d 20%);
+      white-space: nowrap;
+    }
     .promptHistoryItem .inspectPrompt {
       opacity: 0.65;
       padding: 2px 6px;
@@ -930,7 +952,7 @@
       prompt: prompt,
       type: type, // 'new' or 'change'
       timestamp: new Date().toISOString(),
-      hasDetails: !!(meta.openRouterRequest || meta.openRouterResponse || meta.openRouterError || meta.applyError),
+      hasDetails: !!(meta.openRouterRequest || meta.openRouterResponse || meta.openRouterError || meta.applyError || meta.source || meta.sourceBefore || meta.sourceAfter),
     };
     // Add to beginning, limit size (keep all calls; do NOT de-dupe by prompt)
     const next = [entry, ...history];
@@ -947,6 +969,9 @@
         openRouterResponse: meta.openRouterResponse || null,
         openRouterError: meta.openRouterError || null,
         applyError: meta.applyError || null,
+        source: meta.source || null,
+        sourceBefore: meta.sourceBefore || null,
+        sourceAfter: meta.sourceAfter || null,
       });
     }
     return entry;
@@ -963,7 +988,7 @@
       return next;
     });
 
-    const detailFields = ["openRouterRequest", "openRouterResponse", "openRouterError", "applyError"];
+    const detailFields = ["openRouterRequest", "openRouterResponse", "openRouterError", "applyError", "source", "sourceBefore", "sourceAfter"];
     const anyDetailTouched = detailFields.some(k => k in patch);
     if (anyDetailTouched) {
       const existing = getPromptDetails(id) || {};
@@ -997,6 +1022,50 @@
     deletePromptDetails(getPromptHistory().map(h => h.id));
     setPromptHistory([]);
     return [];
+  }
+
+  function getHistoryEntrySource(entry) {
+    const details = entry && entry.hasDetails ? (getPromptDetails(entry.id) || {}) : (getPromptDetails(entry.id) || {});
+    return details.sourceAfter || details.source || details.sourceBefore || "";
+  }
+
+  function ensureCurrentSourceSnapshot() {
+    const current = state.srcText || "";
+    if (!current) return;
+    const history = getPromptHistory();
+    const exists = history.some(h => {
+      const src = getHistoryEntrySource(h);
+      return src && src === current;
+    });
+    if (exists) return;
+
+    const stamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    addToPromptHistory(stamp, 'snapshot', { source: current });
+  }
+
+  async function restoreSourceFromHistoryEntry(entry) {
+    const src = getHistoryEntrySource(entry);
+    if (!src) {
+      setAiStatus("No source snapshot available for this entry.", "error");
+      return;
+    }
+
+    ui.srcEditor.value = src;
+    state.srcText = src;
+    state.appHash = "";
+    const commitResult = await commitSource(src, {
+      reportError: (msg) => {
+        setAiStatus("Apply error: " + msg, "error");
+        updatePromptHistoryEntry(entry.id, { applyError: msg });
+        renderPromptHistory();
+      }
+    });
+    if (commitResult && commitResult.ok === false && commitResult.error) {
+      updatePromptHistoryEntry(entry.id, { applyError: commitResult.error });
+      renderPromptHistory();
+      return;
+    }
+    setViewMode("source");
   }
 
   function loadAISettings() {
@@ -1523,6 +1592,11 @@
     ui.btnAiPrompt.classList.toggle("active", mode === "prompt");
     ui.btnAiSettings.classList.toggle("active", mode === "settings");
     ui.btnAiHistory.classList.toggle("active", mode === "history");
+
+    if (mode === "history") {
+      ensureCurrentSourceSnapshot();
+      renderPromptHistory();
+    }
   }
 
   async function fetchModels() {
@@ -1775,7 +1849,7 @@ You have two options for your response:
    <<<REPLACE>>>
    replacement text
    <<<END>>>
-   
+
    You can include multiple FIND/REPLACE/END blocks for multiple changes.
    The FIND text must match EXACTLY (including whitespace/indentation).
 
@@ -1798,7 +1872,7 @@ Use REPLACE MODE when:
 
 Requirements for both modes:
 - All CSS must be in a <style> tag
-- All JavaScript must be in a <script> tag  
+- All JavaScript must be in a <script> tag
 - The app MUST store all state in location.hash (this is critical for the SFWA format)
 - Use modern, clean HTML5/CSS3/ES6+
 - Preserve the existing state management pattern unless asked to change it
@@ -1809,13 +1883,13 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
   function isValidHtml(html) {
     if (!html || typeof html !== "string") return false;
     const trimmed = html.trim();
-    
+
     // Must have minimum length to be a valid HTML document
     if (trimmed.length < 20) return false;
-    
+
     // Must contain at least one HTML tag
     if (!/<[a-zA-Z][^>]*>/.test(trimmed)) return false;
-    
+
     // Should contain basic HTML structure indicators
     const hasDoctype = /<!doctype\s+html/i.test(trimmed);
     const hasHtmlTag = /<html[^>]*>/i.test(trimmed);
@@ -1824,24 +1898,24 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
     const hasStyle = /<style[^>]*>/i.test(trimmed);
     const hasMeta = /<meta[^>]*>/i.test(trimmed);
     const hasTitle = /<title[^>]*>/i.test(trimmed);
-    
+
     // Must have at least some HTML structure
-    const structureScore = (hasDoctype ? 1 : 0) + (hasHtmlTag ? 1 : 0) + 
-                          (hasHeadOrBody ? 1 : 0) + (hasScript ? 1 : 0) + 
+    const structureScore = (hasDoctype ? 1 : 0) + (hasHtmlTag ? 1 : 0) +
+                          (hasHeadOrBody ? 1 : 0) + (hasScript ? 1 : 0) +
                           (hasStyle ? 1 : 0) + (hasMeta ? 1 : 0) + (hasTitle ? 1 : 0);
-    
+
     // Require at least 2 structural elements for a valid SFWA app
     if (structureScore < 2) return false;
-    
+
     // Check for obviously broken/garbage content
     // Reject if it looks like a regex pattern or code fragment
     if (/^\([^)]*\)\s*$/.test(trimmed)) return false;
     if (/^\[\s*\S+\s*\]\s*$/.test(trimmed)) return false;
-    
+
     // Reject if mostly non-HTML characters
     const htmlTagCount = (trimmed.match(/<[^>]+>/g) || []).length;
     if (htmlTagCount < 3) return false;
-    
+
     return true;
   }
 
@@ -1858,8 +1932,8 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
   // Does NOT match backticks that appear inside HTML content
   function extractHtmlFromResponse(content) {
     const trimmed = content.trim();
-    
-    // Only extract from code block if response STARTS with ``` 
+
+    // Only extract from code block if response STARTS with ```
     // This prevents matching backticks inside the HTML (e.g., markdown converters)
     if (trimmed.startsWith("```")) {
       // Match from start: ```html or ``` followed by content until closing ```
@@ -1868,7 +1942,7 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
         return codeBlockMatch[1].trim();
       }
     }
-    
+
     return trimmed;
   }
 
@@ -1883,22 +1957,22 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
     const patches = [];
     const patchRegex = /<<<FIND>>>\n([\s\S]*?)\n<<<REPLACE>>>\n([\s\S]*?)\n<<<END>>>/g;
     let match;
-    
+
     while ((match = patchRegex.exec(patchContent)) !== null) {
       patches.push({
         find: match[1],
         replace: match[2]
       });
     }
-    
+
     if (patches.length === 0) {
       return { success: false, error: "No valid patch operations found", result: null };
     }
-    
+
     let result = source;
     const appliedPatches = [];
     const failedPatches = [];
-    
+
     for (const patch of patches) {
       if (result.includes(patch.find)) {
         result = result.replace(patch.find, patch.replace);
@@ -1907,17 +1981,17 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
         failedPatches.push(patch.find.substring(0, 50) + (patch.find.length > 50 ? "..." : ""));
       }
     }
-    
+
     if (failedPatches.length > 0 && appliedPatches.length === 0) {
-      return { 
-        success: false, 
-        error: `Could not find text to patch: ${failedPatches.join(", ")}`, 
-        result: null 
+      return {
+        success: false,
+        error: `Could not find text to patch: ${failedPatches.join(", ")}`,
+        result: null
       };
     }
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       error: failedPatches.length > 0 ? `Some patches failed: ${failedPatches.join(", ")}` : null,
       result: result,
       appliedCount: appliedPatches.length,
@@ -1928,11 +2002,11 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
   // Determine if response is a patch or full replacement, and process accordingly
   function processUpdateResponse(content, currentSource) {
     const trimmed = content.trim();
-    
+
     // First, determine what type of response this is
     const isPatchFormat = looksLikePatchFormat(trimmed);
     const isHtmlFormat = looksLikeHtmlReplacement(trimmed);
-    
+
     // Reject if it's neither a valid patch nor valid HTML
     if (!isPatchFormat && !isHtmlFormat) {
       return {
@@ -1941,12 +2015,12 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
         error: "Response is neither a valid patch format nor valid HTML. The AI may have returned an explanation or malformed content instead of code."
       };
     }
-    
+
     // Check if it starts with PATCH:
     if (isPatchFormat) {
       const patchContent = trimmed.substring(6).trim();
       const patchResult = applyPatches(currentSource, patchContent);
-      
+
       if (patchResult.success) {
         // Validate that the patched result is still valid HTML
         if (!isValidHtml(patchResult.result)) {
@@ -1956,7 +2030,7 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
             error: "Patch would result in invalid HTML. The original source has been preserved."
           };
         }
-        
+
         return {
           mode: "patch",
           html: patchResult.result,
@@ -1973,11 +2047,11 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
         };
       }
     }
-    
+
     // Not a patch - treat as full replacement
     // Extract HTML from the response (handles markdown code block wrapping)
     const html = extractHtmlFromResponse(trimmed);
-    
+
     // Final validation of the replacement HTML
     if (!isValidHtml(html)) {
       return {
@@ -1986,7 +2060,7 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
         error: "Replacement content is not valid HTML. The original source has been preserved."
       };
     }
-    
+
     return {
       mode: "replace",
       html: html,
@@ -2075,7 +2149,7 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
       // Process the response based on mode
       if (isUpdate) {
         const processed = processUpdateResponse(content, state.srcText);
-        
+
         if (processed.html) {
           const modeLabel = processed.mode === "patch" ? "Patched" : "Replaced";
           let statusMsg = `${modeLabel} successfully!`;
@@ -2129,8 +2203,9 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
       clearPromptHistory();
     }
 
+    const sourceBefore = state.srcText || "";
     const type = mode === "update" ? 'change' : 'new';
-    const entry = addToPromptHistory(prompt, type);
+    const entry = addToPromptHistory(prompt, type, { sourceBefore });
     renderPromptHistory();
 
     const result = await callOpenRouter(prompt, mode);
@@ -2142,6 +2217,7 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
     renderPromptHistory();
 
     if (result && result.html) {
+      updatePromptHistoryEntry(entry.id, { sourceAfter: result.html });
       ui.srcEditor.value = result.html;
       state.srcText = result.html;
       state.appHash = "";
@@ -2176,14 +2252,20 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
       const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       const typeLabel = entry.type === 'new' ? '✨' : '🔄';
 
-      const details = entry.hasDetails ? (getPromptDetails(entry.id) || {}) : {};
-      const hasDetails = !!(entry.hasDetails || details.openRouterRequest || details.openRouterResponse || details.openRouterError || details.applyError);
+      const details = entry.hasDetails ? (getPromptDetails(entry.id) || {}) : (getPromptDetails(entry.id) || {});
+      const hasDetails = !!(entry.hasDetails || details.openRouterRequest || details.openRouterResponse || details.openRouterError || details.applyError || details.source || details.sourceBefore || details.sourceAfter);
+      const sourceToShow = details.sourceAfter || details.source || details.sourceBefore;
+
+      const currentSource = state.srcText || "";
+      const isCurrent = !!(sourceToShow && currentSource && sourceToShow === currentSource);
+      item.classList.toggle('is-current', isCurrent);
       const detailsHtml = hasDetails ? `
         <div class="promptHistoryDetails">
           <details>
             <summary>Inspect request/response</summary>
             ${details.openRouterError ? `<div class="aiStatus error" style="display:block;margin-top:6px;">OpenRouter error: ${escapeHtml(details.openRouterError)}</div>` : ''}
             ${details.applyError ? `<div class="aiStatus error" style="display:block;margin-top:6px;">Apply error: ${escapeHtml(details.applyError)}</div>` : ''}
+            ${sourceToShow ? `<details style="margin-top:6px;"><summary>Source</summary><pre>${escapeHtml(sourceToShow)}</pre></details>` : ''}
             <details style="margin-top:6px;">
               <summary>OpenRouter request</summary>
               <pre>${escapeHtml(safeJsonStringify(details.openRouterRequest))}</pre>
@@ -2199,13 +2281,16 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
       item.innerHTML = `
         <span class="promptText" title="${escapeHtml(entry.prompt)}">${typeLabel} ${escapeHtml(entry.prompt)}</span>
         <span class="promptMeta">${timeStr}</span>
+        ${isCurrent ? `<span class="currentBadge" title="This entry matches the current source">Current</span>` : ''}
+        <button class="usePrompt" title="Apply this history entry">Use</button>
         <button class="inspectPrompt" title="Inspect request/response" ${hasDetails ? '' : 'disabled'}>i</button>
         <button class="deletePrompt" title="Delete this prompt">✕</button>
         ${detailsHtml}
       `;
 
       // Click to use prompt
-      item.querySelector('.promptText').addEventListener('click', () => {
+      item.querySelector('.promptText').addEventListener('click', (e) => {
+        e.stopPropagation();
         ui.aiPrompt.value = entry.prompt;
         state.aiPrompt = entry.prompt;
         writeHashParams({ codec: state.codec, srcPayload: state.srcPayload, appHash: state.appHash, aiPrompt: state.aiPrompt, promptHistory: state.promptHistory }, { replace: true });
@@ -2217,6 +2302,14 @@ Do NOT include any explanations, markdown code blocks, or commentary - just the 
           e.stopPropagation();
           const details = item.querySelector('.promptHistoryDetails details');
           if (details) details.open = !details.open;
+        });
+      }
+
+      const useBtn = item.querySelector('.usePrompt');
+      if (useBtn) {
+        useBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          restoreSourceFromHistoryEntry(entry);
         });
       }
 
