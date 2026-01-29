@@ -42,6 +42,7 @@
     .btn:hover { background: rgba(255,255,255,0.10); }
     .btn:active { transform: translateY(1px); }
     .btn.secondary { font-weight: 600; color: var(--muted); }
+    .btn.active { background: rgba(91, 156, 255, 0.22); border-color: rgba(91, 156, 255, 0.55); }
     .spacer { flex: 1; }
     .status { font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
     .status .ok { color: var(--good); }
@@ -134,6 +135,21 @@
       background: rgba(255,255,255,0.04);
       color: var(--text);
     }
+
+    .app.mode-source .right { display: none; }
+    .app.mode-source .left { width: 100%; border-right: 0; }
+    .app.mode-source .editorBar { display: none; }
+    .app.mode-source .help { display: none; }
+
+    .app.mode-diagram .left { display: none; }
+    .app.mode-diagram .right { width: 100%; }
+
+    .app.mode-help .right { display: none; }
+    .app.mode-help .left { width: 100%; border-right: 0; }
+    .app.mode-help .editorBar { display: none; }
+    .app.mode-help textarea { display: none; }
+    .app.mode-help .errorBox { display: none; }
+    .app.mode-help .help { max-height: none; flex: 1; }
   </style>
 </head>
 <body>
@@ -141,6 +157,10 @@
   <div class="topbar">
     <div class="title">Diagram Editor</div>
     <div class="pill">SFWA • all state in URL hash</div>
+    <button class="btn" id="btnViewSource" type="button">Source</button>
+    <button class="btn" id="btnViewDiagram" type="button">Diagram</button>
+    <button class="btn" id="btnViewHelp" type="button">Help</button>
+    <button class="btn active" id="btnViewSplit" type="button">Split</button>
     <div class="spacer"></div>
     <button class="btn secondary" id="btnCommit" title="Push a history entry (Back/Forward friendly).">Commit snapshot</button>
     <button class="btn" id="btnCopy">Copy URL</button>
@@ -262,6 +282,12 @@
   const $hashStatus = document.getElementById("hashStatus");
   const $errorBox = document.getElementById("errorBox");
 
+  const $app = document.querySelector(".app");
+  const $btnViewSource = document.getElementById("btnViewSource");
+  const $btnViewDiagram = document.getElementById("btnViewDiagram");
+  const $btnViewHelp = document.getElementById("btnViewHelp");
+  const $btnViewSplit = document.getElementById("btnViewSplit");
+
   const $shapeList = document.getElementById("shapeList");
   const $colorList = document.getElementById("colorList");
   const $lineStyleList = document.getElementById("lineStyleList");
@@ -277,6 +303,31 @@
   fillList($shapeList, NODE_SHAPES);
   fillList($lineStyleList, EDGE_STYLES);
   fillList($colorList, Object.keys(COLORS));
+
+  function setViewMode(mode) {
+    $app.classList.remove("mode-source", "mode-diagram", "mode-help");
+    if (mode === "source") $app.classList.add("mode-source");
+    if (mode === "diagram") $app.classList.add("mode-diagram");
+    if (mode === "help") $app.classList.add("mode-help");
+
+    const is = (m) => mode === m;
+    $btnViewSource.classList.toggle("active", is("source"));
+    $btnViewDiagram.classList.toggle("active", is("diagram"));
+    $btnViewHelp.classList.toggle("active", is("help"));
+    $btnViewSplit.classList.toggle("active", is("split"));
+
+    $btnViewSource.setAttribute("aria-pressed", String(is("source")));
+    $btnViewDiagram.setAttribute("aria-pressed", String(is("diagram")));
+    $btnViewHelp.setAttribute("aria-pressed", String(is("help")));
+    $btnViewSplit.setAttribute("aria-pressed", String(is("split")));
+  }
+
+  $btnViewSource.addEventListener("click", () => setViewMode("source"));
+  $btnViewDiagram.addEventListener("click", () => setViewMode("diagram"));
+  $btnViewHelp.addEventListener("click", () => setViewMode("help"));
+  $btnViewSplit.addEventListener("click", () => setViewMode("split"));
+
+  setViewMode("split");
 
   document.getElementById("btnCopy").addEventListener("click", async () => {
     try {
