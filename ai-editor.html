@@ -377,6 +377,28 @@
       opacity: 0.5;
       font-style: italic;
     }
+
+    .aiHistoryArea {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+    .aiHistoryArea .promptHistorySection {
+      border-top: 0;
+      padding-top: 0;
+      margin-top: 0;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .aiHistoryArea .promptHistoryList {
+      max-height: none;
+      flex: 1;
+      min-height: 0;
+    }
   </style>
 </head>
 
@@ -434,6 +456,7 @@
         <div class="aiModeToggle">
           <button id="btnAiPrompt" class="active">Prompt</button>
           <button id="btnAiSettings">Settings</button>
+          <button id="btnAiHistory">History</button>
         </div>
       </div>
       <div class="aiContent" id="aiContent">
@@ -443,17 +466,8 @@
           <div class="aiButtons">
             <button id="btnAiNew" class="primary" title="Generate a new app from scratch (clears prompt history)">New</button>
             <button id="btnAiChange" class="primary" title="Modify the existing app based on your instructions">Change</button>
-            <button id="btnDeleteHistory" title="Delete all prompt history">Delete History</button>
           </div>
           <div id="aiStatusBox" class="aiStatus" style="display:none;"></div>
-          <div class="promptHistorySection">
-            <div class="promptHistoryHeader">
-              <label>Recent Prompts</label>
-            </div>
-            <div id="promptHistoryList" class="promptHistoryList">
-              <div class="promptHistoryEmpty">No prompts yet</div>
-            </div>
-          </div>
         </div>
         <!-- Settings mode -->
         <div id="aiSettingsMode" class="settingsArea" style="display:none;">
@@ -502,6 +516,19 @@
             <button id="btnSaveSettings">Save Settings</button>
           </div>
           <div id="settingsStatusBox" class="aiStatus" style="display:none;"></div>
+        </div>
+
+        <!-- History mode -->
+        <div id="aiHistoryMode" class="aiHistoryArea" style="display:none;">
+          <div class="promptHistorySection">
+            <div class="promptHistoryHeader">
+              <label>Recent Prompts</label>
+              <button id="btnDeleteHistory" title="Delete all prompt history">Delete History</button>
+            </div>
+            <div id="promptHistoryList" class="promptHistoryList">
+              <div class="promptHistoryEmpty">No prompts yet</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="status">
@@ -903,8 +930,10 @@
     aiContent: $("aiContent"),
     aiPromptMode: $("aiPromptMode"),
     aiSettingsMode: $("aiSettingsMode"),
+    aiHistoryMode: $("aiHistoryMode"),
     btnAiPrompt: $("btnAiPrompt"),
     btnAiSettings: $("btnAiSettings"),
+    btnAiHistory: $("btnAiHistory"),
     aiPrompt: $("aiPrompt"),
     btnAiNew: $("btnAiNew"),
     btnAiChange: $("btnAiChange"),
@@ -1306,17 +1335,13 @@
   }
 
   function setAiMode(mode) {
-    if (mode === "prompt") {
-      ui.aiPromptMode.style.display = "flex";
-      ui.aiSettingsMode.style.display = "none";
-      ui.btnAiPrompt.classList.add("active");
-      ui.btnAiSettings.classList.remove("active");
-    } else {
-      ui.aiPromptMode.style.display = "none";
-      ui.aiSettingsMode.style.display = "flex";
-      ui.btnAiPrompt.classList.remove("active");
-      ui.btnAiSettings.classList.add("active");
-    }
+    ui.aiPromptMode.style.display = mode === "prompt" ? "flex" : "none";
+    ui.aiSettingsMode.style.display = mode === "settings" ? "flex" : "none";
+    ui.aiHistoryMode.style.display = mode === "history" ? "flex" : "none";
+
+    ui.btnAiPrompt.classList.toggle("active", mode === "prompt");
+    ui.btnAiSettings.classList.toggle("active", mode === "settings");
+    ui.btnAiHistory.classList.toggle("active", mode === "history");
   }
 
   async function fetchModels() {
@@ -1746,6 +1771,7 @@ function writeState(s, replace=true) {
   // AI mode toggle
   ui.btnAiPrompt.addEventListener("click", () => setAiMode("prompt"));
   ui.btnAiSettings.addEventListener("click", () => setAiMode("settings"));
+  ui.btnAiHistory.addEventListener("click", () => setAiMode("history"));
 
   // AI actions
   ui.btnAiNew.addEventListener("click", () => handleAiGenerate(false));
