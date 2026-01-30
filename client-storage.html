@@ -355,12 +355,74 @@
       color: var(--muted);
       font-size: 12px;
     }
+    .ico{ width: 14px; height: 14px; vertical-align: -2px; display:inline-block; color: var(--muted); }
+    .ico.sm{ width: 13px; height: 13px; vertical-align: -2px; }
+    .ico.lg{ width: 18px; height: 18px; vertical-align: -3px; color: var(--text); }
+    .ico.useText{ color: var(--text); }
+    .withIco{ display:inline-flex; align-items:center; gap:8px; }
     .mono{ font-family: var(--mono); }
     .sr{ position:absolute; left:-9999px; }
   </style>
 </head>
 
 <body>
+<svg width="0" height="0" style="position:absolute; width:0; height:0; overflow:hidden" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-type" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M4 6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6Zm3-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H7Z"/>
+    <path fill="currentColor" d="M8 8h8v2H8V8Zm0 4h8v2H8v-2Z"/>
+  </symbol>
+
+  <symbol id="i-capacity" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 2v16h10V4H7Z"/>
+    <path fill="currentColor" d="M9 7h6v2H9V7Zm0 4h6v2H9v-2Zm0 4h6v2H9v-2Z"/>
+  </symbol>
+
+  <symbol id="i-persistence" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8Z"/>
+    <path fill="currentColor" d="M11 6h2v6l4 2-.8 1.8L11 13V6Z"/>
+  </symbol>
+
+  <symbol id="i-scope" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 2a8 8 0 0 1 7.75 6H4.25A8 8 0 0 1 12 4Zm-8 8c0-.68.08-1.34.25-2h15.5c.17.66.25 1.32.25 2s-.08 1.34-.25 2H4.25A7.9 7.9 0 0 1 4 12Zm8 8a8 8 0 0 1-7.75-6h15.5A8 8 0 0 1 12 20Z"/>
+  </symbol>
+
+  <symbol id="i-structure" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M9 4 5 8v8l4 4 1.4-1.4L7 15.2V8.8l3.4-3.4L9 4Zm6 0-1.4 1.4L17 8.8v6.4l-3.4 3.4L15 20l4-4V8l-4-4Z"/>
+  </symbol>
+
+  <symbol id="i-localStorage" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7Zm3-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7Z"/>
+    <path fill="currentColor" d="M8 9h8v2H8V9Zm0 4h6v2H8v-2Z"/>
+  </symbol>
+
+  <symbol id="i-sessionStorage" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M7 4h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H13l-3.6 3.6A1 1 0 0 1 7 20v-3a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3Zm0 2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2v3l3-3h5a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7Z"/>
+  </symbol>
+
+  <symbol id="i-indexedDB" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 2c4.97 0 9 1.79 9 4v12c0 2.21-4.03 4-9 4s-9-1.79-9-4V6c0-2.21 4.03-4 9-4Zm0 2C7.58 4 5 5.12 5 6s2.58 2 7 2 7-1.12 7-2-2.58-2-7-2Zm0 16c-4.42 0-7-1.12-7-2v-2c1.62 1.1 4.48 1.7 7 1.7s5.38-.6 7-1.7v2c0 .88-2.58 2-7 2Zm0-6c-4.42 0-7-1.12-7-2V10c1.62 1.1 4.48 1.7 7 1.7s5.38-.6 7-1.7v2c0 .88-2.58 2-7 2Z"/>
+  </symbol>
+
+  <symbol id="i-cacheAPI" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M4 6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-3l-4 3a1 1 0 0 1-1.6-.8v-2.2H7a3 3 0 0 1-3-3V6Zm3-1a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4v2l2.7-2H17a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H7Z"/>
+    <path fill="currentColor" d="M9 8h6v2H9V8Z"/>
+  </symbol>
+
+  <symbol id="i-cookies" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10c0-.6-.06-1.2-.17-1.77a1 1 0 0 1 0-.37c.06-.24.16-.46.3-.65A6.5 6.5 0 0 1 12 2Zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8Z"/>
+    <path fill="currentColor" d="M9 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm6 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-1 5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Z"/>
+  </symbol>
+
+  <symbol id="i-url" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M10.6 13.4a1 1 0 0 1 0-1.4l3.2-3.2a3 3 0 0 1 4.2 4.2l-1.6 1.6a1 1 0 1 1-1.4-1.4l1.6-1.6a1 1 0 0 0-1.4-1.4l-3.2 3.2a1 1 0 0 1-1.4 0Z"/>
+    <path fill="currentColor" d="M13.4 10.6a1 1 0 0 1 0 1.4l-3.2 3.2a3 3 0 1 1-4.2-4.2L7.6 9.4A1 1 0 1 1 9 10.8L7.4 12.4a1 1 0 1 0 1.4 1.4l3.2-3.2a1 1 0 0 1 1.4 0Z"/>
+  </symbol>
+
+  <symbol id="i-storageManager" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9Zm0 2a7 7 0 1 1-7 7 7 7 0 0 1 7-7Z"/>
+    <path fill="currentColor" d="M12 7a1 1 0 0 1 1 1v4.2l2.3 1.3a1 1 0 1 1-1 1.7l-2.8-1.6A1 1 0 0 1 11 13V8a1 1 0 0 1 1-1Z"/>
+  </symbol>
+</svg>
 <header>
   <div class="wrap">
     <div class="topbar">
@@ -397,11 +459,11 @@
           <table aria-label="Storage overview table">
             <thead>
               <tr>
-                <th style="width: 20%">Type</th>
-                <th style="width: 20%">Capacity</th>
-                <th style="width: 22%">Persistence</th>
-                <th style="width: 18%">Scope</th>
-                <th style="width: 20%">Structure</th>
+                <th style="width: 20%"><span class="withIco"><svg class="ico sm" aria-hidden="true"><use href="#i-type"></use></svg><span>Type</span></span></th>
+                <th style="width: 20%"><span class="withIco"><svg class="ico sm" aria-hidden="true"><use href="#i-capacity"></use></svg><span>Capacity</span></span></th>
+                <th style="width: 22%"><span class="withIco"><svg class="ico sm" aria-hidden="true"><use href="#i-persistence"></use></svg><span>Persistence</span></span></th>
+                <th style="width: 18%"><span class="withIco"><svg class="ico sm" aria-hidden="true"><use href="#i-scope"></use></svg><span>Scope</span></span></th>
+                <th style="width: 20%"><span class="withIco"><svg class="ico sm" aria-hidden="true"><use href="#i-structure"></use></svg><span>Structure</span></span></th>
               </tr>
             </thead>
             <tbody id="overviewBody"></tbody>
@@ -444,6 +506,24 @@
   // ---------- Utilities ----------
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  function iconUse(id, extraClass=""){
+    const cls = ("ico " + extraClass).trim();
+    return `<svg class="${cls}" aria-hidden="true"><use href="#${escapeHtml(id)}"></use></svg>`;
+  }
+
+  function iconForType(typeId){
+    const map = {
+      localStorage: "i-localStorage",
+      sessionStorage: "i-sessionStorage",
+      indexedDB: "i-indexedDB",
+      cacheAPI: "i-cacheAPI",
+      cookies: "i-cookies",
+      url: "i-url",
+      storageManager: "i-storageManager",
+    };
+    return map[typeId] || "i-type";
+  }
 
   function escapeHtml(s){
     return String(s)
@@ -1485,7 +1565,7 @@ window.addEventListener("hashchange", () => {
 
       return `
         <tr tabindex="0" role="button" aria-selected="${selected}" data-id="${escapeHtml(t.id)}">
-          <td><strong>${escapeHtml(t.name)}</strong>${badgeBits}${extraBadge}</td>
+          <td><span class="withIco">${iconUse(iconForType(t.id), "useText")}<strong>${escapeHtml(t.name)}</strong></span>${badgeBits}${extraBadge}</td>
           <td>${escapeHtml(t.overview.capacity)}</td>
           <td>${escapeHtml(t.overview.persistence)}</td>
           <td>${escapeHtml(t.overview.scope)}</td>
@@ -1556,7 +1636,7 @@ window.addEventListener("hashchange", () => {
     $("#details").innerHTML = `
       <div class="detailTitle">
         <div>
-          <h3>${escapeHtml(t.name)} ${isSecureMsg}</h3>
+          <h3><span class="withIco">${iconUse(iconForType(t.id), "lg")}${escapeHtml(t.name)}</span> ${isSecureMsg}</h3>
           <div class="small">${escapeHtml(t.overview.structure)}</div>
         </div>
         <div class="rightActions">
@@ -1565,10 +1645,10 @@ window.addEventListener("hashchange", () => {
       </div>
 
       <div class="kvs">
-        <div class="kv"><div class="k">Capacity</div><div class="v">${escapeHtml(t.overview.capacity)}</div></div>
-        <div class="kv"><div class="k">Persistence</div><div class="v">${escapeHtml(t.overview.persistence)}</div></div>
-        <div class="kv"><div class="k">Scope</div><div class="v">${escapeHtml(t.overview.scope)}</div></div>
-        <div class="kv"><div class="k">Structure</div><div class="v">${escapeHtml(t.overview.structure)}</div></div>
+        <div class="kv"><div class="k"><span class="withIco">${iconUse("i-capacity") }<span>Capacity</span></span></div><div class="v">${escapeHtml(t.overview.capacity)}</div></div>
+        <div class="kv"><div class="k"><span class="withIco">${iconUse("i-persistence") }<span>Persistence</span></span></div><div class="v">${escapeHtml(t.overview.persistence)}</div></div>
+        <div class="kv"><div class="k"><span class="withIco">${iconUse("i-scope") }<span>Scope</span></span></div><div class="v">${escapeHtml(t.overview.scope)}</div></div>
+        <div class="kv"><div class="k"><span class="withIco">${iconUse("i-structure") }<span>Structure</span></span></div><div class="v">${escapeHtml(t.overview.structure)}</div></div>
       </div>
 
       <div class="row">
