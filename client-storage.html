@@ -1,0 +1,1795 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Browser Storage Explorer — Single-File, Hash-State App</title>
+  <meta name="description" content="Single-file web app explaining LocalStorage, SessionStorage, IndexedDB, Cache API, Cookies, and URLs with comparisons, code, references, and SVG flows." />
+  <style>
+    :root{
+      --bg:#0b0c10; --panel:#11131a; --panel2:#0f1117; --text:#e9ecf1; --muted:#aab1bf;
+      --border:#23283a; --accent:#7dd3fc; --accent2:#a78bfa; --danger:#fb7185; --ok:#34d399;
+      --code:#0b1020; --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light) {
+      :root{
+        --bg:#f6f7fb; --panel:#ffffff; --panel2:#fbfcff; --text:#101423; --muted:#4b5568;
+        --border:#e6e8f2; --accent:#0284c7; --accent2:#6d28d9; --danger:#e11d48; --ok:#059669;
+        --code:#0b1020; --shadow: 0 12px 24px rgba(16,20,35,.08);
+      }
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: var(--sans);
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(125,211,252,.18), transparent 60%),
+                  radial-gradient(900px 500px at 90% 0%, rgba(167,139,250,.14), transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.35;
+    }
+    a{ color: var(--accent); text-decoration: none; }
+    a:hover{ text-decoration: underline; }
+    code, pre { font-family: var(--mono); }
+
+    header{
+      position: sticky; top:0; z-index:10;
+      backdrop-filter: blur(10px);
+      background: color-mix(in oklab, var(--bg) 75%, transparent);
+      border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    }
+    .wrap{ max-width: 1200px; margin:0 auto; padding: 16px 18px; }
+    .topbar{
+      display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px; min-width: 260px;
+    }
+    .logo{
+      width: 38px; height: 38px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: var(--shadow);
+      position:relative;
+    }
+    .logo:after{
+      content:"";
+      position:absolute; inset:10px;
+      border-radius: 10px;
+      background: color-mix(in oklab, var(--bg) 65%, transparent);
+      border: 1px solid color-mix(in oklab, var(--text) 20%, transparent);
+    }
+    h1{ font-size: 16px; margin:0; letter-spacing:.2px; }
+    .subtitle{ font-size: 12px; margin:2px 0 0; color: var(--muted); }
+
+    .actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel) 75%, transparent);
+      padding: 8px 10px;
+      border-radius: 999px;
+      box-shadow: 0 1px 0 rgba(255,255,255,.03) inset;
+    }
+    .pill input{
+      border:none; outline:none; background:transparent; color: var(--text);
+      width: min(340px, 60vw);
+      font-size: 13px;
+    }
+    .btn{
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 92%, transparent), color-mix(in oklab, var(--panel2) 92%, transparent));
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-size: 13px;
+      box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 8px 18px rgba(0,0,0,.10);
+      user-select:none;
+    }
+    .btn:hover{ border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.secondary{ color: var(--muted); }
+    .btn.good{ border-color: color-mix(in oklab, var(--ok) 45%, var(--border)); }
+    .btn.danger{ border-color: color-mix(in oklab, var(--danger) 45%, var(--border)); }
+
+    main{ padding: 18px 0 28px; }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.05fr 1.35fr;
+      gap: 16px;
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 92%, transparent), color-mix(in oklab, var(--panel2) 92%, transparent));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+      display:flex; gap:10px; align-items:baseline; justify-content:space-between; flex-wrap:wrap;
+    }
+    .card .hd h2{
+      margin:0;
+      font-size: 14px;
+      letter-spacing:.15px;
+    }
+    .card .hd .hint{
+      margin:0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .card .bd{ padding: 12px 14px 14px; }
+
+    table{
+      width:100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+    }
+    thead th{
+      text-align:left;
+      font-size: 11px;
+      letter-spacing: .35px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 10px 10px;
+      position: sticky;
+      top: 78px; /* below header */
+      background: color-mix(in oklab, var(--panel) 85%, transparent);
+      border-bottom: 1px solid var(--border);
+      z-index: 2;
+    }
+    tbody td{
+      padding: 10px 10px;
+      border-bottom: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+      vertical-align: top;
+    }
+    tbody tr{
+      cursor:pointer;
+      outline:none;
+    }
+    tbody tr:hover{
+      background: color-mix(in oklab, var(--accent) 8%, transparent);
+    }
+    tbody tr[aria-selected="true"]{
+      background: color-mix(in oklab, var(--accent) 14%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent) inset;
+    }
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: color-mix(in oklab, var(--panel) 70%, transparent);
+      margin-left: 8px;
+      white-space: nowrap;
+    }
+    .tag.ok{ border-color: color-mix(in oklab, var(--ok) 40%, var(--border)); color: color-mix(in oklab, var(--ok) 70%, var(--text)); }
+    .tag.warn{ border-color: color-mix(in oklab, var(--danger) 40%, var(--border)); color: color-mix(in oklab, var(--danger) 70%, var(--text)); }
+    .small{ font-size: 12px; color: var(--muted); }
+
+    .detailTitle{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      margin-bottom: 6px;
+    }
+    .detailTitle h3{
+      margin:0;
+      font-size: 18px;
+      letter-spacing: .2px;
+    }
+    .detailTitle .rightActions{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .kvs{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+      margin: 12px 0 12px;
+    }
+    @media (max-width: 560px){
+      .kvs{ grid-template-columns: 1fr; }
+    }
+    .kv{
+      padding: 10px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--panel) 70%, transparent);
+    }
+    .kv .k{ font-size: 11px; text-transform: uppercase; letter-spacing:.35px; color: var(--muted); }
+    .kv .v{ margin-top: 4px; font-size: 13px; }
+
+    details{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--panel) 72%, transparent);
+      margin: 10px 0;
+      overflow:hidden;
+    }
+    summary{
+      cursor:pointer;
+      padding: 10px 10px;
+      list-style:none;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      user-select:none;
+    }
+    summary::-webkit-details-marker{ display:none; }
+    .sumLeft{ display:flex; align-items:center; gap:10px; }
+    .chev{
+      width: 20px; height: 20px; border-radius: 7px;
+      display:grid; place-items:center;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    details[open] .chev{ color: var(--text); border-color: color-mix(in oklab, var(--accent) 35%, var(--border)); }
+    .sumTitle{ font-weight: 600; font-size: 13px; }
+    .sumHint{ font-size: 12px; color: var(--muted); }
+
+    .codeBox{
+      padding: 10px 10px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .codeHeader{
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      margin-bottom: 8px;
+    }
+    .codeHeader .label{
+      font-size: 12px; color: var(--muted);
+      display:flex; align-items:center; gap:8px;
+    }
+    pre{
+      margin:0;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--code);
+      border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+      overflow:auto;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #e7ecff;
+    }
+    .row{
+      display:flex; gap: 10px; align-items:flex-start; flex-wrap:wrap;
+    }
+    .col{ flex: 1 1 260px; min-width: 260px; }
+    ul{ margin: 8px 0 0 18px; padding: 0; }
+    li{ margin: 6px 0; }
+
+    .svgWrap{
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel2) 80%, transparent);
+      border-radius: 12px;
+      padding: 10px;
+      overflow:hidden;
+    }
+    svg.flow{
+      width: 100%;
+      height: auto;
+    }
+    .flow .node{
+      fill: color-mix(in oklab, var(--panel) 82%, transparent);
+      stroke: color-mix(in oklab, var(--text) 18%, var(--border));
+      stroke-width: 1.2;
+      rx: 12;
+    }
+    .flow .label{
+      fill: color-mix(in oklab, var(--text) 92%, var(--text));
+      font-size: 12px;
+      font-family: var(--sans);
+    }
+    .flow .muted{
+      fill: color-mix(in oklab, var(--muted) 90%, var(--muted));
+      font-size: 11px;
+      font-family: var(--sans);
+    }
+    .flow .arrow{
+      stroke: color-mix(in oklab, var(--accent) 75%, var(--text));
+      stroke-width: 2;
+      fill:none;
+      marker-end: url(#arrowHead);
+    }
+    .flow .arrow2{
+      stroke: color-mix(in oklab, var(--accent2) 70%, var(--text));
+      stroke-width: 2;
+      fill:none;
+      marker-end: url(#arrowHead);
+    }
+    .flow .dashed{
+      stroke-dasharray: 6 6;
+    }
+
+    .notice{
+      border: 1px solid var(--border);
+      border-left: 3px solid color-mix(in oklab, var(--accent) 70%, var(--border));
+      background: color-mix(in oklab, var(--panel) 74%, transparent);
+      border-radius: 12px;
+      padding: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 12px;
+    }
+
+    .mini{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      margin-top: 10px;
+    }
+    .mini input{
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel) 70%, transparent);
+      padding: 9px 10px;
+      border-radius: 12px;
+      color: var(--text);
+      outline:none;
+      font-size: 13px;
+      min-width: 220px;
+      flex: 1 1 220px;
+    }
+    .out{
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px dashed color-mix(in oklab, var(--border) 80%, transparent);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--panel2) 75%, transparent);
+      font-size: 12px;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    footer{
+      padding: 10px 0 24px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .mono{ font-family: var(--mono); }
+    .sr{ position:absolute; left:-9999px; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Browser Storage Explorer</h1>
+          <div class="subtitle">Single-file app · Shareable state in <span class="mono">#</span> (URL fragment)</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="pill" role="search">
+          <span aria-hidden="true">🔎</span>
+          <label class="sr" for="filter">Filter storage types</label>
+          <input id="filter" type="text" placeholder="Filter types (e.g., “cookie”, “db”, “cache”)…" />
+        </div>
+        <button class="btn good" id="copyUrlBtn" type="button">Copy shareable URL</button>
+        <button class="btn secondary" id="resetBtn" type="button" title="Reset app selection to default">Reset</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="grid">
+      <section class="card" aria-label="Overview comparison">
+        <div class="hd">
+          <h2>Overview</h2>
+          <p class="hint">Capacity, persistence, scope, and structure</p>
+        </div>
+        <div class="bd">
+          <table aria-label="Storage overview table">
+            <thead>
+              <tr>
+                <th style="width: 20%">Type</th>
+                <th style="width: 20%">Capacity</th>
+                <th style="width: 22%">Persistence</th>
+                <th style="width: 18%">Scope</th>
+                <th style="width: 20%">Structure</th>
+              </tr>
+            </thead>
+            <tbody id="overviewBody"></tbody>
+          </table>
+
+          <div class="notice">
+            <div><strong>Notes:</strong></div>
+            <ul>
+              <li><strong>Capacities are “typical”</strong> and vary by browser/device, storage pressure, and user settings. For quota-managed storage, use <span class="mono">navigator.storage.estimate()</span>.</li>
+              <li><strong>Scope</strong> is usually “per origin” (scheme + host + port). Cookies are special (domain/path rules) and are sent with requests.</li>
+              <li>Cache API usually requires a <strong>secure context</strong> (HTTPS / localhost).</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Selected type details">
+        <div class="hd">
+          <h2>Details</h2>
+          <p class="hint" id="detailHint">Select a storage type</p>
+        </div>
+        <div class="bd" id="details"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      Tip: selection is stored in the URL fragment as <span class="mono">#t=...</span>. Copy the URL to share the same view.
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Utilities ----------
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      toast("Copied to clipboard.");
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); toast("Copied to clipboard."); }
+      catch { toast("Could not copy (clipboard blocked)."); }
+      finally { document.body.removeChild(ta); }
+    }
+  }
+
+  let toastTimer = null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    let el = $("#__toast");
+    if(!el){
+      el = document.createElement("div");
+      el.id="__toast";
+      el.style.position="fixed";
+      el.style.right="16px";
+      el.style.bottom="16px";
+      el.style.zIndex="999";
+      el.style.padding="10px 12px";
+      el.style.borderRadius="12px";
+      el.style.border="1px solid var(--border)";
+      el.style.background="color-mix(in oklab, var(--panel) 90%, transparent)";
+      el.style.boxShadow="var(--shadow)";
+      el.style.color="var(--text)";
+      el.style.fontSize="13px";
+      el.style.maxWidth="min(420px, calc(100vw - 32px))";
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.opacity="1";
+    toastTimer = setTimeout(()=>{ el.style.opacity="0"; }, 1600);
+  }
+
+  function isSecureContextLikely(){
+    // spec: secure contexts include https and localhost (and some browser allowances)
+    return window.isSecureContext || location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  }
+
+  // ---------- Hash-state ----------
+  const DEFAULT_STATE = { t: "localStorage" };
+
+  function readStateFromHash(){
+    const raw = (location.hash || "").replace(/^#/, "");
+    if(!raw) return { ...DEFAULT_STATE };
+
+    // Support both "#t=localStorage" and "#localStorage"
+    if(!raw.includes("=") && TYPES_BY_ID[raw]) return { t: raw };
+
+    try{
+      const sp = new URLSearchParams(raw);
+      const t = sp.get("t");
+      if(t && TYPES_BY_ID[t]) return { t };
+      return { ...DEFAULT_STATE };
+    } catch {
+      return { ...DEFAULT_STATE };
+    }
+  }
+
+  function writeStateToHash(next, mode="replace"){
+    const sp = new URLSearchParams();
+    sp.set("t", next.t);
+    const nextHash = "#" + sp.toString();
+
+    if(mode === "push"){
+      // Changing location.hash creates a history entry and triggers hashchange.
+      location.hash = nextHash;
+      return;
+    }
+    // replace mode: update without new history entry
+    history.replaceState(null, "", nextHash);
+    // replaceState does not reliably fire hashchange; render explicitly
+    render();
+  }
+
+  // ---------- Data model ----------
+  // Keep content accurate and future-proof: use "typical" values + variability note.
+  const TYPES = [
+    {
+      id: "localStorage",
+      name: "LocalStorage",
+      badges: ["per-origin", "sync API"],
+      overview: {
+        capacity: "Typically ~5–10 MB / origin (varies)",
+        persistence: "Persistent until cleared (user/site/browser policy)",
+        scope: "Origin (scheme+host+port), shared across tabs",
+        structure: "String key/value pairs"
+      },
+      what: [
+        "Synchronous key/value store for small amounts of data.",
+        "Values are strings; store objects via JSON serialization."
+      ],
+      goodFor: [
+        "UI preferences, feature flags, small cached payloads",
+        "State that should survive browser restarts"
+      ],
+      avoid: [
+        "Large datasets (quota + performance)",
+        "Highly sensitive data (XSS exposure)"
+      ],
+      gotchas: [
+        "Synchronous API can block the main thread if abused.",
+        "Storage events fire in other tabs for the same origin (useful for cross-tab sync).",
+        "Quota and eviction vary; private browsing may behave differently."
+      ],
+      snippets: [
+        {
+          title: "Basic CRUD (JSON pattern)",
+          lang: "js",
+          code:
+`// Write
+const key = "prefs";
+const value = { theme: "dark", density: "compact" };
+localStorage.setItem(key, JSON.stringify(value));
+
+// Read
+const raw = localStorage.getItem(key);
+const prefs = raw ? JSON.parse(raw) : null;
+
+// Remove
+localStorage.removeItem(key);
+
+// Clear all (careful!)
+localStorage.clear();`
+        },
+        {
+          title: "Cross-tab sync (storage event)",
+          lang: "js",
+          code:
+`window.addEventListener("storage", (e) => {
+  if (e.storageArea !== localStorage) return;
+  if (e.key === "prefs") {
+    console.log("prefs changed in another tab:", e.newValue);
+  }
+});`
+        }
+      ],
+      links: [
+        { title: "MDN: Window.localStorage", url: "https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" },
+        { title: "MDN: Web Storage API", url: "https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API" },
+        { title: "MDN: Storage quotas & eviction", url: "https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria" }
+      ],
+      svg: () => flowSvg({
+        title: "LocalStorage data flow",
+        left: { x: 40, y: 60, w: 240, h: 90, label: "App (JS)", sub: "setItem / getItem" },
+        mid:  { x: 320, y: 60, w: 260, h: 90, label: "localStorage", sub: "per-origin string KV" },
+        right:{ x: 620, y: 60, w: 100, h: 90, label: "Disk", sub: "browser-managed" },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "mid", to: "right", kind: "arrow2", dashed: true }
+        ],
+        notes: [
+          { x: 40, y: 175, text: "Same-origin scripts can read/write; persists across restarts until cleared." }
+        ]
+      }),
+      sandbox: async (out, inputKey, inputVal) => {
+        const key = inputKey.value || "sfwa.demo.key";
+        const val = inputVal.value || "Hello from localStorage";
+        const now = new Date().toISOString();
+        const payload = JSON.stringify({ val, at: now });
+
+        const api = {
+          write: () => { localStorage.setItem(key, payload); return `Wrote ${key} = ${payload}`; },
+          read: () => {
+            const v = localStorage.getItem(key);
+            return v === null ? `No value for ${key}` : `Read ${key} = ${v}`;
+          },
+          remove: () => { localStorage.removeItem(key); return `Removed ${key}`; },
+          clearDemo: () => {
+            // only clear demo namespace
+            const prefix = "sfwa.";
+            const keys = [];
+            for(let i=0;i<localStorage.length;i++){
+              const k = localStorage.key(i);
+              if(k && k.startsWith(prefix)) keys.push(k);
+            }
+            keys.forEach(k => localStorage.removeItem(k));
+            return `Cleared ${keys.length} demo key(s) starting with "${prefix}"`;
+          }
+        };
+        return api;
+      }
+    },
+
+    {
+      id: "sessionStorage",
+      name: "SessionStorage",
+      badges: ["per-tab", "sync API"],
+      overview: {
+        capacity: "Typically ~5–10 MB / tab+origin (varies)",
+        persistence: "Until tab/window is closed (survives reloads)",
+        scope: "Origin + top-level browsing context (tab)",
+        structure: "String key/value pairs"
+      },
+      what: [
+        "Like localStorage, but scoped to the tab (top-level browsing context).",
+        "Good for temporary per-tab state that should reset when the tab closes."
+      ],
+      goodFor: [
+        "Wizard progress, per-tab UI state, transient caching"
+      ],
+      avoid: [
+        "Cross-tab shared state (use localStorage or BroadcastChannel, etc.)",
+        "Large datasets; sensitive data"
+      ],
+      gotchas: [
+        "New tab = new sessionStorage, even for same origin.",
+        "Synchronous API; heavy usage can hurt performance."
+      ],
+      snippets: [
+        {
+          title: "Basic usage",
+          lang: "js",
+          code:
+`sessionStorage.setItem("draft", "hello");
+const draft = sessionStorage.getItem("draft");
+sessionStorage.removeItem("draft");`
+        },
+        {
+          title: "Per-tab scoping idea",
+          lang: "js",
+          code:
+`// Each tab has its own sessionStorage (for the same origin)
+const tabId = sessionStorage.getItem("tabId") ?? crypto.randomUUID();
+sessionStorage.setItem("tabId", tabId);
+console.log("This tab:", tabId);`
+        }
+      ],
+      links: [
+        { title: "MDN: Window.sessionStorage", url: "https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage" },
+        { title: "MDN: Web Storage API", url: "https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API" }
+      ],
+      svg: () => flowSvg({
+        title: "SessionStorage data flow",
+        left: { x: 40, y: 60, w: 240, h: 90, label: "App (JS)", sub: "setItem / getItem" },
+        mid:  { x: 320, y: 60, w: 260, h: 90, label: "sessionStorage", sub: "tab+origin KV" },
+        right:{ x: 620, y: 60, w: 100, h: 90, label: "Tab", sub: "lifetime boundary" },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "right", to: "mid", kind: "arrow2", dashed: true } // conceptual
+        ],
+        notes: [
+          { x: 40, y: 175, text: "Storage is tied to the tab; closing the tab clears it." }
+        ]
+      }),
+      sandbox: async (out, inputKey, inputVal) => {
+        const key = inputKey.value || "sfwa.demo.key";
+        const val = inputVal.value || "Hello from sessionStorage";
+        const now = new Date().toISOString();
+        const payload = JSON.stringify({ val, at: now });
+
+        const api = {
+          write: () => { sessionStorage.setItem(key, payload); return `Wrote ${key} = ${payload}`; },
+          read: () => {
+            const v = sessionStorage.getItem(key);
+            return v === null ? `No value for ${key}` : `Read ${key} = ${v}`;
+          },
+          remove: () => { sessionStorage.removeItem(key); return `Removed ${key}`; },
+          clearDemo: () => {
+            const prefix = "sfwa.";
+            const keys = [];
+            for(let i=0;i<sessionStorage.length;i++){
+              const k = sessionStorage.key(i);
+              if(k && k.startsWith(prefix)) keys.push(k);
+            }
+            keys.forEach(k => sessionStorage.removeItem(k));
+            return `Cleared ${keys.length} demo key(s) starting with "${prefix}"`;
+          }
+        };
+        return api;
+      }
+    },
+
+    {
+      id: "indexedDB",
+      name: "IndexedDB",
+      badges: ["async", "structured data"],
+      overview: {
+        capacity: "Often hundreds of MB+ / origin (quota-managed)",
+        persistence: "Persistent (subject to quota/eviction policies)",
+        scope: "Origin (plus storage partitioning policies)",
+        structure: "Object stores, indexes, keys; supports Blobs"
+      },
+      what: [
+        "Asynchronous transactional database in the browser.",
+        "Best for significant amounts of structured data and offline-first apps."
+      ],
+      goodFor: [
+        "Offline caches, large datasets, complex queries via indexes",
+        "Storing Blobs (files) and structured objects"
+      ],
+      avoid: [
+        "Tiny, simple settings (localStorage is simpler)",
+        "Cases needing trivial synchronous reads on hot paths"
+      ],
+      gotchas: [
+        "API is event-driven and verbose (wrap with Promises or use a helper library).",
+        "Schema changes require version upgrades (onupgradeneeded).",
+        "Still subject to quota management and eviction under storage pressure."
+      ],
+      snippets: [
+        {
+          title: "Open DB + create object store (versioned)",
+          lang: "js",
+          code:
+`function openDb(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("AppDB", 1);
+
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      const store = db.createObjectStore("kv", { keyPath: "key" });
+      store.createIndex("by_key", "key", { unique: true });
+    };
+
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}`
+        },
+        {
+          title: "Put/get (transaction)",
+          lang: "js",
+          code:
+`async function putValue(key, value){
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").put({ key, value, updatedAt: Date.now() });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getValue(key){
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("kv", "readonly");
+    const req = tx.objectStore("kv").get(key);
+    req.onsuccess = () => resolve(req.result?.value ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}`
+        }
+      ],
+      links: [
+        { title: "MDN: IndexedDB API", url: "https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" },
+        { title: "MDN: Using IndexedDB", url: "https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB" },
+        { title: "W3C: Indexed Database API (spec)", url: "https://www.w3.org/TR/IndexedDB/" },
+        { title: "MDN: Storage quotas & eviction", url: "https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria" }
+      ],
+      svg: () => flowSvg({
+        title: "IndexedDB data flow",
+        left: { x: 40, y: 60, w: 240, h: 90, label: "App (JS)", sub: "async requests" },
+        mid:  { x: 320, y: 40, w: 260, h: 130, label: "IndexedDB", sub: "transactions + indexes" },
+        right:{ x: 620, y: 60, w: 100, h: 90, label: "Disk", sub: "quota-managed" },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "mid", to: "right", kind: "arrow2", dashed: true },
+          { from: "mid", to: "left", kind: "arrow", dashed: true } // callbacks/results
+        ],
+        notes: [
+          { x: 40, y: 175, text: "Transactions provide consistency; schema changes happen via version upgrades." }
+        ]
+      }),
+      sandbox: async () => {
+        const DB_NAME = "SFWA_StorageExplorer";
+        const DB_VER = 1;
+        const STORE = "kv";
+
+        function openDb(){
+          return new Promise((resolve, reject) => {
+            if(!("indexedDB" in window)) return reject(new Error("IndexedDB not available in this browser/context."));
+            const req = indexedDB.open(DB_NAME, DB_VER);
+            req.onupgradeneeded = () => {
+              const db = req.result;
+              if(!db.objectStoreNames.contains(STORE)){
+                db.createObjectStore(STORE, { keyPath: "key" });
+              }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error || new Error("Failed to open IndexedDB."));
+          });
+        }
+
+        async function put(key, val){
+          const db = await openDb();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE, "readwrite");
+            tx.objectStore(STORE).put({ key, val, at: Date.now() });
+            tx.oncomplete = () => resolve(`Put { key: "${key}", val: "${val}" }`);
+            tx.onerror = () => reject(tx.error || new Error("Put failed."));
+          });
+        }
+
+        async function get(key){
+          const db = await openDb();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE, "readonly");
+            const req = tx.objectStore(STORE).get(key);
+            req.onsuccess = () => resolve(req.result ? `Got ${key} = ${JSON.stringify(req.result)}` : `No record for "${key}"`);
+            req.onerror = () => reject(req.error || new Error("Get failed."));
+          });
+        }
+
+        async function del(key){
+          const db = await openDb();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE, "readwrite");
+            tx.objectStore(STORE).delete(key);
+            tx.oncomplete = () => resolve(`Deleted "${key}"`);
+            tx.onerror = () => reject(tx.error || new Error("Delete failed."));
+          });
+        }
+
+        async function clear(){
+          const db = await openDb();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE, "readwrite");
+            tx.objectStore(STORE).clear();
+            tx.oncomplete = () => resolve(`Cleared store "${STORE}" in DB "${DB_NAME}"`);
+            tx.onerror = () => reject(tx.error || new Error("Clear failed."));
+          });
+        }
+
+        return { write: (k,v)=>put(k,v), read: (k)=>get(k), remove: (k)=>del(k), clearDemo: ()=>clear() };
+      }
+    },
+
+    {
+      id: "cacheAPI",
+      name: "Cache API (CacheStorage)",
+      badges: ["request/response", "offline"],
+      overview: {
+        capacity: "Often large / origin (quota-managed)",
+        persistence: "Persistent-ish; eviction is browser-dependent",
+        scope: "Origin (accessible in window + workers)",
+        structure: "Request → Response pairs (caches)"
+      },
+      what: [
+        "Programmatic cache for network requests and responses (great for offline/PWA patterns).",
+        "Often used with Service Workers to implement caching strategies."
+      ],
+      goodFor: [
+        "Offline assets, API response caching, performance optimization",
+        "Controlled caching separate from HTTP cache"
+      ],
+      avoid: [
+        "Storing arbitrary objects (use IndexedDB)",
+        "Relying on indefinite persistence (eviction can happen)"
+      ],
+      gotchas: [
+        "Typically requires a secure context (HTTPS / localhost).",
+        "Cache keys are Requests/URLs; be precise about query params, headers, and Vary semantics.",
+        "Eviction is browser-managed; treat as a performance layer, not your only source of truth."
+      ],
+      snippets: [
+        {
+          title: "Cache put/match (window scope)",
+          lang: "js",
+          code:
+`// Requires secure context in many browsers
+const cache = await caches.open("v1");
+
+const req = new Request("/api/data");
+const res = await fetch(req);
+await cache.put(req, res.clone());
+
+// Later:
+const cached = await cache.match(req);
+if (cached) {
+  const data = await cached.json();
+  console.log("from cache:", data);
+}`
+        },
+        {
+          title: "Service Worker: cache-first strategy (sketch)",
+          lang: "js",
+          code:
+`self.addEventListener("fetch", (event) => {
+  event.respondWith((async () => {
+    const cache = await caches.open("v1");
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+
+    const fresh = await fetch(event.request);
+    cache.put(event.request, fresh.clone());
+    return fresh;
+  })());
+});`
+        }
+      ],
+      links: [
+        { title: "MDN: CacheStorage", url: "https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage" },
+        { title: "MDN: Cache", url: "https://developer.mozilla.org/en-US/docs/Web/API/Cache" },
+        { title: "web.dev: Cache API quick guide", url: "https://web.dev/articles/cache-api-quick-guide" },
+        { title: "MDN: Secure contexts", url: "https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts" }
+      ],
+      svg: () => flowSvg({
+        title: "Cache API data flow",
+        left: { x: 40, y: 60, w: 230, h: 90, label: "App / SW", sub: "fetch handler" },
+        mid:  { x: 300, y: 30, w: 250, h: 150, label: "CacheStorage", sub: "named caches" },
+        right:{ x: 590, y: 20, w: 140, h: 70, label: "Network", sub: "fetch()" },
+        right2:{ x: 590, y: 110, w: 140, h: 70, label: "Cache", sub: "match()/put()" },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "mid", to: "right", kind: "arrow2", dashed: true },
+          { from: "mid", to: "right2", kind: "arrow" },
+          { from: "right2", to: "left", kind: "arrow2", dashed: true }
+        ],
+        notes: [
+          { x: 40, y: 190, text: "Typical strategies: cache-first, network-first, stale-while-revalidate." }
+        ],
+        custom: `
+          <text x="610" y="100" class="muted">or</text>
+        `
+      }),
+      sandbox: async () => {
+        const canUse = ("caches" in window) && isSecureContextLikely();
+        if(!canUse){
+          return {
+            write: async () => { throw new Error("Cache API not available here (often requires HTTPS/localhost)."); },
+            read:  async () => { throw new Error("Cache API not available here (often requires HTTPS/localhost)."); },
+            remove: async () => { throw new Error("Cache API not available here (often requires HTTPS/localhost)."); },
+            clearDemo: async () => { throw new Error("Cache API not available here (often requires HTTPS/localhost)."); }
+          };
+        }
+
+        const CACHE = "SFWA_StorageExplorer_v1";
+
+        async function write(key, val){
+          const cache = await caches.open(CACHE);
+          const url = new URL(location.href);
+          // Create a stable, same-origin request key:
+          url.hash = "";
+          url.searchParams.set("sfwa_cache_key", key);
+          const req = new Request(url.toString(), { method: "GET" });
+          const res = new Response(JSON.stringify({ key, val, at: Date.now() }), {
+            headers: { "Content-Type": "application/json" }
+          });
+          await cache.put(req, res);
+          return `Cached response under request URL:\n${req.url}`;
+        }
+
+        async function read(key){
+          const cache = await caches.open(CACHE);
+          const url = new URL(location.href);
+          url.hash = "";
+          url.searchParams.set("sfwa_cache_key", key);
+          const req = new Request(url.toString(), { method: "GET" });
+          const match = await cache.match(req);
+          if(!match) return `No cached entry for key "${key}"`;
+          const data = await match.json();
+          return `Matched cache:\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        async function remove(key){
+          const cache = await caches.open(CACHE);
+          const url = new URL(location.href);
+          url.hash = "";
+          url.searchParams.set("sfwa_cache_key", key);
+          const req = new Request(url.toString(), { method: "GET" });
+          const ok = await cache.delete(req);
+          return ok ? `Deleted cache entry for "${key}"` : `Nothing to delete for "${key}"`;
+        }
+
+        async function clearDemo(){
+          const ok = await caches.delete(CACHE);
+          return ok ? `Deleted cache "${CACHE}"` : `Cache "${CACHE}" did not exist`;
+        }
+
+        return { write, read, remove, clearDemo };
+      }
+    },
+
+    {
+      id: "cookies",
+      name: "Cookies",
+      badges: ["sent to server", "tiny"],
+      overview: {
+        capacity: "Small: ~4 KB per cookie (limits vary)",
+        persistence: "Session or persistent (Max-Age/Expires)",
+        scope: "Domain + path (+ SameSite rules); sent in HTTP requests",
+        structure: "Name/value strings + attributes"
+      },
+      what: [
+        "Cookies are part of HTTP state management: stored by the browser and (usually) sent to the server on matching requests.",
+        "You can set cookies via server response (Set-Cookie) or via JS (document.cookie), but JS cannot set HttpOnly."
+      ],
+      goodFor: [
+        "Session identifiers (usually HttpOnly + Secure + SameSite), small server-consumed flags",
+        "Things that must automatically accompany requests"
+      ],
+      avoid: [
+        "Large or complex client data (size limits + bandwidth overhead)",
+        "Storing secrets accessible to JS (prefer HttpOnly for auth cookies)"
+      ],
+      gotchas: [
+        "Every request can include cookies → performance + privacy implications.",
+        "Security attributes matter: Secure, HttpOnly, SameSite, Domain, Path.",
+        "Modern browsers enforce stricter defaults for cross-site cookie behavior."
+      ],
+      snippets: [
+        {
+          title: "Set/read/delete with document.cookie (client-side)",
+          lang: "js",
+          code:
+`// Set (client-side). Note: HttpOnly cannot be set via JS.
+document.cookie = "theme=dark; Max-Age=2592000; Path=/; SameSite=Lax";
+
+// Read (returns a semicolon-separated string)
+console.log(document.cookie);
+
+// Delete (set Max-Age=0)
+document.cookie = "theme=; Max-Age=0; Path=/; SameSite=Lax";`
+        },
+        {
+          title: "Server sets cookie via Set-Cookie header (sketch)",
+          lang: "http",
+          code:
+`HTTP/1.1 200 OK
+Set-Cookie: sessionId=abc123; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600
+Content-Type: text/html
+
+...`
+        },
+        {
+          title: "Cookies sent back in requests (Cookie header)",
+          lang: "http",
+          code:
+`GET /account HTTP/1.1
+Host: example.com
+Cookie: sessionId=abc123; theme=dark`
+        }
+      ],
+      links: [
+        { title: "MDN: Using HTTP cookies", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies" },
+        { title: "MDN: Document.cookie", url: "https://developer.mozilla.org/en-US/docs/Web/API/Document/cookie" },
+        { title: "MDN: Set-Cookie header", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie" },
+        { title: "MDN: Cookie header", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cookie" }
+      ],
+      svg: () => flowSvg({
+        title: "Cookie data flow",
+        left: { x: 40, y: 40, w: 250, h: 70, label: "Browser", sub: "stores cookies" },
+        mid:  { x: 340, y: 25, w: 220, h: 70, label: "Request", sub: "Cookie: ..." },
+        right:{ x: 610, y: 40, w: 120, h: 70, label: "Server", sub: "reads cookies" },
+        mid2:{ x: 340, y: 115, w: 220, h: 70, label: "Response", sub: "Set-Cookie: ..." },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "mid", to: "right", kind: "arrow2" },
+          { from: "right", to: "mid2", kind: "arrow" },
+          { from: "mid2", to: "left", kind: "arrow2" }
+        ],
+        notes: [
+          { x: 40, y: 210, text: "Cookies are part of HTTP: often sent automatically with requests that match domain/path." }
+        ]
+      }),
+      sandbox: async () => {
+        function setCookie(name, value, maxAgeSeconds){
+          const attrs = [
+            `${encodeURIComponent(name)}=${encodeURIComponent(value)}`,
+            `Max-Age=${maxAgeSeconds}`,
+            "Path=/",
+            "SameSite=Lax"
+          ];
+          // Secure only when https/secure context
+          if(location.protocol === "https:") attrs.push("Secure");
+          document.cookie = attrs.join("; ");
+        }
+
+        function getCookie(name){
+          const target = encodeURIComponent(name) + "=";
+          const parts = (document.cookie || "").split(";").map(s => s.trim());
+          for(const p of parts){
+            if(p.startsWith(target)) return decodeURIComponent(p.slice(target.length));
+          }
+          return null;
+        }
+
+        return {
+          write: async (k,v) => { setCookie(k, v, 3600); return `Set cookie "${k}" (Max-Age=3600).`; },
+          read: async (k) => {
+            const v = getCookie(k);
+            return v === null ? `Cookie "${k}" not found.\n\nAll cookies for this path:\n${document.cookie || "(none)"}` :
+                                `Cookie "${k}" = "${v}"\n\nAll cookies for this path:\n${document.cookie || "(none)"}`;
+          },
+          remove: async (k) => { setCookie(k, "", 0); return `Deleted cookie "${k}" (Max-Age=0).`; },
+          clearDemo: async () => {
+            // Only clear "sfwa." cookies we can see
+            const cookies = (document.cookie || "").split(";").map(s => s.trim()).filter(Boolean);
+            let n = 0;
+            for(const c of cookies){
+              const eq = c.indexOf("=");
+              const name = decodeURIComponent(eq >= 0 ? c.slice(0, eq) : c);
+              if(name.startsWith("sfwa.")){
+                setCookie(name, "", 0);
+                n++;
+              }
+            }
+            return `Cleared ${n} demo cookie(s) starting with "sfwa." (that are visible to JS).`;
+          }
+        };
+      }
+    },
+
+    {
+      id: "url",
+      name: "URLs (incl. # fragment)",
+      badges: ["shareable", "not storage API"],
+      overview: {
+        capacity: "Limited by URL length (varies widely)",
+        persistence: "As long as the URL is kept (bookmark/share/history)",
+        scope: "Wherever the URL goes (client-side; fragment not sent to server)",
+        structure: "Strings; often encoded (query/hash/JSON/base64)"
+      },
+      what: [
+        "Not a storage API, but often used to encode state for shareable deep links.",
+        "The fragment identifier (#...) is processed client-side and is generally not sent to the server."
+      ],
+      goodFor: [
+        "Shareable app state (filters, selected item, view)",
+        "Bookmarkable UI, offline-friendly deep links"
+      ],
+      avoid: [
+        "Large documents (URL length limits)",
+        "Secrets (URLs are logged/shared/synced)"
+      ],
+      gotchas: [
+        "Length limits differ (browser, server, proxies).",
+        "Choose canonical encoding to avoid fragile links.",
+        "Use history.replaceState for frequent updates to avoid polluting the back button."
+      ],
+      snippets: [
+        {
+          title: "Encode state into # (simple JSON)",
+          lang: "js",
+          code:
+`function encodeState(state){
+  return "#" + encodeURIComponent(JSON.stringify(state));
+}
+
+function decodeState(){
+  const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+  if(!raw) return null;
+  try { return JSON.parse(decodeURIComponent(raw)); }
+  catch { return null; }
+}
+
+// Write state:
+history.replaceState(null, "", encodeState({ view: "details", id: 42 }));`
+        },
+        {
+          title: "Structured params in the fragment (URLSearchParams)",
+          lang: "js",
+          code:
+`const sp = new URLSearchParams(location.hash.replace(/^#/, ""));
+sp.set("view", "search");
+sp.set("q", "cookies");
+history.replaceState(null, "", "#" + sp.toString());
+
+window.addEventListener("hashchange", () => {
+  const sp2 = new URLSearchParams(location.hash.slice(1));
+  console.log("view:", sp2.get("view"), "q:", sp2.get("q"));
+});`
+        }
+      ],
+      links: [
+        { title: "MDN: Location.hash", url: "https://developer.mozilla.org/en-US/docs/Web/API/Location/hash" },
+        { title: "MDN: URI fragment", url: "https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Fragment" },
+        { title: "W3C TAG: Identifying Application State", url: "https://www.w3.org/2001/tag/doc/IdentifyingApplicationState" },
+        { title: "MDN: History.replaceState", url: "https://developer.mozilla.org/en-US/docs/Web/API/History/replaceState" },
+        { title: "MDN: URLSearchParams", url: "https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams" }
+      ],
+      svg: () => flowSvg({
+        title: "URL (# fragment) state flow",
+        left: { x: 40, y: 40, w: 240, h: 70, label: "User / Link", sub: "copy/share URL" },
+        mid:  { x: 320, y: 25, w: 260, h: 70, label: "Browser URL Bar", sub: "#fragment state" },
+        right:{ x: 620, y: 40, w: 110, h: 70, label: "App", sub: "reads hash" },
+        mid2: { x: 320, y: 115, w: 260, h: 70, label: "Navigation", sub: "load page + hashchange" },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "mid", to: "right", kind: "arrow2" },
+          { from: "right", to: "mid", kind: "arrow", dashed: true },
+          { from: "mid", to: "mid2", kind: "arrow2", dashed: true }
+        ],
+        notes: [
+          { x: 40, y: 210, text: "Great for shareable UI state. Don’t put secrets in URLs." }
+        ]
+      }),
+      sandbox: async () => {
+        return {
+          write: async (k,v) => {
+            const sp = new URLSearchParams(location.hash.replace(/^#/, ""));
+            sp.set("t", "url");     // keep selection stable
+            sp.set(k, v);
+            history.replaceState(null, "", "#" + sp.toString());
+            return `Updated fragment params.\n\nNow: ${location.hash}`;
+          },
+          read: async (k) => {
+            const sp = new URLSearchParams(location.hash.replace(/^#/, ""));
+            const v = sp.get(k);
+            return v === null ? `No fragment param "${k}".\n\nCurrent: ${location.hash}` :
+                                `Fragment param "${k}" = "${v}"\n\nCurrent: ${location.hash}`;
+          },
+          remove: async (k) => {
+            const sp = new URLSearchParams(location.hash.replace(/^#/, ""));
+            sp.delete(k);
+            history.replaceState(null, "", "#" + sp.toString());
+            return `Deleted fragment param "${k}".\n\nNow: ${location.hash}`;
+          },
+          clearDemo: async () => {
+            // Keep only t=url
+            const sp = new URLSearchParams();
+            sp.set("t", "url");
+            history.replaceState(null, "", "#" + sp.toString());
+            return `Reset fragment params (kept selection).\n\nNow: ${location.hash}`;
+          }
+        };
+      }
+    },
+
+    {
+      id: "storageManager",
+      name: "Storage Quotas (StorageManager)",
+      badges: ["diagnostic", "quota"],
+      overview: {
+        capacity: "N/A (reports usage/quota)",
+        persistence: "N/A",
+        scope: "Origin",
+        structure: "Estimate + persistence permission"
+      },
+      what: [
+        "Not a storage mechanism itself—helps you understand quota/usage and request persistent storage.",
+        "Useful companion when you depend on quota-managed stores (IndexedDB, Cache API, etc.)."
+      ],
+      goodFor: [
+        "Measuring usage/quota for the origin",
+        "Requesting “persistent storage” (reduces eviction likelihood where supported)"
+      ],
+      avoid: [
+        "Treating it as a guaranteed persistence mechanism"
+      ],
+      gotchas: [
+        "Support varies by browser; requires secure context in many cases.",
+        "Persistent storage requests can be denied by the user/browser policy."
+      ],
+      snippets: [
+        {
+          title: "Estimate usage/quota",
+          lang: "js",
+          code:
+`if (navigator.storage?.estimate) {
+  const { usage, quota } = await navigator.storage.estimate();
+  console.log({ usage, quota, pct: usage / quota });
+}`
+        },
+        {
+          title: "Request persistent storage (best effort)",
+          lang: "js",
+          code:
+`if (navigator.storage?.persist) {
+  const granted = await navigator.storage.persist();
+  console.log("persistent storage granted:", granted);
+}`
+        }
+      ],
+      links: [
+        { title: "MDN: StorageManager", url: "https://developer.mozilla.org/en-US/docs/Web/API/StorageManager" },
+        { title: "MDN: StorageManager.estimate()", url: "https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/estimate" },
+        { title: "MDN: Storage quotas & eviction", url: "https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria" }
+      ],
+      svg: () => flowSvg({
+        title: "StorageManager (quota introspection) flow",
+        left: { x: 40, y: 60, w: 240, h: 90, label: "App (JS)", sub: "navigator.storage" },
+        mid:  { x: 320, y: 60, w: 260, h: 90, label: "StorageManager", sub: "estimate() / persist()" },
+        right:{ x: 620, y: 60, w: 100, h: 90, label: "Browser", sub: "policy + quota" },
+        arrows: [
+          { from: "left", to: "mid", kind: "arrow" },
+          { from: "mid", to: "right", kind: "arrow2" },
+          { from: "right", to: "mid", kind: "arrow", dashed: true }
+        ],
+        notes: [
+          { x: 40, y: 175, text: "Use to understand and negotiate quota-managed storage behavior." }
+        ]
+      }),
+      sandbox: async () => {
+        return {
+          write: async () => {
+            if(!navigator.storage?.persist) throw new Error("navigator.storage.persist() not available here.");
+            const granted = await navigator.storage.persist();
+            return `Requested persistent storage.\nGranted: ${granted}`;
+          },
+          read: async () => {
+            if(!navigator.storage?.estimate) throw new Error("navigator.storage.estimate() not available here.");
+            const { usage, quota } = await navigator.storage.estimate();
+            const pct = quota ? (usage / quota) : 0;
+            return `Storage estimate for this origin:\nusage: ${usage}\nquota: ${quota}\nusage/quota: ${(pct*100).toFixed(2)}%`;
+          },
+          remove: async () => { throw new Error("Not applicable for StorageManager."); },
+          clearDemo: async () => { throw new Error("Not applicable for StorageManager."); }
+        };
+      }
+    }
+  ];
+
+  const TYPES_BY_ID = Object.fromEntries(TYPES.map(t => [t.id, t]));
+
+  // ---------- SVG factory ----------
+  function flowSvg(opts){
+    const {
+      title,
+      left, mid, right, right2, mid2,
+      arrows = [],
+      notes = [],
+      custom = ""
+    } = opts;
+
+    // Map keys to rects
+    const nodes = { left, mid, right, right2, mid2 };
+    const present = Object.entries(nodes).filter(([,v]) => !!v);
+
+    // marker id is fixed in this SVG instance, but lives inside the SVG so it's safe
+    const arrowDef = `
+      <defs>
+        <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+        </marker>
+      </defs>
+    `;
+
+    function centerOf(n){
+      return { cx: n.x + n.w/2, cy: n.y + n.h/2 };
+    }
+
+    function edgePoint(a, b){
+      // Choose a simple left-to-right connector based on relative centers
+      const A = centerOf(a), B = centerOf(b);
+      if(B.cx >= A.cx){
+        return { x1: a.x + a.w, y1: A.cy, x2: b.x, y2: B.cy };
+      }
+      return { x1: a.x, y1: A.cy, x2: b.x + b.w, y2: B.cy };
+    }
+
+    const rects = present.map(([key, n]) => `
+      <g>
+        <rect class="node" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="12"></rect>
+        <text class="label" x="${n.x + 14}" y="${n.y + 28}">${escapeHtml(n.label)}</text>
+        <text class="muted" x="${n.x + 14}" y="${n.y + 48}">${escapeHtml(n.sub || "")}</text>
+      </g>
+    `).join("");
+
+    const paths = arrows.map(a => {
+      const from = nodes[a.from], to = nodes[a.to];
+      if(!from || !to) return "";
+      const p = edgePoint(from, to);
+      const cls = [a.kind || "arrow", a.dashed ? "dashed" : ""].filter(Boolean).join(" ");
+      // A slight curve for readability
+      const dx = (p.x2 - p.x1);
+      const c1x = p.x1 + dx * 0.35;
+      const c2x = p.x1 + dx * 0.65;
+      const d = `M ${p.x1} ${p.y1} C ${c1x} ${p.y1}, ${c2x} ${p.y2}, ${p.x2} ${p.y2}`;
+      return `<path class="${cls}" d="${d}"></path>`;
+    }).join("");
+
+    const notesText = notes.map(n => `
+      <text x="${n.x}" y="${n.y}" class="muted">${escapeHtml(n.text)}</text>
+    `).join("");
+
+    const vbW = 760, vbH = 230;
+    return `
+      <div class="svgWrap" role="img" aria-label="${escapeHtml(title)}">
+        <svg class="flow" viewBox="0 0 ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg">
+          ${arrowDef}
+          ${paths}
+          ${rects}
+          ${custom}
+          ${notesText}
+        </svg>
+      </div>
+    `;
+  }
+
+  // ---------- Rendering ----------
+  const state = { ...DEFAULT_STATE };
+  let filterText = "";
+
+  function setSelected(id, mode="replace"){
+    if(!TYPES_BY_ID[id]) id = DEFAULT_STATE.t;
+    state.t = id;
+    writeStateToHash({ t: state.t }, mode);
+  }
+
+  function filteredTypes(){
+    const q = filterText.trim().toLowerCase();
+    if(!q) return TYPES;
+    return TYPES.filter(t => {
+      const hay = [
+        t.name, t.id,
+        ...(t.badges || []),
+        t.overview?.capacity, t.overview?.persistence, t.overview?.scope, t.overview?.structure
+      ].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  function renderOverview(){
+    const tbody = $("#overviewBody");
+    const rows = filteredTypes().map(t => {
+      const selected = (t.id === state.t);
+      const badgeBits = (t.badges || []).slice(0,2).map(b => `<span class="tag">${escapeHtml(b)}</span>`).join("");
+      const extraBadge =
+        (t.id === "cacheAPI")
+          ? `<span class="tag warn" title="Often requires HTTPS / secure context">secure context</span>`
+          : (t.id === "cookies")
+            ? `<span class="tag warn" title="Cookies may be sent with HTTP requests">sent to server</span>`
+            : (t.id === "indexedDB" || t.id === "cacheAPI")
+              ? `<span class="tag ok" title="Typically quota-managed stores">quota-managed</span>`
+              : "";
+
+      return `
+        <tr tabindex="0" role="button" aria-selected="${selected}" data-id="${escapeHtml(t.id)}">
+          <td><strong>${escapeHtml(t.name)}</strong>${badgeBits}${extraBadge}</td>
+          <td>${escapeHtml(t.overview.capacity)}</td>
+          <td>${escapeHtml(t.overview.persistence)}</td>
+          <td>${escapeHtml(t.overview.scope)}</td>
+          <td>${escapeHtml(t.overview.structure)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    tbody.innerHTML = rows || `<tr><td colspan="5" class="small">No matches for "${escapeHtml(filterText)}".</td></tr>`;
+
+    // Wire events
+    $$("#overviewBody tr").forEach(tr => {
+      tr.addEventListener("click", () => setSelected(tr.dataset.id, "push"));
+      tr.addEventListener("keydown", (e) => {
+        if(e.key === "Enter" || e.key === " "){
+          e.preventDefault();
+          setSelected(tr.dataset.id, "push");
+        }
+      });
+    });
+  }
+
+  function renderDetails(){
+    const t = TYPES_BY_ID[state.t] || TYPES_BY_ID[DEFAULT_STATE.t];
+    $("#detailHint").textContent = t ? `Selected: ${t.name}` : "Select a storage type";
+
+    if(!t){
+      $("#details").innerHTML = `<div class="small">No selection.</div>`;
+      return;
+    }
+
+    const what = (t.what || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+    const good = (t.goodFor || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+    const avoid = (t.avoid || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+    const gotchas = (t.gotchas || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+
+    const snippets = (t.snippets || []).map((sn, idx) => {
+      const codeId = `${t.id}_code_${idx}`;
+      return `
+        <details>
+          <summary>
+            <div class="sumLeft">
+              <div class="chev">▸</div>
+              <div>
+                <div class="sumTitle">${escapeHtml(sn.title)}</div>
+                <div class="sumHint">${escapeHtml(sn.lang || "code")}</div>
+              </div>
+            </div>
+            <button class="btn secondary" type="button" data-copy="${escapeHtml(codeId)}">Copy</button>
+          </summary>
+          <div class="codeBox">
+            <div class="codeHeader">
+              <div class="label">Snippet</div>
+              <div class="label mono" id="${escapeHtml(codeId)}_meta"></div>
+            </div>
+            <pre><code id="${escapeHtml(codeId)}">${escapeHtml(sn.code)}</code></pre>
+          </div>
+        </details>
+      `;
+    }).join("");
+
+    const refs = (t.links || []).map(l => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(l.title)}</a></li>`).join("");
+
+    const isSecureMsg = (!isSecureContextLikely() && (t.id === "cacheAPI" || t.id === "storageManager"))
+      ? `<span class="tag warn" title="Some APIs require HTTPS/localhost">non-secure context</span>`
+      : "";
+
+    $("#details").innerHTML = `
+      <div class="detailTitle">
+        <div>
+          <h3>${escapeHtml(t.name)} ${isSecureMsg}</h3>
+          <div class="small">${escapeHtml(t.overview.structure)}</div>
+        </div>
+        <div class="rightActions">
+          <button class="btn" id="copyTypeLink" type="button" title="Copy a URL that opens this type">Copy link to this</button>
+        </div>
+      </div>
+
+      <div class="kvs">
+        <div class="kv"><div class="k">Capacity</div><div class="v">${escapeHtml(t.overview.capacity)}</div></div>
+        <div class="kv"><div class="k">Persistence</div><div class="v">${escapeHtml(t.overview.persistence)}</div></div>
+        <div class="kv"><div class="k">Scope</div><div class="v">${escapeHtml(t.overview.scope)}</div></div>
+        <div class="kv"><div class="k">Structure</div><div class="v">${escapeHtml(t.overview.structure)}</div></div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <strong>What it is</strong>
+          <ul>${what}</ul>
+        </div>
+        <div class="col">
+          <strong>Good for</strong>
+          <ul>${good}</ul>
+        </div>
+        <div class="col">
+          <strong>Avoid for</strong>
+          <ul>${avoid}</ul>
+        </div>
+      </div>
+
+      <details open>
+        <summary>
+          <div class="sumLeft">
+            <div class="chev">▸</div>
+            <div>
+              <div class="sumTitle">SVG data flow</div>
+              <div class="sumHint">How data typically moves</div>
+            </div>
+          </div>
+          <div class="sumHint">diagram</div>
+        </summary>
+        <div class="codeBox">
+          ${t.svg ? t.svg() : `<div class="small">No diagram.</div>`}
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <div class="sumLeft">
+            <div class="chev">▸</div>
+            <div>
+              <div class="sumTitle">Gotchas & security notes</div>
+              <div class="sumHint">Practical pitfalls</div>
+            </div>
+          </div>
+          <div class="sumHint">${(t.gotchas || []).length} item(s)</div>
+        </summary>
+        <div class="codeBox">
+          <ul>${gotchas}</ul>
+        </div>
+      </details>
+
+      <details open>
+        <summary>
+          <div class="sumLeft">
+            <div class="chev">▸</div>
+            <div>
+              <div class="sumTitle">Code snippets</div>
+              <div class="sumHint">Copy/paste examples</div>
+            </div>
+          </div>
+          <div class="sumHint">${(t.snippets || []).length} snippet(s)</div>
+        </summary>
+        <div class="codeBox">
+          ${snippets || `<div class="small">No snippets.</div>`}
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <div class="sumLeft">
+            <div class="chev">▸</div>
+            <div>
+              <div class="sumTitle">References</div>
+              <div class="sumHint">External docs/specs</div>
+            </div>
+          </div>
+          <div class="sumHint">${(t.links || []).length} link(s)</div>
+        </summary>
+        <div class="codeBox">
+          <ul>${refs || `<li class="small">No references.</li>`}</ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <div class="sumLeft">
+            <div class="chev">▸</div>
+            <div>
+              <div class="sumTitle">Mini sandbox</div>
+              <div class="sumHint">Try simple read/write on this origin</div>
+            </div>
+          </div>
+          <div class="sumHint">interactive</div>
+        </summary>
+        <div class="codeBox">
+          <div class="small">
+            This runs against the <strong>current origin</strong>. Use demo keys like <span class="mono">sfwa.demo.key</span> or <span class="mono">sfwa.demo.value</span>.
+          </div>
+
+          <div class="mini">
+            <input id="sbKey" placeholder="Key (e.g., sfwa.demo.key)" />
+            <input id="sbVal" placeholder="Value (e.g., hello)" />
+          </div>
+
+          <div class="mini">
+            <button class="btn good" id="sbWrite" type="button">Write</button>
+            <button class="btn" id="sbRead" type="button">Read</button>
+            <button class="btn danger" id="sbRemove" type="button">Remove</button>
+            <button class="btn secondary" id="sbClear" type="button">Clear demo</button>
+          </div>
+
+          <div class="out" id="sbOut">Output will appear here.</div>
+        </div>
+      </details>
+    `;
+
+    // Wire: copy type link
+    $("#copyTypeLink").addEventListener("click", async () => {
+      const url = new URL(location.href);
+      url.hash = "#t=" + encodeURIComponent(t.id);
+      await copyText(url.toString());
+    });
+
+    // Wire: copy buttons for code blocks
+    $$("[data-copy]").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.getAttribute("data-copy");
+        const el = $("#" + CSS.escape(id));
+        if(el) await copyText(el.textContent);
+      });
+    });
+
+    // Wire: sandbox
+    wireSandbox(t).catch(err => {
+      const out = $("#sbOut");
+      if(out) out.textContent = "Sandbox unavailable: " + (err?.message || String(err));
+    });
+  }
+
+  async function wireSandbox(t){
+    const out = $("#sbOut");
+    const k = $("#sbKey");
+    const v = $("#sbVal");
+    if(!out || !k || !v) return;
+
+    // reasonable defaults by type
+    if(!k.value){
+      if(t.id === "cookies") k.value = "sfwa.demo.cookie";
+      else if(t.id === "cacheAPI") k.value = "sfwa.demo.cache";
+      else if(t.id === "url") k.value = "demo";
+      else if(t.id === "storageManager") k.value = "(n/a)";
+      else k.value = "sfwa.demo.key";
+    }
+    if(!v.value){
+      v.value = (t.id === "storageManager") ? "(n/a)" : "hello";
+    }
+
+    const api = await t.sandbox(out, k, v);
+
+    const safeRun = async (fn) => {
+      try{
+        out.textContent = "Working...";
+        const res = await fn();
+        out.textContent = res;
+      } catch (err){
+        out.textContent = "Error: " + (err?.message || String(err));
+      }
+    };
+
+    $("#sbWrite").onclick = () => safeRun(() => api.write(k.value, v.value));
+    $("#sbRead").onclick  = () => safeRun(() => api.read(k.value));
+    $("#sbRemove").onclick= () => safeRun(() => api.remove(k.value));
+    $("#sbClear").onclick = () => safeRun(() => api.clearDemo());
+
+    // add a little contextual info
+    if(t.id === "cacheAPI" && !isSecureContextLikely()){
+      out.textContent = "Note: Cache API often requires HTTPS or localhost. This page may be running in a non-secure context.";
+    } else if(t.id === "storageManager"){
+      out.textContent = "Tip: Click Read to see usage/quota (if supported), or Write to request persistent storage.";
+    } else {
+      out.textContent = "Output will appear here.";
+    }
+  }
+
+  function render(){
+    const s = readStateFromHash();
+    state.t = (TYPES_BY_ID[s.t] ? s.t : DEFAULT_STATE.t);
+    renderOverview();
+    renderDetails();
+
+    // keep selected row in view for long lists
+    const tr = $(`#overviewBody tr[data-id="${CSS.escape(state.t)}"]`);
+    if(tr && tr.scrollIntoView){
+      // avoid jumping on first render on small screens
+      if(window.innerWidth > 980) tr.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  // ---------- Global wiring ----------
+  $("#filter").addEventListener("input", (e) => {
+    filterText = e.target.value || "";
+    renderOverview();
+    // If selection is filtered out, keep current but table won't show it.
+  });
+
+  $("#copyUrlBtn").addEventListener("click", async () => {
+    await copyText(location.href);
+  });
+
+  $("#resetBtn").addEventListener("click", () => {
+    filterText = "";
+    $("#filter").value = "";
+    setSelected(DEFAULT_STATE.t, "replace");
+    toast("Reset.");
+  });
+
+  window.addEventListener("hashchange", () => render());
+
+  // ---------- Boot ----------
+  render();
+})();
+</script>
+</body>
+</html>
