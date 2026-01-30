@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA URL-State Todo</title>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #13151b;
+      --panel2: #171a22;
+      --text: #e9ecf1;
+      --muted: #aab2c0;
+      --border: #2a2f3a;
+      --accent: #78a6ff;
+      --danger: #ff5b6e;
+      --ok: #5bffb6;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 0%, #121633, var(--bg));
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 860px;
+      margin: 32px auto;
+      padding: 0 16px 40px;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.2px;
+    }
+    .sub {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input[type="text"] {
+      flex: 1 1 260px;
+      min-width: 180px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: var(--text);
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: rgba(120,166,255,0.8);
+      box-shadow: 0 0 0 3px rgba(120,166,255,0.18);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    button:hover { border-color: rgba(120,166,255,0.7); }
+    button:active { transform: translateY(1px); }
+    button[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .primary {
+      border-color: rgba(120,166,255,0.6);
+      background: rgba(120,166,255,0.14);
+    }
+    .danger {
+      border-color: rgba(255,91,110,0.55);
+      background: rgba(255,91,110,0.12);
+    }
+
+    .meta {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+
+    .pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      max-width: 100%;
+    }
+    .pill code {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-block;
+      max-width: 520px;
+      vertical-align: bottom;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 14px 0 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    li.todo {
+      display: grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .handle {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed rgba(255,255,255,0.18);
+      color: var(--muted);
+      cursor: grab;
+      user-select: none;
+    }
+    .handle:active { cursor: grabbing; }
+    li.todo.drag-over {
+      outline: 2px solid rgba(120,166,255,0.55);
+      outline-offset: 2px;
+    }
+
+    .item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    .item input[type="checkbox"] {
+      margin-top: 4px;
+      transform: scale(1.1);
+      accent-color: var(--accent);
+    }
+
+    .text {
+      min-width: 0;
+    }
+    .text .title {
+      display: block;
+      font-size: 14px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .text .title.done {
+      color: rgba(233,236,241,0.55);
+      text-decoration: line-through;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .small {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12.5px;
+    }
+
+    footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.4;
+    }
+
+    .hint kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+
+    @media (max-width: 640px) {
+      .pill code { max-width: 300px; }
+      li.todo { grid-template-columns: 34px 1fr; grid-template-rows: auto auto; }
+      .actions { grid-column: 1 / -1; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>SFWA Todo (URL-hash state)</h1>
+        <p class="sub">
+          The list is stored in <code>#...</code>. Copy the URL to copy the app state.
+          Undo/redo is in-memory only.
+        </p>
+      </div>
+      <div class="hint" aria-label="Shortcuts">
+        <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Z</kbd> Undo</span>
+        &nbsp;•&nbsp;
+        <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Y</kbd> Redo</span>
+      </div>
+    </header>
+
+    <div class="panel">
+      <div class="row">
+        <input id="newText" type="text" placeholder="Add a todo…" maxlength="500" />
+        <button id="addBtn" class="primary">Add</button>
+        <button id="undoBtn" title="Undo (Ctrl/Cmd+Z)" disabled>Undo</button>
+        <button id="redoBtn" title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)" disabled>Redo</button>
+      </div>
+
+      <div class="meta">
+        <div class="pill" title="Current URL hash (shareable)">
+          <span>Hash:</span>
+          <code id="hashPreview">#</code>
+        </div>
+        <div>
+          <span id="countInfo">0 items</span>
+          &nbsp;•&nbsp;
+          <span id="doneInfo">0 done</span>
+        </div>
+      </div>
+
+      <ul id="list" aria-label="Todo items"></ul>
+
+      <footer>
+        Reorder by dragging the handle (⠿) or use Up/Down. Removing and toggling are tracked by undo/redo.
+        <br />
+        Note: URLs have length limits; huge lists may exceed what some browsers/servers accept.
+      </footer>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // -----------------------------
+  // URL-hash state (items only)
+  // items: array of [doneBit(0/1), text]
+  // Stored as JSON -> UTF-8 -> base64url, with prefix "v1:"
+  // -----------------------------
+  const HASH_PREFIX = "v1:";
+
+  function base64UrlEncodeBytes(bytes) {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const b64 = btoa(bin);
+    return b64.replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  }
+
+  function base64UrlDecodeToBytes(b64url) {
+    let b64 = b64url.replaceAll("-", "+").replaceAll("_", "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function encodeItemsToHash(items) {
+    const payload = { v: 1, i: items };
+    const json = JSON.stringify(payload);
+    const bytes = new TextEncoder().encode(json);
+    return "#" + HASH_PREFIX + base64UrlEncodeBytes(bytes);
+  }
+
+  function decodeHashToItems(hash) {
+    try {
+      if (!hash || hash === "#") return [];
+      if (!hash.startsWith("#" + HASH_PREFIX)) return [];
+      const b64url = hash.slice(("#" + HASH_PREFIX).length);
+      const bytes = base64UrlDecodeToBytes(b64url);
+      const json = new TextDecoder().decode(bytes);
+      const obj = JSON.parse(json);
+      if (!obj || obj.v !== 1 || !Array.isArray(obj.i)) return [];
+      // sanitize to expected form: [0|1, string]
+      const items = [];
+      for (const it of obj.i) {
+        if (!Array.isArray(it) || it.length !== 2) continue;
+        const done = it[0] ? 1 : 0;
+        const text = String(it[1] ?? "").trim();
+        if (!text) continue;
+        items.push([done, text]);
+      }
+      return items;
+    } catch {
+      return [];
+    }
+  }
+
+  // -----------------------------
+  // App state
+  // -----------------------------
+  let items = decodeHashToItems(location.hash);
+
+  // Undo/redo (NOT in URL)
+  const undoStack = [];
+  const redoStack = [];
+
+  // When we write the URL ourselves, ignore any hashchange side effects.
+  // (history.replaceState doesn't fire hashchange, but keep this for safety.)
+  let internalHashWrite = false;
+
+  function snapshot(arr) {
+    // items are simple arrays; deep copy is cheap
+    return arr.map(([d, t]) => [d ? 1 : 0, String(t)]);
+  }
+
+  function setItems(nextItems, { pushUndo = true } = {}) {
+    if (pushUndo) {
+      undoStack.push(snapshot(items));
+      redoStack.length = 0;
+    }
+    items = snapshot(nextItems);
+    syncUrlFromItems();
+    render();
+  }
+
+  function syncUrlFromItems() {
+    const newHash = encodeItemsToHash(items);
+    internalHashWrite = true;
+    // Avoid creating browser history entries for every small change.
+    history.replaceState(null, "", newHash);
+    internalHashWrite = false;
+    hashPreview.textContent = location.hash || "#";
+  }
+
+  function loadFromHash({ clearHistory = true } = {}) {
+    items = decodeHashToItems(location.hash);
+    if (clearHistory) {
+      undoStack.length = 0;
+      redoStack.length = 0;
+    }
+    // Canonicalize whatever we loaded (also ensures #v1: exists even for empty list)
+    syncUrlFromItems();
+    render();
+  }
+
+  // -----------------------------
+  // DOM
+  // -----------------------------
+  const newText = document.getElementById("newText");
+  const addBtn = document.getElementById("addBtn");
+  const undoBtn = document.getElementById("undoBtn");
+  const redoBtn = document.getElementById("redoBtn");
+  const listEl = document.getElementById("list");
+  const hashPreview = document.getElementById("hashPreview");
+  const countInfo = document.getElementById("countInfo");
+  const doneInfo = document.getElementById("doneInfo");
+
+  function render() {
+    // counts
+    const doneCount = items.reduce((acc, [d]) => acc + (d ? 1 : 0), 0);
+    countInfo.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`;
+    doneInfo.textContent = `${doneCount} done`;
+
+    // buttons
+    undoBtn.disabled = undoStack.length === 0;
+    redoBtn.disabled = redoStack.length === 0;
+
+    // list
+    listEl.innerHTML = "";
+    items.forEach(([done, text], idx) => {
+      const li = document.createElement("li");
+      li.className = "todo";
+      li.draggable = true;
+      li.dataset.index = String(idx);
+
+      const handle = document.createElement("div");
+      handle.className = "handle";
+      handle.title = "Drag to reorder";
+      handle.textContent = "⠿";
+
+      const item = document.createElement("div");
+      item.className = "item";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!done;
+      cb.setAttribute("aria-label", `Mark "${text}" as ${done ? "not done" : "done"}`);
+      cb.addEventListener("change", () => {
+        const next = snapshot(items);
+        next[idx][0] = cb.checked ? 1 : 0;
+        setItems(next);
+      });
+
+      const textWrap = document.createElement("div");
+      textWrap.className = "text";
+
+      const title = document.createElement("span");
+      title.className = "title" + (done ? " done" : "");
+      title.textContent = text;
+
+      textWrap.appendChild(title);
+
+      item.appendChild(cb);
+      item.appendChild(textWrap);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const up = document.createElement("button");
+      up.className = "small";
+      up.textContent = "Up";
+      up.disabled = idx === 0;
+      up.title = "Move up";
+      up.addEventListener("click", () => {
+        if (idx <= 0) return;
+        setItems(moveItem(items, idx, idx - 1));
+      });
+
+      const down = document.createElement("button");
+      down.className = "small";
+      down.textContent = "Down";
+      down.disabled = idx === items.length - 1;
+      down.title = "Move down";
+      down.addEventListener("click", () => {
+        if (idx >= items.length - 1) return;
+        setItems(moveItem(items, idx, idx + 1));
+      });
+
+      const del = document.createElement("button");
+      del.className = "small danger";
+      del.textContent = "Remove";
+      del.title = "Remove item";
+      del.addEventListener("click", () => {
+        const next = snapshot(items);
+        next.splice(idx, 1);
+        setItems(next);
+      });
+
+      actions.appendChild(up);
+      actions.appendChild(down);
+      actions.appendChild(del);
+
+      li.appendChild(handle);
+      li.appendChild(item);
+      li.appendChild(actions);
+
+      listEl.appendChild(li);
+    });
+
+    // hash preview
+    hashPreview.textContent = location.hash || "#";
+  }
+
+  // -----------------------------
+  // Reorder helpers
+  // -----------------------------
+  function moveItem(arr, from, to) {
+    const a = snapshot(arr);
+    if (from === to) return a;
+    const [it] = a.splice(from, 1);
+    let insertAt = to;
+    if (from < to) insertAt = to - 1; // account for removal shift
+    a.splice(insertAt, 0, it);
+    return a;
+  }
+
+  // -----------------------------
+  // Drag & drop reorder
+  // -----------------------------
+  let dragFromIndex = null;
+
+  listEl.addEventListener("dragstart", (e) => {
+    const li = e.target.closest("li.todo");
+    if (!li) return;
+    dragFromIndex = Number(li.dataset.index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(dragFromIndex));
+  });
+
+  listEl.addEventListener("dragover", (e) => {
+    const li = e.target.closest("li.todo");
+    if (!li) return;
+    e.preventDefault();
+    li.classList.add("drag-over");
+  });
+
+  listEl.addEventListener("dragleave", (e) => {
+    const li = e.target.closest("li.todo");
+    if (!li) return;
+    li.classList.remove("drag-over");
+  });
+
+  listEl.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const li = e.target.closest("li.todo");
+    listEl.querySelectorAll("li.todo.drag-over").forEach(n => n.classList.remove("drag-over"));
+
+    const from = (dragFromIndex ?? Number(e.dataTransfer.getData("text/plain")));
+    const to = li ? Number(li.dataset.index) : from;
+
+    dragFromIndex = null;
+
+    if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+    if (from < 0 || from >= items.length || to < 0 || to >= items.length) return;
+    if (from === to) return;
+
+    setItems(moveItem(items, from, to));
+  });
+
+  listEl.addEventListener("dragend", () => {
+    dragFromIndex = null;
+    listEl.querySelectorAll("li.todo.drag-over").forEach(n => n.classList.remove("drag-over"));
+  });
+
+  // -----------------------------
+  // Add item
+  // -----------------------------
+  function addCurrentText() {
+    const text = newText.value.trim();
+    if (!text) return;
+    const next = snapshot(items);
+    next.push([0, text]);
+    setItems(next);
+    newText.value = "";
+    newText.focus();
+  }
+
+  addBtn.addEventListener("click", addCurrentText);
+  newText.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") addCurrentText();
+  });
+
+  // -----------------------------
+  // Undo/redo
+  // -----------------------------
+  function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(snapshot(items));
+    items = undoStack.pop();
+    syncUrlFromItems();
+    render();
+  }
+
+  function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(snapshot(items));
+    items = redoStack.pop();
+    syncUrlFromItems();
+    render();
+  }
+
+  undoBtn.addEventListener("click", undo);
+  redoBtn.addEventListener("click", redo);
+
+  window.addEventListener("keydown", (e) => {
+    const isMac = navigator.platform.toLowerCase().includes("mac");
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+
+    if (!mod) return;
+
+    const key = e.key.toLowerCase();
+
+    if (key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if (key === "y" || (key === "z" && e.shiftKey)) {
+      e.preventDefault();
+      redo();
+    }
+  });
+
+  // -----------------------------
+  // Hash change (external edits / pasted URL)
+  // -----------------------------
+  window.addEventListener("hashchange", () => {
+    if (internalHashWrite) return;
+    loadFromHash({ clearHistory: true });
+  });
+
+  // Initial canonicalization + render
+  loadFromHash({ clearHistory: true });
+  newText.focus();
+})();
+</script>
+</body>
+</html>
