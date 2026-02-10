@@ -1,0 +1,2403 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA ELIZA — State-in-URL (Hash)</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #0f1620;
+      --panel2: #0c121a;
+      --text: #e6edf3;
+      --muted: #9fb1c4;
+      --accent: #7cc4ff;
+      --ok: #66d9a8;
+      --warn: #ffcf5c;
+      --bad: #ff6b6b;
+      --border: rgba(255,255,255,.10);
+      --shadow: 0 12px 40px rgba(0,0,0,.35);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: radial-gradient(1200px 800px at 20% 0%, rgba(124,196,255,.12), transparent 60%),
+                  radial-gradient(900px 700px at 90% 20%, rgba(102,217,168,.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(to bottom, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-right: 10px;
+      min-width: 220px;
+    }
+    .brand .title {
+      font-weight: 750;
+      letter-spacing: .3px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .pill {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.02);
+    }
+    .brand .sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btnrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: transform .04s ease, background .15s ease, border-color .15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+    .btn:hover { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.18); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { border-color: rgba(124,196,255,.35); background: rgba(124,196,255,.10); }
+    .btn.primary:hover { background: rgba(124,196,255,.14); }
+    .btn.good { border-color: rgba(102,217,168,.35); background: rgba(102,217,168,.10); }
+    .btn.warn { border-color: rgba(255,207,92,.35); background: rgba(255,207,92,.10); }
+    .btn.bad { border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.10); }
+    .btn.tog.on { border-color: rgba(102,217,168,.35); background: rgba(102,217,168,.10); }
+    .btn.tog.off { border-color: rgba(255,255,255,.10); background: rgba(255,255,255,.02); }
+
+    .spacer { flex: 1; }
+
+    .main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    .view {
+      flex: 1;
+      display: none;
+      min-height: 0;
+    }
+    .view.active { display: flex; }
+
+    /* Panels */
+    .panel {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: rgba(255,255,255,.01);
+    }
+    .panel:last-child { border-right: none; }
+
+    .panelHeader {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .panelHeader .h {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .panelHeader .h .t {
+      font-weight: 700;
+      letter-spacing: .2px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .panelHeader .h .t span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panelHeader .h .s {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Chat */
+    .chatBody {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      background: linear-gradient(to bottom, rgba(255,255,255,.01), rgba(255,255,255,.00));
+    }
+    .msg {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      align-items: flex-start;
+    }
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      letter-spacing: .2px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      flex: 0 0 auto;
+      user-select: none;
+    }
+    .avatar.user { background: rgba(124,196,255,.10); border-color: rgba(124,196,255,.25); }
+    .avatar.eliza { background: rgba(102,217,168,.10); border-color: rgba(102,217,168,.25); }
+    .avatar.sys { background: rgba(255,207,92,.10); border-color: rgba(255,207,92,.25); }
+
+    .bubble {
+      max-width: 900px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      box-shadow: var(--shadow);
+      overflow-wrap: anywhere;
+    }
+    .bubble .meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .bubble .meta .who { font-weight: 700; color: var(--text); }
+    .bubble .meta .tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(0,0,0,.12);
+      white-space: nowrap;
+    }
+    .bubble .txt { white-space: pre-wrap; line-height: 1.35; }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: rgba(0,0,0,.12);
+    }
+    textarea.input {
+      flex: 1;
+      min-height: 44px;
+      max-height: 160px;
+      resize: vertical;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+      font: 13px/1.35 var(--sans);
+    }
+    textarea.input:focus {
+      border-color: rgba(124,196,255,.35);
+      box-shadow: 0 0 0 3px rgba(124,196,255,.12);
+    }
+
+    /* Inspector */
+    .inspectBody {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      background: linear-gradient(to bottom, rgba(255,255,255,.01), rgba(255,255,255,.00));
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      overflow: hidden;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      letter-spacing: .2px;
+      color: var(--text);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .kv {
+      border: 1px dashed rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(0,0,0,.12);
+      min-width: 0;
+    }
+    .kv .k { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+    .kv .v { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mono {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: pre;
+      overflow: auto;
+      max-height: 420px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.18);
+      padding: 10px;
+    }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input.cmd, textarea.json {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    textarea.json { min-height: 180px; resize: vertical; }
+    input.cmd:focus, textarea.json:focus {
+      border-color: rgba(124,196,255,.35);
+      box-shadow: 0 0 0 3px rgba(124,196,255,.12);
+    }
+
+    .foot {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(0,0,0,.10);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Split view */
+    .splitWrap { flex: 1; display: flex; min-height: 0; }
+    .splitWrap .panel { flex: 1; }
+    .divider {
+      width: 8px;
+      cursor: col-resize;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+    }
+
+    /* Responsive */
+    @media (max-width: 980px) {
+      .brand { min-width: 0; }
+      .grid { grid-template-columns: 1fr; }
+      .splitWrap { flex-direction: column; }
+      .divider { height: 8px; width: auto; cursor: row-resize; }
+      .panel { border-right: none; border-bottom: 1px solid var(--border); }
+      .panel:last-child { border-bottom: none; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="title">
+        <span>SFWA ELIZA</span>
+        <span class="pill">state-in-URL hash</span>
+      </div>
+      <div class="sub" id="subline"></div>
+    </div>
+
+    <div class="btnrow" role="tablist" aria-label="Views">
+      <button class="btn" id="btnChat" role="tab" aria-selected="false" title="Ctrl+1">🗨️ Chat</button>
+      <button class="btn" id="btnInspect" role="tab" aria-selected="false" title="Ctrl+2">🔬 Inspect</button>
+      <button class="btn" id="btnSplit" role="tab" aria-selected="false" title="Ctrl+3">🪟 Split</button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="btnrow">
+      <button class="btn tog off" id="btnPush" title="When ON, sending a message pushes history; otherwise it replaces.">🧭 push history</button>
+      <button class="btn good" id="btnCopyUrl" title="Copy the current URL (includes state).">🔗 Copy URL</button>
+      <button class="btn warn" id="btnCopyState" title="Copy raw JSON state.">🧾 Copy JSON</button>
+      <button class="btn bad" id="btnReset" title="Reset conversation and state.">♻️ Reset</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- CHAT VIEW -->
+    <div class="view" id="viewChat" aria-label="Chat view">
+      <div class="panel">
+        <div class="panelHeader">
+          <div class="h">
+            <div class="t"><span>Chat</span><span class="pill" id="pillTurns"></span></div>
+            <div class="s" id="chatHint"></div>
+          </div>
+          <div class="row">
+            <button class="btn" id="btnHelpChat" title="Show command help">/help</button>
+          </div>
+        </div>
+
+        <div class="chatBody" id="chatBody" aria-live="polite"></div>
+
+        <div class="composer">
+          <textarea class="input" id="chatInput" placeholder="Type a message… (Enter = send, Shift+Enter = newline)   Commands: /help, /view chat|inspect|split, /set name …, /seed …, /reset"></textarea>
+          <button class="btn primary" id="btnSend">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSPECTION VIEW -->
+    <div class="view" id="viewInspect" aria-label="Inspection view">
+      <div class="panel">
+        <div class="panelHeader">
+          <div class="h">
+            <div class="t"><span>Inspection</span><span class="pill">internal ELIZA state</span></div>
+            <div class="s">Inspect the engine + mutate state via commands or JSON.</div>
+          </div>
+          <div class="row">
+            <button class="btn" id="btnRecompute">🔁 Recompute</button>
+            <button class="btn" id="btnHelpInspect">/help</button>
+          </div>
+        </div>
+
+        <div class="inspectBody" id="inspectBody">
+          <div class="card">
+            <h3>Runtime summary</h3>
+            <div class="grid" id="summaryGrid"></div>
+          </div>
+
+          <div class="card">
+            <h3>Command console</h3>
+            <div class="small">Try: <span class="pill">/help</span> · <span class="pill">/view split</span> · <span class="pill">/set name Curt</span> · <span class="pill">/seed 1234</span> · <span class="pill">/memory show</span> · <span class="pill">/memory clear</span></div>
+            <div style="height:10px"></div>
+            <input class="cmd" id="cmdInput" placeholder="Type a command and press Enter…" />
+            <div style="height:10px"></div>
+            <div class="mono" id="cmdOutput" aria-label="Command output"></div>
+          </div>
+
+          <div class="card">
+            <h3>Last inference trace</h3>
+            <div class="mono" id="traceBox"></div>
+          </div>
+
+          <div class="card">
+            <h3>State editor (JSON)</h3>
+            <div class="small">Edit and apply. This rewrites the URL hash immediately.</div>
+            <div style="height:10px"></div>
+            <textarea class="json" id="stateEditor" spellcheck="false"></textarea>
+            <div style="height:10px"></div>
+            <div class="row">
+              <button class="btn primary" id="btnApplyJson">Apply JSON</button>
+              <button class="btn" id="btnReloadHash">Reload from URL</button>
+            </div>
+            <div class="small" id="jsonStatus" style="margin-top:8px"></div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <div>All state is stored in the URL fragment (<span class="pill">#…</span>), not sent to the server.</div>
+          <div>Keyboard: Ctrl+1/2/3 to switch views.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPLIT VIEW -->
+    <div class="view" id="viewSplit" aria-label="Split view">
+      <div class="splitWrap" id="splitWrap">
+        <div class="panel" id="splitChatPanel">
+          <div class="panelHeader">
+            <div class="h">
+              <div class="t"><span>Chat</span><span class="pill" id="pillTurnsSplit"></span></div>
+              <div class="s">Chat on the left/top, state on the right/bottom.</div>
+            </div>
+            <div class="row">
+              <button class="btn" id="btnHelpSplit">/help</button>
+            </div>
+          </div>
+          <div class="chatBody" id="chatBodySplit" aria-live="polite"></div>
+          <div class="composer">
+            <textarea class="input" id="chatInputSplit" placeholder="Type a message… (Enter = send)"></textarea>
+            <button class="btn primary" id="btnSendSplit">Send</button>
+          </div>
+        </div>
+
+        <div class="divider" id="divider" title="Drag to resize"></div>
+
+        <div class="panel" id="splitInspectPanel">
+          <div class="panelHeader">
+            <div class="h">
+              <div class="t"><span>Inspection</span><span class="pill">live</span></div>
+              <div class="s">Raw state + trace update as you chat.</div>
+            </div>
+            <div class="row">
+              <button class="btn" id="btnRecomputeSplit">🔁</button>
+            </div>
+          </div>
+          <div class="inspectBody">
+            <div class="card">
+              <h3>Runtime summary</h3>
+              <div class="grid" id="summaryGridSplit"></div>
+            </div>
+            <div class="card">
+              <h3>Last inference trace</h3>
+              <div class="mono" id="traceBoxSplit"></div>
+            </div>
+            <div class="card">
+              <h3>State (JSON)</h3>
+              <div class="mono" id="stateBoxSplit"></div>
+            </div>
+          </div>
+          <div class="foot">
+            <div>Share by copying the URL.</div>
+            <div><span class="pill" id="hashSizePill"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SFWA ELIZA — single-file, hash-state.
+   Everything mutable is serialized into location.hash.
+   ============================================================ */
+
+/* -------- Minimal LZ-string (MIT) subset: compressToEncodedURIComponent / decompressFromEncodedURIComponent --------
+   Based on lz-string by pieroxy. MIT License.
+   (Only the functions we need are included to keep this file self-contained.)
+*/
+const LZString = (() => {
+  const f = String.fromCharCode;
+  const keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
+  const baseReverseDic = {};
+  function getBaseValue(alphabet, character) {
+    if (!baseReverseDic[alphabet]) {
+      baseReverseDic[alphabet] = {};
+      for (let i = 0; i < alphabet.length; i++) baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+    }
+    return baseReverseDic[alphabet][character];
+  }
+  function compressToEncodedURIComponent(input) {
+    if (input == null) return "";
+    return _compress(input, 6, a => keyStrUriSafe.charAt(a));
+  }
+  function decompressFromEncodedURIComponent(input) {
+    if (input == null) return "";
+    if (input === "") return null;
+    input = input.replace(/ /g, "+");
+    return _decompress(input.length, 32, index => getBaseValue(keyStrUriSafe, input.charAt(index)));
+  }
+  function _compress(uncompressed, bitsPerChar, getCharFromInt) {
+    if (uncompressed == null) return "";
+    let i, value;
+    const context_dictionary = {};
+    const context_dictionaryToCreate = {};
+    let context_c = "";
+    let context_wc = "";
+    let context_w = "";
+    let context_enlargeIn = 2;
+    let context_dictSize = 3;
+    let context_numBits = 2;
+    const context_data = [];
+    let context_data_val = 0;
+    let context_data_position = 0;
+
+    for (let ii = 0; ii < uncompressed.length; ii += 1) {
+      context_c = uncompressed.charAt(ii);
+      if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
+        context_dictionary[context_c] = context_dictSize++;
+        context_dictionaryToCreate[context_c] = true;
+      }
+      context_wc = context_w + context_c;
+      if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) {
+        context_w = context_wc;
+      } else {
+        if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+          if (context_w.charCodeAt(0) < 256) {
+            for (i = 0; i < context_numBits; i++) {
+              context_data_val <<= 1;
+              if (context_data_position === bitsPerChar - 1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+            }
+            value = context_w.charCodeAt(0);
+            for (i = 0; i < 8; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position === bitsPerChar - 1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value >>= 1;
+            }
+          } else {
+            value = 1;
+            for (i = 0; i < context_numBits; i++) {
+              context_data_val = (context_data_val << 1) | value;
+              if (context_data_position === bitsPerChar - 1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value = 0;
+            }
+            value = context_w.charCodeAt(0);
+            for (i = 0; i < 16; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position === bitsPerChar - 1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else context_data_position++;
+              value >>= 1;
+            }
+          }
+          context_enlargeIn--;
+          if (context_enlargeIn === 0) {
+            context_enlargeIn = Math.pow(2, context_numBits);
+            context_numBits++;
+          }
+          delete context_dictionaryToCreate[context_w];
+        } else {
+          value = context_dictionary[context_w];
+          for (i = 0; i < context_numBits; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position === bitsPerChar - 1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value >>= 1;
+          }
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn === 0) {
+          context_enlargeIn = Math.pow(2, context_numBits);
+          context_numBits++;
+        }
+        context_dictionary[context_wc] = context_dictSize++;
+        context_w = String(context_c);
+      }
+    }
+
+    if (context_w !== "") {
+      if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+        if (context_w.charCodeAt(0) < 256) {
+          for (i = 0; i < context_numBits; i++) {
+            context_data_val <<= 1;
+            if (context_data_position === bitsPerChar - 1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+          }
+          value = context_w.charCodeAt(0);
+          for (i = 0; i < 8; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position === bitsPerChar - 1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value >>= 1;
+          }
+        } else {
+          value = 1;
+          for (i = 0; i < context_numBits; i++) {
+            context_data_val = (context_data_val << 1) | value;
+            if (context_data_position === bitsPerChar - 1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value = 0;
+          }
+          value = context_w.charCodeAt(0);
+          for (i = 0; i < 16; i++) {
+            context_data_val = (context_data_val << 1) | (value & 1);
+            if (context_data_position === bitsPerChar - 1) {
+              context_data_position = 0;
+              context_data.push(getCharFromInt(context_data_val));
+              context_data_val = 0;
+            } else context_data_position++;
+            value >>= 1;
+          }
+        }
+        context_enlargeIn--;
+        if (context_enlargeIn === 0) {
+          context_enlargeIn = Math.pow(2, context_numBits);
+          context_numBits++;
+        }
+        delete context_dictionaryToCreate[context_w];
+      } else {
+        value = context_dictionary[context_w];
+        for (i = 0; i < context_numBits; i++) {
+          context_data_val = (context_data_val << 1) | (value & 1);
+          if (context_data_position === bitsPerChar - 1) {
+            context_data_position = 0;
+            context_data.push(getCharFromInt(context_data_val));
+            context_data_val = 0;
+          } else context_data_position++;
+          value >>= 1;
+        }
+      }
+      context_enlargeIn--;
+      if (context_enlargeIn === 0) {
+        context_enlargeIn = Math.pow(2, context_numBits);
+        context_numBits++;
+      }
+    }
+
+    value = 2;
+    for (i = 0; i < context_numBits; i++) {
+      context_data_val = (context_data_val << 1) | (value & 1);
+      if (context_data_position === bitsPerChar - 1) {
+        context_data_position = 0;
+        context_data.push(getCharFromInt(context_data_val));
+        context_data_val = 0;
+      } else context_data_position++;
+      value >>= 1;
+    }
+
+    while (true) {
+      context_data_val <<= 1;
+      if (context_data_position === bitsPerChar - 1) {
+        context_data.push(getCharFromInt(context_data_val));
+        break;
+      } else context_data_position++;
+    }
+    return context_data.join("");
+  }
+
+  function _decompress(length, resetValue, getNextValue) {
+    const dictionary = [];
+    let next, enlargeIn = 4, dictSize = 4, numBits = 3, entry = "";
+    let result = [];
+    let i, w, bits, resb, maxpower, power;
+    let c;
+    const data = { val: getNextValue(0), position: resetValue, index: 1 };
+
+    for (i = 0; i < 3; i += 1) dictionary[i] = i;
+
+    bits = 0;
+    maxpower = Math.pow(2, 2);
+    power = 1;
+    while (power !== maxpower) {
+      resb = data.val & data.position;
+      data.position >>= 1;
+      if (data.position === 0) {
+        data.position = resetValue;
+        data.val = getNextValue(data.index++);
+      }
+      bits |= (resb > 0 ? 1 : 0) * power;
+      power <<= 1;
+    }
+
+    switch (next = bits) {
+      case 0:
+        bits = 0; maxpower = Math.pow(2, 8); power = 1;
+        while (power !== maxpower) {
+          resb = data.val & data.position;
+          data.position >>= 1;
+          if (data.position === 0) {
+            data.position = resetValue;
+            data.val = getNextValue(data.index++);
+          }
+          bits |= (resb > 0 ? 1 : 0) * power;
+          power <<= 1;
+        }
+        c = f(bits);
+        break;
+      case 1:
+        bits = 0; maxpower = Math.pow(2, 16); power = 1;
+        while (power !== maxpower) {
+          resb = data.val & data.position;
+          data.position >>= 1;
+          if (data.position === 0) {
+            data.position = resetValue;
+            data.val = getNextValue(data.index++);
+          }
+          bits |= (resb > 0 ? 1 : 0) * power;
+          power <<= 1;
+        }
+        c = f(bits);
+        break;
+      case 2:
+        return "";
+    }
+    dictionary[3] = c;
+    w = c;
+    result.push(c);
+
+    while (true) {
+      if (data.index > length) return "";
+      bits = 0;
+      maxpower = Math.pow(2, numBits);
+      power = 1;
+      while (power !== maxpower) {
+        resb = data.val & data.position;
+        data.position >>= 1;
+        if (data.position === 0) {
+          data.position = resetValue;
+          data.val = getNextValue(data.index++);
+        }
+        bits |= (resb > 0 ? 1 : 0) * power;
+        power <<= 1;
+      }
+      switch (c = bits) {
+        case 0:
+          bits = 0; maxpower = Math.pow(2, 8); power = 1;
+          while (power !== maxpower) {
+            resb = data.val & data.position;
+            data.position >>= 1;
+            if (data.position === 0) {
+              data.position = resetValue;
+              data.val = getNextValue(data.index++);
+            }
+            bits |= (resb > 0 ? 1 : 0) * power;
+            power <<= 1;
+          }
+          dictionary[dictSize++] = f(bits);
+          c = dictSize - 1;
+          enlargeIn--;
+          break;
+        case 1:
+          bits = 0; maxpower = Math.pow(2, 16); power = 1;
+          while (power !== maxpower) {
+            resb = data.val & data.position;
+            data.position >>= 1;
+            if (data.position === 0) {
+              data.position = resetValue;
+              data.val = getNextValue(data.index++);
+            }
+            bits |= (resb > 0 ? 1 : 0) * power;
+            power <<= 1;
+          }
+          dictionary[dictSize++] = f(bits);
+          c = dictSize - 1;
+          enlargeIn--;
+          break;
+        case 2:
+          return result.join("");
+      }
+      if (enlargeIn === 0) {
+        enlargeIn = Math.pow(2, numBits);
+        numBits++;
+      }
+
+      if (dictionary[c]) entry = dictionary[c];
+      else if (c === dictSize) entry = w + w.charAt(0);
+      else return null;
+
+      result.push(entry);
+
+      dictionary[dictSize++] = w + entry.charAt(0);
+      enlargeIn--;
+
+      w = entry;
+      if (enlargeIn === 0) {
+        enlargeIn = Math.pow(2, numBits);
+        numBits++;
+      }
+    }
+  }
+
+  return { compressToEncodedURIComponent, decompressFromEncodedURIComponent };
+})();
+
+/* -------------------- Utilities -------------------- */
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+function nowISO() { return new Date().toISOString(); }
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+function xorshift32(seed) {
+  let x = seed >>> 0;
+  return {
+    nextU32() {
+      x ^= x << 13; x >>>= 0;
+      x ^= x >>> 17; x >>>= 0;
+      x ^= x << 5;  x >>>= 0;
+      return x >>> 0;
+    },
+    nextFloat() { return (this.nextU32() / 4294967296); },
+    get state() { return x >>> 0; },
+    set state(v) { x = (v >>> 0); }
+  };
+}
+function pick(rng, arr) {
+  if (!arr.length) return null;
+  const idx = Math.floor(rng.nextFloat() * arr.length);
+  return arr[idx];
+}
+function stableStringify(obj) {
+  const seen = new WeakSet();
+  const sorter = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const rec = (v) => {
+    if (v && typeof v === "object") {
+      if (seen.has(v)) return null;
+      seen.add(v);
+      if (Array.isArray(v)) return v.map(rec);
+      const out = {};
+      for (const k of Object.keys(v).sort(sorter)) out[k] = rec(v[k]);
+      return out;
+    }
+    return v;
+  };
+  return JSON.stringify(rec(obj));
+}
+
+/* -------------------- ELIZA Engine (enhanced) -------------------- */
+
+/*
+  This is a classic ELIZA "DOCTOR"-style pattern-matching engine with enhancements:
+  - Keyword ranking
+  - Decomposition/reassembly rules with rotation state
+  - Synonym classes (@class)
+  - Pre-substitution (normalization) and post-substitution (reflection)
+  - Sentence splitting + fallback memory queue
+  - "goto <keyword>" reassemblies
+  - Trace collection for inspection
+*/
+
+const ELIZA_SCRIPT = (() => {
+  // Pre-substitutions: normalize contractions & common variants.
+  // Order matters (more specific first).
+  const pre = [
+    [/[\u2018\u2019]/g, "'"],
+    [/\bcan't\b/g, "cannot"],
+    [/\bwon't\b/g, "will not"],
+    [/\bain't\b/g, "is not"],
+    [/\bi'm\b/g, "i am"],
+    [/\bi’d\b/g, "i would"],
+    [/\bi've\b/g, "i have"],
+    [/\bi'll\b/g, "i will"],
+    [/\byou're\b/g, "you are"],
+    [/\byou've\b/g, "you have"],
+    [/\byou'll\b/g, "you will"],
+    [/\bthey're\b/g, "they are"],
+    [/\bthat's\b/g, "that is"],
+    [/\bwhat's\b/g, "what is"],
+    [/\bwho's\b/g, "who is"],
+    [/\bit's\b/g, "it is"],
+    [/\bdoesn't\b/g, "does not"],
+    [/\bdon't\b/g, "do not"],
+    [/\bdidn't\b/g, "did not"],
+    [/\bcan't\b/g, "cannot"],
+    [/\bshouldn't\b/g, "should not"],
+    [/\bwouldn't\b/g, "would not"],
+    [/\bcouldn't\b/g, "could not"],
+    [/\bmustn't\b/g, "must not"],
+    [/\bn't\b/g, " not"],
+    [/\b(?:please)\b/g, ""],
+    [/\s+/g, " "],
+  ];
+
+  // Reflection map (post-substitutions): swap perspectives.
+  // We do token-level replacement for stronger boundaries.
+  const reflect = new Map([
+    ["am", "are"], ["are", "am"],
+    ["was", "were"], ["were", "was"],
+    ["i", "you"], ["me", "you"], ["my", "your"], ["mine", "yours"],
+    ["you", "I"], ["your", "my"], ["yours", "mine"],
+    ["myself", "yourself"], ["yourself", "myself"],
+    ["im", "you are"], ["ive", "you have"], ["ill", "you will"],
+    ["youre", "I am"], ["youve", "I have"], ["youll", "I will"],
+  ]);
+
+  // Synonym classes (@something)
+  const syn = {
+    be: ["am","are","is","was","were","be","been","being"],
+    belief: ["think","believe","feel","suppose","imagine","guess","assume"],
+    desire: ["want","need","wish","hope","crave","require"],
+    sad: ["sad","unhappy","depressed","miserable","down","blue"],
+    happy: ["happy","glad","joyful","pleased","content"],
+    angry: ["angry","mad","furious","irritated","annoyed","upset"],
+    fear: ["afraid","scared","fearful","anxious","worried","nervous"],
+    family: ["mother","mom","father","dad","sister","brother","wife","husband","child","children","family","parents"],
+    yes: ["yes","yeah","yep","sure","certainly","definitely","ok","okay"],
+    no: ["no","nope","nah","never","not"],
+    maybe: ["maybe","perhaps","possibly","might"],
+    hello: ["hello","hi","hey","greetings"],
+    computer: ["computer","machine","ai","algorithm","program","software","bot","chatbot"],
+    work: ["work","job","career","office","boss","coworker"],
+    school: ["school","class","teacher","college","university","homework"],
+  };
+
+  const quit = ["bye","goodbye","quit","exit","farewell","stop"];
+
+  const initial = [
+    "Hello. I'm ELIZA. What would you like to discuss today?",
+    "Hi. I'm listening. What’s on your mind?",
+    "Good day. Tell me what's been troubling you."
+  ];
+
+  const final = [
+    "Goodbye. It was nice talking with you.",
+    "Thank you for talking with me.",
+    "Goodbye. Take care of yourself."
+  ];
+
+  // Keyword rules (rank desc). Pattern language:
+  //   "*" = wildcard capture (.*)
+  //   "@class" = synonym class match (non-capturing)
+  // Reassembly templates can contain "(n)" placeholders for wildcard groups.
+  // A template starting with "goto <keyword>" jumps to that keyword's rules.
+  // A decomposition can be marked mem:true to store candidate responses.
+  const keywords = [
+    { k: "xnone", rank: 0, rules: [
+      { pat: "*", reas: [
+        "Please tell me more.",
+        "Let's explore that a bit more.",
+        "I see. And how does that make you feel?",
+        "Can you expand on that?",
+        "What does that suggest to you?",
+        "Why do you say that?",
+        "How certain are you about that?"
+      ]}
+    ]},
+
+    { k: "sorry", rank: 10, rules: [
+      { pat: "* sorry *", reas: [
+        "Please do not apologize.",
+        "Apologies are not necessary.",
+        "What feelings do you have when you apologize?",
+        "It's okay. What were you hoping would happen?"
+      ]}
+    ]},
+
+    { k: "apologize", rank: 10, rules: [
+      { pat: "* apologize *", reas: [
+        "There is no need to apologize.",
+        "What makes you feel you need to apologize?",
+        "What do you imagine I think of you when you apologize?"
+      ]}
+    ]},
+
+    { k: "hello", rank: 5, rules: [
+      { pat: "* @hello *", reas: [
+        "Hello. How are you feeling today?",
+        "Hi there. What would you like to talk about?",
+        "Greetings. What’s on your mind?"
+      ]}
+    ]},
+
+    { k: "name", rank: 14, rules: [
+      { pat: "* my name is *", reas: [
+        "Nice to meet you, (2). How are you feeling today?",
+        "Thank you, (2). What would you like to discuss?"
+      ], tag: "setName" },
+      { pat: "* call me *", reas: [
+        "Alright, (2). What would you like to talk about?",
+        "Very well, (2). What’s been on your mind recently?"
+      ], tag: "setName" },
+      { pat: "* what is your name *", reas: [
+        "You can call me ELIZA.",
+        "I am ELIZA. How can I help you today?"
+      ]}
+    ]},
+
+    { k: "remember", rank: 20, rules: [
+      { pat: "* i remember *", reas: [
+        "Do you often think of (2)?",
+        "Does thinking of (2) bring anything else to mind?",
+        "What about (2) seems significant to you?",
+        "What in your present situation reminds you of (2)?"
+      ]},
+      { pat: "* do you remember *", reas: [
+        "Did you think I would forget (2)?",
+        "Why do you ask if I remember (2)?",
+        "What would it mean to you if I remembered (2)?"
+      ]},
+      { pat: "* remember *", reas: [
+        "What comes to mind when you think of (2)?",
+        "Why do you remember (2) just now?"
+      ]}
+    ]},
+
+    { k: "forget", rank: 18, rules: [
+      { pat: "* i forget *", reas: [
+        "Why do you think you forget (2)?",
+        "Would it be helpful to remember (2)?",
+        "What else do you associate with (2)?"
+      ]},
+      { pat: "* forget *", reas: [
+        "Why do you mention forgetting (2)?",
+        "What do you think forgetting (2) means for you?"
+      ]}
+    ]},
+
+    { k: "dream", rank: 22, rules: [
+      { pat: "* i dream *", reas: [
+        "What does this dream suggest to you?",
+        "Do you often dream about (2)?",
+        "How do you feel when you dream of (2)?",
+        "Have you ever fantasized about (2) while awake?"
+      ]},
+      { pat: "* dream *", reas: [
+        "What comes to mind when you think of dreams?",
+        "Do dreams worry you?"
+      ]}
+    ]},
+
+    { k: "because", rank: 15, rules: [
+      { pat: "* because *", reas: [
+        "Is that the real reason?",
+        "What other reasons might there be?",
+        "Does that reason fully explain it?",
+        "What would you say to someone else who gave that reason?"
+      ]}
+    ]},
+
+    { k: "yes", rank: 8, rules: [
+      { pat: "* @yes *", reas: [
+        "You seem quite sure.",
+        "I see. What leads you to be so certain?",
+        "And how does that certainty make you feel?",
+        "What does saying yes mean to you here?"
+      ]}
+    ]},
+
+    { k: "no", rank: 8, rules: [
+      { pat: "* @no *", reas: [
+        "Why not?",
+        "Are you saying no just to be negative?",
+        "What would have to change for your answer to be yes?",
+        "How do you feel about saying no?"
+      ]}
+    ]},
+
+    { k: "maybe", rank: 7, rules: [
+      { pat: "* @maybe *", reas: [
+        "You don't seem certain.",
+        "What would make you more sure?",
+        "What possibilities are you considering?"
+      ]}
+    ]},
+
+    { k: "family", rank: 24, rules: [
+      { pat: "* @family *", reas: [
+        "Tell me more about your family.",
+        "How do you get along with your family?",
+        "Which family member comes to mind most strongly?",
+        "When you think of your family, what feeling do you notice first?"
+      ]},
+      { pat: "* my @family *", reas: [
+        "What was your relationship with your (2) like?",
+        "How do you feel toward your (2)?",
+        "How does your (2) influence you now?"
+      ]}
+    ]},
+
+    { k: "mother", rank: 26, rules: [
+      { pat: "* mother *", reas: [
+        "Tell me more about your mother.",
+        "What feelings do you have about your mother?",
+        "How did your relationship with your mother affect you?",
+        "Do you see similarities between your mother and others in your life?"
+      ]}
+    ]},
+
+    { k: "father", rank: 26, rules: [
+      { pat: "* father *", reas: [
+        "Tell me more about your father.",
+        "What feelings do you have about your father?",
+        "How did your relationship with your father affect you?",
+        "Do you see similarities between your father and others in your life?"
+      ]}
+    ]},
+
+    { k: "friend", rank: 18, rules: [
+      { pat: "* friend *", reas: [
+        "Tell me more about your friends.",
+        "Do your friends worry you?",
+        "Do you feel accepted by your friends?",
+        "What do you look for in a friend?"
+      ]}
+    ]},
+
+    { k: "computer", rank: 18, rules: [
+      { pat: "* @computer *", reas: [
+        "Do computers worry you?",
+        "What do you think about machines in general?",
+        "Why do you mention computers?",
+        "Do you feel that talking to a program is strange?"
+      ]}
+    ]},
+
+    { k: "feel", rank: 20, rules: [
+      { pat: "* i feel *", reas: [
+        "Tell me more about feeling (2).",
+        "Do you often feel (2)?",
+        "When you feel (2), what do you usually do?",
+        "What does feeling (2) suggest to you?"
+      ]},
+      { pat: "* you make me feel *", reas: [
+        "In what way do you feel I make you feel (2)?",
+        "What about me leads you to feel (2)?"
+      ]}
+    ]},
+
+    { k: "sad", rank: 22, rules: [
+      { pat: "* @sad *", reas: [
+        "I'm sorry you're feeling that way. What do you think contributes to it?",
+        "How long have you been feeling this way?",
+        "When you feel down, what helps even a little?",
+        "What does that feeling seem to be asking of you?"
+      ]}
+    ]},
+
+    { k: "happy", rank: 20, rules: [
+      { pat: "* @happy *", reas: [
+        "What makes you feel happy?",
+        "How do you express that happiness?",
+        "Do you allow yourself to enjoy feeling happy?"
+      ]}
+    ]},
+
+    { k: "angry", rank: 22, rules: [
+      { pat: "* @angry *", reas: [
+        "What tends to trigger that anger?",
+        "How do you usually respond when you're angry?",
+        "What would it look like to express that anger safely?"
+      ]}
+    ]},
+
+    { k: "fear", rank: 22, rules: [
+      { pat: "* @fear *", reas: [
+        "What do you think you're afraid might happen?",
+        "When you feel afraid, what do you do?",
+        "What would make you feel safer?"
+      ]}
+    ]},
+
+    { k: "need", rank: 24, rules: [
+      { pat: "* i @desire *", reas: [
+        "What would it mean to you if you got (2)?",
+        "Why do you want (2)?",
+        "Suppose you got (2). What would change?",
+        "What prevents you from getting (2)?"
+      ]},
+      { pat: "* i need *", reas: [
+        "What would it mean to you if you got (2)?",
+        "Why do you need (2)?",
+        "Would getting (2) solve the problem?"
+      ]}
+    ]},
+
+    { k: "want", rank: 24, rules: [
+      { pat: "* i want *", reas: [
+        "Why do you want (2)?",
+        "What would it mean if you got (2)?",
+        "Suppose you got (2). Then what?",
+        "What makes (2) important to you?"
+      ]}
+    ]},
+
+    { k: "cannot", rank: 26, rules: [
+      { pat: "* i cannot *", reas: [
+        "How do you know you cannot (2)?",
+        "What would it take for you to be able to (2)?",
+        "Have you tried? What happened?",
+        "What stops you from (2)?"
+      ]}
+    ]},
+
+    { k: "can", rank: 12, rules: [
+      { pat: "* can you *", reas: [
+        "What makes you ask if I can (2)?",
+        "If I could (2), what would that mean to you?",
+        "Why do you want me to (2)?"
+      ]},
+      { pat: "* can i *", reas: [
+        "Do you want to be able to (2)?",
+        "What would it mean if you could (2)?",
+        "What makes you doubt you can (2)?"
+      ]}
+    ]},
+
+    { k: "why", rank: 16, rules: [
+      { pat: "* why *", reas: [
+        "What do you think the answer might be?",
+        "What possibilities have you considered?",
+        "If you found the answer, what would it change?"
+      ]}
+    ]},
+
+    { k: "what", rank: 14, rules: [
+      { pat: "* what *", reas: [
+        "What do you think?",
+        "What comes to mind first?",
+        "What would you like it to be?"
+      ]}
+    ]},
+
+    { k: "who", rank: 14, rules: [
+      { pat: "* who *", reas: [
+        "Who do you suspect?",
+        "Does someone specific come to mind?",
+        "What does that person represent to you?"
+      ]}
+    ]},
+
+    { k: "always", rank: 14, rules: [
+      { pat: "* always *", reas: [
+        "Can you think of a specific example?",
+        "When, specifically?",
+        "Are there any exceptions?",
+        "How often does it really happen?"
+      ]}
+    ]},
+
+    { k: "think", rank: 18, rules: [
+      { pat: "* i @belief *", reas: [
+        "Do you doubt (2)?",
+        "What leads you to think (2)?",
+        "What would it mean if (2) were not true?",
+        "How strongly do you believe (2)?"
+      ]},
+      { pat: "* you @belief *", reas: [
+        "What makes you think I (2)?",
+        "Does it matter whether I (2)? Why?"
+      ]}
+    ]},
+
+    { k: "like", rank: 16, rules: [
+      { pat: "* i like *", reas: [
+        "What do you like about (2)?",
+        "What does liking (2) do for you?",
+        "When did you first start liking (2)?"
+      ]}
+    ]},
+
+    { k: "hate", rank: 18, rules: [
+      { pat: "* i hate *", reas: [
+        "What makes you hate (2)?",
+        "Hate is a strong feeling. What is underneath it?",
+        "What would it take to feel differently about (2)?"
+      ]}
+    ]},
+
+    { k: "work", rank: 18, rules: [
+      { pat: "* @work *", reas: [
+        "Tell me more about your work.",
+        "What part of work feels most stressful?",
+        "How do you feel when you think about work?"
+      ]}
+    ]},
+
+    { k: "school", rank: 18, rules: [
+      { pat: "* @school *", reas: [
+        "Tell me more about school.",
+        "What part of school feels most difficult?",
+        "How do you feel about your performance there?"
+      ]}
+    ]},
+
+    // Pronoun-heavy rules near the end; they catch lots of inputs.
+    { k: "you", rank: 6, rules: [
+      { pat: "* you are *", reas: [
+        "What makes you think I am (2)?",
+        "Does it matter to you whether I am (2)?",
+        "Suppose I were (2). What would that mean to you?"
+      ]},
+      { pat: "* you * me *", reas: [
+        "Why do you think I (2) you?",
+        "What makes you feel I (2) you?",
+        "What would it mean if I did (2) you?"
+      ]},
+      { pat: "* you *", reas: [
+        "We were discussing you, not me.",
+        "Why do you bring up me?",
+        "What feelings do you have about me?"
+      ]}
+    ]},
+
+    { k: "i", rank: 5, rules: [
+      { pat: "* i am *", reas: [
+        "How long have you been (2)?",
+        "Do you believe it is normal to be (2)?",
+        "How do you feel about being (2)?",
+        "What does being (2) mean to you?"
+      ]},
+      { pat: "* i was *", reas: [
+        "What does being (2) remind you of?",
+        "How did being (2) affect you?",
+        "Do you want to be (2) now?"
+      ]},
+      { pat: "* i * you *", reas: [
+        "Why do you (2) me?",
+        "What makes you (2) me?",
+        "Do you often (2) others?"
+      ]},
+      { pat: "* i *", reas: [
+        "Tell me more about yourself.",
+        "How does that relate to you?",
+        "Why do you say (1) you (2)?"
+      ]}
+    ]},
+
+    // Memory: store "deferred" topics and pull them later if needed.
+    { k: "memhook", rank: 1, rules: [
+      { pat: "*", mem: true, reas: [
+        "Earlier you mentioned (1). Can you say more about that?",
+        "You said (1). How do you feel about it now?",
+        "Let's return to (1). What stands out to you?"
+      ]}
+    ]},
+  ];
+
+  return { pre, reflect, syn, quit, initial, final, keywords };
+})();
+
+function tokenize(s) {
+  return s.split(/\s+/).filter(Boolean);
+}
+
+function normalizeInput(s, script) {
+  let t = String(s || "").toLowerCase();
+  // keep apostrophes only for contraction normalization; then strip punctuation.
+  for (const [re, rep] of script.pre) t = t.replace(re, rep);
+  t = t.replace(/[^a-z0-9\s']/g, " ");
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+function splitSentences(s) {
+  // split on punctuation-like separators; keep it simple and robust.
+  return s
+    .split(/[\.\!\?\;\:\n]+/g)
+    .map(x => x.trim())
+    .filter(Boolean);
+}
+
+function reflectPhrase(phrase, script) {
+  // Token-level reflection; preserve unknown tokens as-is.
+  const tokens = tokenize(phrase);
+  const out = tokens.map(tok => script.reflect.get(tok) ?? tok);
+  let s = out.join(" ");
+  // Fix capitalization for "I"
+  s = s.replace(/\bi\b/g, "I");
+  return s;
+}
+
+function compilePattern(pat, syn) {
+  const parts = pat.trim().split(/\s+/);
+  let groupCount = 0;
+  const reParts = parts.map(tok => {
+    if (tok === "*") { groupCount++; return "(.*)"; }
+    if (tok.startsWith("@")) {
+      const cls = tok.slice(1);
+      const words = syn[cls] || [];
+      const alt = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+      return `(?:\\b(?:${alt})\\b)`;
+    }
+    const esc = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return `\\b${esc}\\b`;
+  });
+
+  // Allow flexible whitespace between tokens and leading/trailing whitespace.
+  // Make wildcard groups more controllable using non-greedy where helpful:
+  // We'll convert "(.*)" to "(.*?)" except last, to reduce over-capture.
+  for (let i = 0; i < reParts.length - 1; i++) {
+    if (reParts[i] === "(.*)") reParts[i] = "(.*?)";
+  }
+
+  const re = new RegExp("^\\s*" + reParts.join("\\s+") + "\\s*$", "i");
+  return { re, groupCount };
+}
+
+function applyReassembly(template, groups, script) {
+  // Replace (n) with reflected capture group n.
+  let out = template;
+  out = out.replace(/\((\d+)\)/g, (_, d) => {
+    const idx = Number(d) - 1;
+    const raw = (groups[idx] ?? "").trim();
+    const reflected = reflectPhrase(raw, script);
+    return reflected;
+  });
+  // Clean double spaces
+  out = out.replace(/\s+/g, " ").trim();
+  // Fix punctuation spacing
+  out = out.replace(/\s+([?.!,;:])/g, "$1");
+  // Capitalize first letter
+  out = out.charAt(0).toUpperCase() + out.slice(1);
+  return out;
+}
+
+function findKeywords(sentence, script) {
+  const tokens = tokenize(sentence);
+  const tokenSet = new Set(tokens);
+  const present = [];
+  for (const kw of script.keywords) {
+    if (kw.k === "xnone" || kw.k === "memhook") continue;
+    const kwTokens = tokenize(kw.k);
+    let ok = true;
+    for (const t of kwTokens) {
+      // synonym keywords (like hello) are handled by patterns, but we can give a boost if present
+      if (!tokenSet.has(t)) { ok = false; break; }
+    }
+    if (ok) present.push(kw);
+  }
+  // Always include xnone at end
+  present.sort((a, b) => b.rank - a.rank);
+  return present;
+}
+
+function elizaRespond(userText, state) {
+  const script = ELIZA_SCRIPT;
+  const trace = {
+    inputRaw: userText,
+    inputNorm: "",
+    sentences: [],
+    chosen: null,
+    memoryUsed: false,
+    gotoChain: [],
+    decompTried: [],
+  };
+
+  const rng = xorshift32(state.rng.state);
+
+  // quit?
+  const norm = normalizeInput(userText, script);
+  trace.inputNorm = norm;
+
+  if (!norm) {
+    const resp = "Please say something—whatever comes to mind.";
+    trace.chosen = { type: "empty", resp };
+    state.rng.state = rng.state;
+    return { text: resp, trace };
+  }
+
+  if (script.quit.includes(norm.trim())) {
+    const resp = pick(rng, script.final) || "Goodbye.";
+    trace.chosen = { type: "quit", resp };
+    state.rng.state = rng.state;
+    state.eliza.ended = true;
+    return { text: resp, trace };
+  }
+
+  // sentence splitting
+  const sents = splitSentences(norm);
+  trace.sentences = sents.slice();
+
+  // If there is memory, we sometimes prefer to use it (advanced ELIZA behavior)
+  // Use memory on ~1/6 turns when it's available, to create “continuity.”
+  if (state.eliza.memory.length > 0 && rng.nextFloat() < 0.17) {
+    const m = state.eliza.memory.shift();
+    trace.memoryUsed = true;
+    const resp = m.text;
+    trace.chosen = { type: "memory", resp, source: m.sourceKw };
+    state.eliza.lastKeyword = m.sourceKw;
+    state.eliza.lastDecomp = "(memory)";
+    state.eliza.lastReassembly = resp;
+    state.eliza.lastCaptures = [m.payload ?? ""];
+    state.rng.state = rng.state;
+    return { text: resp, trace };
+  }
+
+  // Try each sentence; pick best response by keyword rank.
+  let best = null;
+
+  for (const sent of sents) {
+    const kws = findKeywords(sent, script);
+    // Always consider xnone as fallback later.
+    const candidates = [...kws, script.keywords.find(x => x.k === "xnone")];
+
+    for (const kw of candidates) {
+      if (!kw) continue;
+
+      // Track usage
+      state.eliza.usage[kw.k] = (state.eliza.usage[kw.k] || 0) + 1;
+
+      // Try each decomposition rule
+      for (let ri = 0; ri < kw.rules.length; ri++) {
+        const rule = kw.rules[ri];
+        const compiled = getCompiledRule(kw.k, ri, rule, script.syn);
+        trace.decompTried.push({
+          kw: kw.k, rank: kw.rank, pat: rule.pat, regex: String(compiled.re)
+        });
+
+        const m = compiled.re.exec(sent);
+        if (!m) continue;
+
+        // Wildcard groups are capture groups; map to groups[] (excluding full match)
+        const groups = m.slice(1).map(x => (x ?? "").trim());
+        const rotationKey = `${kw.k}::${ri}`;
+        const rot = state.eliza.rotations[rotationKey] || 0;
+
+        // Choose reassembly with rotation + rng offset to reduce repetition
+        const reas = rule.reas || [];
+        if (!reas.length) continue;
+
+        let idx = (rot + Math.floor(rng.nextFloat() * reas.length)) % reas.length;
+        let template = reas[idx];
+
+        // Update rotation for next time (deterministic state change)
+        state.eliza.rotations[rotationKey] = (rot + 1) % reas.length;
+
+        // Handle "goto"
+        if (/^goto\s+/i.test(template)) {
+          const target = template.replace(/^goto\s+/i, "").trim().toLowerCase();
+          trace.gotoChain.push({ from: kw.k, to: target });
+          const gotoResp = tryKeywordGoto(sent, target, state, rng, trace);
+          if (gotoResp) {
+            best = gotoResp;
+            break;
+          }
+          continue;
+        }
+
+        // Compute response text
+        let resp = applyReassembly(template, groups, script);
+
+        // If rule is tagged to set name, do it (side-effect).
+        if (rule.tag === "setName") {
+          const maybeName = (groups[1] || groups[0] || "").trim();
+          const cleaned = maybeName.replace(/[^a-zA-Z0-9 _-]/g, "").trim().slice(0, 40);
+          if (cleaned) state.eliza.userName = cleaned;
+        }
+
+        // Memory hook: optionally stash a related “topic return” response
+        // This makes the bot feel more coherent later.
+        if (!kw.k.startsWith("x") && sent.length > 0 && rng.nextFloat() < 0.12) {
+          const memK = script.keywords.find(x => x.k === "memhook");
+          if (memK) {
+            const memRule = memK.rules[0];
+            const memCompiled = getCompiledRule(memK.k, 0, memRule, script.syn);
+            const mm = memCompiled.re.exec(sent);
+            if (mm) {
+              const gg = mm.slice(1).map(x => (x ?? "").trim());
+              const mtpl = pick(rng, memRule.reas);
+              const mtxt = applyReassembly(mtpl, gg, script);
+              state.eliza.memory.push({ text: mtxt, sourceKw: kw.k, payload: sent });
+              // Bound memory so URL doesn't explode
+              if (state.eliza.memory.length > 10) state.eliza.memory.shift();
+            }
+          }
+        }
+
+        // If rule itself is marked as memory, stash response instead of using immediately.
+        if (rule.mem) {
+          state.eliza.memory.push({ text: resp, sourceKw: kw.k, payload: sent });
+          if (state.eliza.memory.length > 10) state.eliza.memory.shift();
+          continue;
+        }
+
+        best = {
+          text: resp,
+          chosen: { kw: kw.k, rank: kw.rank, pat: rule.pat, template, groups }
+        };
+        break;
+      }
+      if (best) break;
+    }
+    if (best) break;
+  }
+
+  // If no direct match, use memory if any, else xnone
+  if (!best) {
+    if (state.eliza.memory.length > 0) {
+      const m = state.eliza.memory.shift();
+      trace.memoryUsed = true;
+      best = { text: m.text, chosen: { kw: "memory", pat: "(memory)", template: m.text, groups: [m.payload ?? ""] } };
+    } else {
+      // xnone always exists
+      const xnone = script.keywords.find(x => x.k === "xnone");
+      const rule = xnone.rules[0];
+      const template = pick(rng, rule.reas) || "Please go on.";
+      best = { text: template, chosen: { kw: "xnone", pat: "*", template, groups: [] } };
+    }
+  }
+
+  // Persist trace + engine state
+  state.eliza.lastKeyword = best.chosen.kw;
+  state.eliza.lastDecomp = best.chosen.pat;
+  state.eliza.lastReassembly = best.chosen.template;
+  state.eliza.lastCaptures = best.chosen.groups;
+  state.eliza.turns = (state.eliza.turns || 0) + 1;
+
+  trace.chosen = best.chosen;
+  state.rng.state = rng.state;
+
+  return { text: best.text, trace };
+}
+
+// Compiled rule cache lives outside persisted state (rebuildable)
+const _compiledCache = new Map();
+function getCompiledRule(kw, ri, rule, syn) {
+  const key = `${kw}::${ri}::${rule.pat}`;
+  const hit = _compiledCache.get(key);
+  if (hit) return hit;
+  const compiled = compilePattern(rule.pat, syn);
+  _compiledCache.set(key, compiled);
+  return compiled;
+}
+
+function tryKeywordGoto(sentence, targetKw, state, rng, trace) {
+  const script = ELIZA_SCRIPT;
+  const target = script.keywords.find(x => x.k === targetKw);
+  if (!target) return null;
+
+  for (let ri = 0; ri < target.rules.length; ri++) {
+    const rule = target.rules[ri];
+    const compiled = getCompiledRule(target.k, ri, rule, script.syn);
+    const m = compiled.re.exec(sentence);
+    if (!m) continue;
+
+    const groups = m.slice(1).map(x => (x ?? "").trim());
+    const rotationKey = `${target.k}::${ri}`;
+    const rot = state.eliza.rotations[rotationKey] || 0;
+    const reas = rule.reas || [];
+    if (!reas.length) continue;
+
+    const idx = (rot + Math.floor(rng.nextFloat() * reas.length)) % reas.length;
+    const template = reas[idx];
+    state.eliza.rotations[rotationKey] = (rot + 1) % reas.length;
+
+    if (/^goto\s+/i.test(template)) {
+      const nextTarget = template.replace(/^goto\s+/i, "").trim().toLowerCase();
+      trace.gotoChain.push({ from: target.k, to: nextTarget });
+      return tryKeywordGoto(sentence, nextTarget, state, rng, trace);
+    }
+
+    const resp = applyReassembly(template, groups, script);
+    return {
+      text: resp,
+      chosen: { kw: target.k, rank: target.rank, pat: rule.pat, template, groups, via: "goto" }
+    };
+  }
+  return null;
+}
+
+/* -------------------- URL hash state management -------------------- */
+
+const HASH_KEY = "s"; // #s=<compressed-json>
+const STATE_VERSION = 1;
+
+function defaultState() {
+  // Use a seed derived from time, but store it so the URL is fully reproducible.
+  const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+  const rng = xorshift32(seed);
+
+  const init = pick(rng, ELIZA_SCRIPT.initial) || "Hello. How are you feeling today?";
+  const st = {
+    v: STATE_VERSION,
+    view: "chat",            // chat | inspect | split
+    prefs: { pushHistory: false },
+    rng: { state: rng.state },
+    chat: {
+      messages: [
+        { role: "eliza", text: init, t: nowISO() }
+      ]
+    },
+    eliza: {
+      userName: "",
+      ended: false,
+      turns: 0,
+      lastKeyword: "(init)",
+      lastDecomp: "",
+      lastReassembly: init,
+      lastCaptures: [],
+      memory: [],
+      rotations: {},
+      usage: {}
+    },
+    ui: {
+      splitRatio: 0.52,       // 0..1
+      cmdLog: []
+    }
+  };
+  return st;
+}
+
+function encodeStateToHash(state) {
+  const json = stableStringify(state);
+  const packed = LZString.compressToEncodedURIComponent(json);
+  return `${HASH_KEY}=${packed}`;
+}
+
+function decodeStateFromHash(hash) {
+  const raw = (hash || "").replace(/^#/, "");
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const packed = params.get(HASH_KEY);
+  if (!packed) return null;
+  const json = LZString.decompressFromEncodedURIComponent(packed);
+  if (!json) return null;
+  const st = JSON.parse(json);
+  if (!st || typeof st !== "object") return null;
+  if (st.v !== STATE_VERSION) return null; // simple version gate
+  return st;
+}
+
+let STATE = null;
+let _suppressHashChange = false;
+
+function writeHash(state, { push=false } = {}) {
+  const newHash = "#" + encodeStateToHash(state);
+  _suppressHashChange = true;
+  try {
+    if (push) history.pushState(null, "", newHash);
+    else history.replaceState(null, "", newHash);
+  } finally {
+    // allow hashchange to process after microtask
+    setTimeout(() => { _suppressHashChange = false; }, 0);
+  }
+}
+
+function loadOrInit() {
+  const st = decodeStateFromHash(location.hash);
+  STATE = st ?? defaultState();
+  // Canonicalize hash on load
+  writeHash(STATE, { push: false });
+}
+
+/* -------------------- UI rendering -------------------- */
+
+const $ = (id) => document.getElementById(id);
+
+function setView(view) {
+  STATE.view = view;
+  writeHash(STATE, { push: false });
+  renderAll();
+}
+
+function renderTop() {
+  const sub = $("subline");
+  const u = STATE.eliza.userName ? `You are “${STATE.eliza.userName}”.` : "You can introduce yourself with: “my name is …”";
+  const mem = STATE.eliza.memory.length;
+  sub.textContent = `${u}  Memory: ${mem} item${mem===1?"":"s"}.  Hash size: ${location.hash.length.toLocaleString()} chars.`;
+
+  const setBtn = (btn, active) => {
+    btn.classList.toggle("primary", active);
+    btn.setAttribute("aria-selected", String(active));
+  };
+  setBtn($("btnChat"), STATE.view === "chat");
+  setBtn($("btnInspect"), STATE.view === "inspect");
+  setBtn($("btnSplit"), STATE.view === "split");
+
+  const btnPush = $("btnPush");
+  btnPush.classList.toggle("on", !!STATE.prefs.pushHistory);
+  btnPush.classList.toggle("off", !STATE.prefs.pushHistory);
+  btnPush.textContent = (STATE.prefs.pushHistory ? "🧭 push history: ON" : "🧭 push history: OFF");
+}
+
+function renderViews() {
+  const views = [
+    ["chat", $("viewChat")],
+    ["inspect", $("viewInspect")],
+    ["split", $("viewSplit")]
+  ];
+  for (const [name, el] of views) el.classList.toggle("active", STATE.view === name);
+}
+
+function renderChatInto(container) {
+  container.innerHTML = "";
+  const msgs = STATE.chat.messages;
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    const who = m.role === "user" ? (STATE.eliza.userName || "You") :
+                m.role === "eliza" ? "ELIZA" : "System";
+    const av = m.role === "user" ? "🧑" : m.role === "eliza" ? "🤖" : "⚙️";
+    const tag = m.role;
+    const wrap = document.createElement("div");
+    wrap.className = "msg";
+
+    const avatar = document.createElement("div");
+    avatar.className = "avatar " + (m.role === "user" ? "user" : m.role === "eliza" ? "eliza" : "sys");
+    avatar.textContent = av;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.innerHTML = `<div class="who">${escapeHTML(who)}</div>
+                      <div class="tag">${escapeHTML(tag)}</div>`;
+
+    const txt = document.createElement("div");
+    txt.className = "txt";
+    txt.innerHTML = escapeHTML(m.text);
+
+    bubble.appendChild(meta);
+    bubble.appendChild(txt);
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    container.appendChild(wrap);
+  }
+
+  // Scroll to bottom
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderInspectorSummary(targetGridEl) {
+  const st = STATE;
+  const last = st.eliza;
+  const lastKw = last.lastKeyword || "";
+  const lastPat = last.lastDecomp || "";
+  const lastCap = (last.lastCaptures || []).map(x => x.trim()).filter(Boolean);
+  const topUsage = Object.entries(last.usage || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+
+  const kvs = [
+    ["view", st.view],
+    ["turns", String(last.turns || 0)],
+    ["rng.state", "0x" + (st.rng.state >>> 0).toString(16).padStart(8, "0")],
+    ["userName", last.userName ? JSON.stringify(last.userName) : "(unset)"],
+    ["memory.length", String(last.memory.length)],
+    ["lastKeyword", JSON.stringify(lastKw)],
+    ["lastDecomp", JSON.stringify(lastPat)],
+    ["lastCaptures", lastCap.length ? lastCap.map(x => JSON.stringify(x)).join(", ") : "(none)"],
+    ["hash.length", String(location.hash.length)],
+    ["pushHistory", String(!!st.prefs.pushHistory)],
+    ["top keywords", topUsage.length ? topUsage.map(([k,v]) => `${k}:${v}`).join("  ") : "(none)"],
+  ];
+
+  targetGridEl.innerHTML = "";
+  for (const [k, v] of kvs) {
+    const d = document.createElement("div");
+    d.className = "kv";
+    d.innerHTML = `<div class="k">${escapeHTML(k)}</div><div class="v">${escapeHTML(v)}</div>`;
+    targetGridEl.appendChild(d);
+  }
+}
+
+function renderTrace(traceEl) {
+  const t = STATE.elizaTrace || null;
+  if (!t) {
+    traceEl.textContent = "No trace yet. Send a message to generate one.";
+    return;
+  }
+  const lines = [];
+  lines.push("ELIZA TRACE");
+  lines.push("===========");
+  lines.push(`inputRaw  : ${t.inputRaw}`);
+  lines.push(`inputNorm : ${t.inputNorm}`);
+  lines.push(`sentences : ${JSON.stringify(t.sentences)}`);
+  lines.push(`memoryUsed: ${t.memoryUsed ? "yes" : "no"}`);
+  if (t.gotoChain?.length) {
+    lines.push("gotoChain :");
+    for (const g of t.gotoChain) lines.push(`  - ${g.from} -> ${g.to}`);
+  }
+  lines.push("");
+  lines.push("chosen:");
+  lines.push(JSON.stringify(t.chosen, null, 2));
+  lines.push("");
+  lines.push("decompositions tried (first 20):");
+  for (const d of (t.decompTried || []).slice(0, 20)) {
+    lines.push(`  - kw=${d.kw} rank=${d.rank} pat="${d.pat}" regex=${d.regex}`);
+  }
+  if ((t.decompTried || []).length > 20) lines.push(`  … +${(t.decompTried.length - 20)} more`);
+  traceEl.textContent = lines.join("\n");
+}
+
+function renderStateEditor() {
+  $("stateEditor").value = JSON.stringify(STATE, null, 2);
+  $("jsonStatus").textContent = "";
+}
+
+function renderSplitStateBoxes() {
+  $("stateBoxSplit").textContent = JSON.stringify(STATE, null, 2);
+  $("hashSizePill").textContent = `hash: ${location.hash.length.toLocaleString()} chars`;
+}
+
+function renderAll() {
+  renderTop();
+  renderViews();
+
+  $("pillTurns").textContent = `${STATE.chat.messages.length} msgs`;
+  $("pillTurnsSplit").textContent = `${STATE.chat.messages.length} msgs`;
+
+  $("chatHint").textContent =
+    STATE.eliza.ended ? "Session ended. Type /reset to start over." :
+    "Tip: The URL always represents current state. Copy/paste it to move the conversation.";
+
+  // Render chat in whichever containers are visible (rendering both is fine)
+  renderChatInto($("chatBody"));
+  renderChatInto($("chatBodySplit"));
+
+  // Inspector
+  renderInspectorSummary($("summaryGrid"));
+  renderInspectorSummary($("summaryGridSplit"));
+  renderTrace($("traceBox"));
+  renderTrace($("traceBoxSplit"));
+
+  renderStateEditor();
+  renderSplitStateBoxes();
+
+  // Split ratio
+  applySplitRatio();
+}
+
+function applySplitRatio() {
+  const wrap = $("splitWrap");
+  const isCol = window.matchMedia("(max-width: 980px)").matches;
+  const r = clamp(STATE.ui.splitRatio ?? 0.52, 0.15, 0.85);
+  const a = $("splitChatPanel");
+  const b = $("splitInspectPanel");
+  if (!wrap || !a || !b) return;
+
+  if (!isCol) {
+    a.style.flex = `0 0 ${(r * 100).toFixed(2)}%`;
+    b.style.flex = `1 1 ${(100 - r * 100).toFixed(2)}%`;
+  } else {
+    a.style.flex = `0 0 ${(r * 100).toFixed(2)}%`;
+    b.style.flex = `1 1 ${(100 - r * 100).toFixed(2)}%`;
+  }
+}
+
+/* -------------------- Commands -------------------- */
+
+function pushCmdLog(line) {
+  STATE.ui.cmdLog.push({ t: nowISO(), line });
+  if (STATE.ui.cmdLog.length > 80) STATE.ui.cmdLog.shift();
+}
+
+function runCommand(raw) {
+  const line = String(raw || "").trim();
+  if (!line) return { ok: true, out: "" };
+  pushCmdLog(line);
+
+  const parts = line.replace(/^\//, "").split(/\s+/);
+  const cmd = (parts[0] || "").toLowerCase();
+  const rest = line.replace(/^\/\w+\s*/i, "");
+
+  const out = [];
+  const say = (s) => out.push(String(s));
+
+  const setViewCmd = (v) => {
+    const vv = (v || "").toLowerCase();
+    if (!["chat","inspect","split"].includes(vv)) {
+      say("Usage: /view chat|inspect|split");
+      return;
+    }
+    STATE.view = vv;
+    say(`View set to: ${vv}`);
+  };
+
+  switch (cmd) {
+    case "help":
+      say("Commands:");
+      say("  /help");
+      say("  /view chat|inspect|split");
+      say("  /reset");
+      say("  /set name <text>");
+      say("  /seed <uint32>");
+      say("  /push on|off");
+      say("  /memory show|clear");
+      say("  /state show");
+      say("");
+      say("Notes:");
+      say("  - All state is in the URL hash.");
+      say("  - Use Shift+Enter for newline; Enter to send (chat).");
+      break;
+
+    case "view":
+      setViewCmd(parts[1]);
+      break;
+
+    case "reset":
+      STATE = defaultState();
+      say("State reset.");
+      break;
+
+    case "set":
+      if ((parts[1] || "").toLowerCase() === "name") {
+        const name = rest.replace(/^name\s+/i, "").trim().slice(0, 40);
+        STATE.eliza.userName = name;
+        say(`userName = ${JSON.stringify(name)}`);
+      } else {
+        say("Usage: /set name <text>");
+      }
+      break;
+
+    case "seed": {
+      const n = Number(parts[1]);
+      if (!Number.isFinite(n)) {
+        say("Usage: /seed <uint32>");
+        break;
+      }
+      STATE.rng.state = (n >>> 0);
+      say(`rng.state = 0x${(STATE.rng.state >>> 0).toString(16).padStart(8,"0")}`);
+      break;
+    }
+
+    case "push": {
+      const v = (parts[1] || "").toLowerCase();
+      if (v !== "on" && v !== "off") { say("Usage: /push on|off"); break; }
+      STATE.prefs.pushHistory = (v === "on");
+      say(`pushHistory = ${STATE.prefs.pushHistory}`);
+      break;
+    }
+
+    case "memory": {
+      const sub = (parts[1] || "").toLowerCase();
+      if (sub === "show") {
+        say(`memory.length = ${STATE.eliza.memory.length}`);
+        say(JSON.stringify(STATE.eliza.memory, null, 2));
+      } else if (sub === "clear") {
+        STATE.eliza.memory = [];
+        say("Memory cleared.");
+      } else {
+        say("Usage: /memory show|clear");
+      }
+      break;
+    }
+
+    case "state":
+      if ((parts[1] || "").toLowerCase() === "show") {
+        say(JSON.stringify(STATE, null, 2));
+      } else {
+        say("Usage: /state show");
+      }
+      break;
+
+    default:
+      say(`Unknown command: ${cmd || "(empty)"}`);
+      say("Try /help");
+  }
+
+  return { ok: true, out: out.join("\n") };
+}
+
+/* -------------------- Chat handling -------------------- */
+
+function appendMessage(role, text) {
+  STATE.chat.messages.push({ role, text, t: nowISO() });
+  // bound transcript so URL doesn't explode
+  if (STATE.chat.messages.length > 120) {
+    // keep the very first eliza greeting and last ~118 messages
+    const first = STATE.chat.messages[0];
+    STATE.chat.messages = [first, ...STATE.chat.messages.slice(-118)];
+  }
+}
+
+function handleUserInput(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return;
+
+  // Commands start with "/"
+  if (text.startsWith("/")) {
+    const res = runCommand(text);
+    if (res.out) appendMessage("system", res.out);
+    // On reset, ensure we rehash immediately
+    writeHash(STATE, { push: false });
+    renderAll();
+    return;
+  }
+
+  if (STATE.eliza.ended) {
+    appendMessage("system", "Session has ended. Use /reset to start over.");
+    writeHash(STATE, { push: false });
+    renderAll();
+    return;
+  }
+
+  appendMessage("user", text);
+
+  const { text: reply, trace } = elizaRespond(text, STATE);
+  STATE.elizaTrace = trace;
+  appendMessage("eliza", reply);
+
+  // rewrite hash (push or replace depending on prefs)
+  writeHash(STATE, { push: !!STATE.prefs.pushHistory });
+  renderAll();
+}
+
+/* -------------------- Clipboard helpers -------------------- */
+
+async function copyTextToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // fallback
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      document.body.removeChild(ta);
+      return false;
+    }
+  }
+}
+
+/* -------------------- Split divider drag -------------------- */
+function setupDivider() {
+  const divider = $("divider");
+  const wrap = $("splitWrap");
+  if (!divider || !wrap) return;
+
+  let dragging = false;
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    const rect = wrap.getBoundingClientRect();
+    const isCol = window.matchMedia("(max-width: 980px)").matches;
+    let ratio;
+    if (!isCol) {
+      const x = e.clientX - rect.left;
+      ratio = x / rect.width;
+    } else {
+      const y = e.clientY - rect.top;
+      ratio = y / rect.height;
+    }
+    STATE.ui.splitRatio = clamp(ratio, 0.15, 0.85);
+    applySplitRatio();
+    writeHash(STATE, { push: false });
+    renderTop();
+  };
+
+  const stop = () => { dragging = false; };
+
+  divider.addEventListener("pointerdown", (e) => {
+    divider.setPointerCapture(e.pointerId);
+    dragging = true;
+  });
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", stop);
+}
+
+/* -------------------- Wire up UI events -------------------- */
+function bindUI() {
+  $("btnChat").onclick = () => setView("chat");
+  $("btnInspect").onclick = () => setView("inspect");
+  $("btnSplit").onclick = () => setView("split");
+
+  $("btnPush").onclick = () => {
+    STATE.prefs.pushHistory = !STATE.prefs.pushHistory;
+    writeHash(STATE, { push: false });
+    renderAll();
+  };
+
+  $("btnCopyUrl").onclick = async () => {
+    const ok = await copyTextToClipboard(location.href);
+    appendMessage("system", ok ? "Copied URL to clipboard." : "Could not copy URL (browser permissions).");
+    writeHash(STATE, { push: false });
+    renderAll();
+  };
+
+  $("btnCopyState").onclick = async () => {
+    const ok = await copyTextToClipboard(JSON.stringify(STATE, null, 2));
+    appendMessage("system", ok ? "Copied JSON state to clipboard." : "Could not copy JSON (browser permissions).");
+    writeHash(STATE, { push: false });
+    renderAll();
+  };
+
+  $("btnReset").onclick = () => {
+    STATE = defaultState();
+    writeHash(STATE, { push: false });
+    renderAll();
+  };
+
+  const sendFrom = (textarea) => {
+    const v = textarea.value;
+    textarea.value = "";
+    handleUserInput(v);
+  };
+
+  // Chat view send
+  $("btnSend").onclick = () => sendFrom($("chatInput"));
+  $("chatInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendFrom($("chatInput"));
+    }
+  });
+
+  // Split chat send
+  $("btnSendSplit").onclick = () => sendFrom($("chatInputSplit"));
+  $("chatInputSplit").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendFrom($("chatInputSplit"));
+    }
+  });
+
+  // Help buttons
+  const help = () => {
+    const res = runCommand("/help");
+    if (res.out) appendMessage("system", res.out);
+    writeHash(STATE, { push: false });
+    renderAll();
+  };
+  $("btnHelpChat").onclick = help;
+  $("btnHelpInspect").onclick = help;
+  $("btnHelpSplit").onclick = help;
+
+  // Inspector recompute (just rerender / re-trace isn't possible without new input; recompute does a refresh)
+  $("btnRecompute").onclick = () => renderAll();
+  $("btnRecomputeSplit").onclick = () => renderAll();
+
+  // Inspector command input
+  $("cmdInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const line = $("cmdInput").value;
+      $("cmdInput").value = "";
+      const res = runCommand(line.startsWith("/") ? line : "/" + line);
+      if (res.out) {
+        STATE.ui.cmdLog.push({ t: nowISO(), line, out: res.out });
+        const box = $("cmdOutput");
+        box.textContent = (box.textContent ? box.textContent + "\n\n" : "") + res.out;
+      }
+      writeHash(STATE, { push: false });
+      renderAll();
+    }
+  });
+
+  // Apply JSON
+  $("btnApplyJson").onclick = () => {
+    const txt = $("stateEditor").value;
+    try {
+      const obj = JSON.parse(txt);
+      if (!obj || typeof obj !== "object") throw new Error("Not an object");
+      if (obj.v !== STATE_VERSION) throw new Error(`Unsupported version: expected v=${STATE_VERSION}`);
+      STATE = obj;
+      $("jsonStatus").textContent = "Applied JSON successfully.";
+      $("jsonStatus").style.color = "var(--ok)";
+      writeHash(STATE, { push: false });
+      renderAll();
+    } catch (err) {
+      $("jsonStatus").textContent = "JSON error: " + (err?.message || String(err));
+      $("jsonStatus").style.color = "var(--bad)";
+    }
+  };
+
+  $("btnReloadHash").onclick = () => {
+    const st = decodeStateFromHash(location.hash);
+    if (st) {
+      STATE = st;
+      $("jsonStatus").textContent = "Reloaded state from URL.";
+      $("jsonStatus").style.color = "var(--ok)";
+      renderAll();
+    } else {
+      $("jsonStatus").textContent = "Could not parse state from URL hash.";
+      $("jsonStatus").style.color = "var(--bad)";
+    }
+  };
+
+  // Keyboard shortcuts: Ctrl+1/2/3
+  window.addEventListener("keydown", (e) => {
+    if (!e.ctrlKey) return;
+    if (e.key === "1") { e.preventDefault(); setView("chat"); }
+    if (e.key === "2") { e.preventDefault(); setView("inspect"); }
+    if (e.key === "3") { e.preventDefault(); setView("split"); }
+  });
+
+  // Hashchange: load state if user pastes a URL or navigates history
+  window.addEventListener("hashchange", () => {
+    if (_suppressHashChange) return;
+    const st = decodeStateFromHash(location.hash);
+    if (st) {
+      STATE = st;
+      renderAll();
+    }
+  });
+
+  // Resize affects split layout
+  window.addEventListener("resize", () => applySplitRatio());
+
+  setupDivider();
+}
+
+/* -------------------- Boot -------------------- */
+
+loadOrInit();
+bindUI();
+renderAll();
+
+// Put something useful in inspection console on first load
+$("cmdOutput").textContent =
+  "Welcome to the inspection console.\n" +
+  "Type /help for commands.\n\n" +
+  "Design notes:\n" +
+  "- Transcript + ELIZA engine state are persisted into location.hash.\n" +
+  "- Regex rules are recompiled at runtime and not stored.\n" +
+  "- RNG is deterministic via xorshift32 and stored in state.\n";
+</script>
+</body>
+</html>
