@@ -151,17 +151,6 @@
       line-height:1.35;
       opacity:.95;
     }
-    .hash{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:11px;
-      color: rgba(232,234,240,.75);
-      word-break: break-all;
-      background: rgba(0,0,0,.22);
-      border:1px solid rgba(255,255,255,.10);
-      padding:10px 12px;
-      border-radius:14px;
-      margin-top:10px;
-    }
   </style>
 </head>
 
@@ -200,7 +189,6 @@
           <div id="notice" class="notice" style="display:none;"></div>
           <div id="qbox" class="q" style="margin-top:10px;"></div>
           <div id="guessbox" style="display:none; margin-top:12px;"></div>
-          <div class="hash" id="hashView"></div>
         </div>
       </div>
 
@@ -845,7 +833,6 @@ const DIAGNOSES = [
   const elDxSummary = document.getElementById("dxSummary");
   const elNotice = document.getElementById("notice");
   const elGuessBox = document.getElementById("guessbox");
-  const elHashView = document.getElementById("hashView");
 
   function render(){
     const answers = readHash();
@@ -855,7 +842,6 @@ const DIAGNOSES = [
     elRemainN.textContent = String(remaining.length);
     elElimN.textContent = String(eliminated);
     elAskedN.textContent = String(answers.length);
-    elHashView.textContent = "URL state (hash) = " + (location.hash || "#<empty>");
 
     // Remaining list
     elDxList.innerHTML = "";
