@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SFWA — 20 Questions (Educational Differential Guessing)</title>
+  <style>
+    :root{
+      --bg:#0b0c10; --panel:#12141b; --panel2:#0f1117; --text:#e8eaf0; --muted:#a7adbd;
+      --accent:#7aa2ff; --accent2:#40d39c; --warn:#ffcc66; --danger:#ff6b6b; --line:#23283a;
+      --chip:#1a1f2f; --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --r:16px;
+      color-scheme: dark;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background: radial-gradient(1200px 700px at 25% 10%, #14182a 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+    a{color:var(--accent);}
+    .wrap{max-width:1100px; margin:24px auto; padding:0 16px 64px;}
+    header{
+      display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .title{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    h1{margin:0; font-size:20px; letter-spacing:.2px;}
+    .subtitle{color:var(--muted); font-size:13px; line-height:1.35; max-width:780px;}
+    .row{display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; align-items:start;}
+    @media (max-width: 960px){ .row{grid-template-columns:1fr;} }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+      background: rgba(0,0,0,.18);
+    }
+    .card .hd .k{display:flex; flex-direction:column; gap:3px;}
+    .card .hd .k .t{font-weight:650; font-size:14px;}
+    .card .hd .k .m{color:var(--muted); font-size:12px;}
+    .card .bd{padding:14px;}
+    .pillbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    .pill{
+      font-size:12px; padding:6px 10px; border-radius:999px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--muted);
+    }
+    .pill strong{color: var(--text); font-weight:700;}
+    .btns{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    button{
+      appearance:none; border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding:9px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:650;
+      font-size:12px;
+    }
+    button:hover{border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.07);}
+    button.primary{
+      border-color: rgba(122,162,255,.45);
+      background: rgba(122,162,255,.18);
+    }
+    button.primary:hover{background: rgba(122,162,255,.24);}
+    button.danger{
+      border-color: rgba(255,107,107,.45);
+      background: rgba(255,107,107,.14);
+    }
+    button.danger:hover{background: rgba(255,107,107,.20);}
+    .q{
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .q .qtext{
+      font-size:16px; line-height:1.35;
+      font-weight:750;
+    }
+    .choices{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    @media (max-width: 700px){ .choices{grid-template-columns:1fr;} }
+    .choice{
+      text-align:left;
+      padding:12px 12px;
+      border-radius:14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      transition: transform .06s ease, background .12s ease, border-color .12s ease;
+    }
+    .choice:hover{transform: translateY(-1px); border-color: rgba(255,255,255,.24); background: rgba(0,0,0,.24);}
+    .choice .ct{font-weight:750; font-size:13px;}
+    .choice .cm{color:var(--muted); font-size:12px; margin-top:4px; line-height:1.3;}
+    .notice{
+      border-radius:14px;
+      border:1px solid rgba(255,204,102,.35);
+      background: rgba(255,204,102,.08);
+      padding:10px 12px;
+      color: var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+    .notice strong{color: var(--warn);}
+    .stack{display:flex; flex-direction:column; gap:12px;}
+    .history{
+      display:flex; flex-direction:column; gap:10px;
+      max-height: 520px; overflow:auto; padding-right:4px;
+    }
+    .hitem{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      border-radius:14px;
+      padding:10px 12px;
+    }
+    .hitem .ht{font-weight:750; font-size:12px; color: var(--muted); margin-bottom:6px;}
+    .hitem .hq{font-weight:750; font-size:13px; line-height:1.35;}
+    .hitem .ha{margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    .chip{
+      font-size:12px;
+      padding:5px 8px;
+      border-radius:999px;
+      background: var(--chip);
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--text);
+    }
+    details{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      background: rgba(0,0,0,.14);
+      padding:10px 12px;
+    }
+    summary{cursor:pointer; font-weight:750; color: var(--muted);}
+    .dxlist{margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;}
+    .dx{font-size:12px; padding:6px 9px; border-radius:999px; border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.03);}
+    .footer{
+      margin-top:16px;
+      color: var(--muted);
+      font-size:12px;
+      line-height:1.35;
+      opacity:.95;
+    }
+    .hash{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:11px;
+      color: rgba(232,234,240,.75);
+      word-break: break-all;
+      background: rgba(0,0,0,.22);
+      border:1px solid rgba(255,255,255,.10);
+      padding:10px 12px;
+      border-radius:14px;
+      margin-top:10px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1>Single-File “20 Questions” Differential Guesser</h1>
+      <div class="subtitle">
+        Educational toy app: answers are stored only in the <code>#hash</code> so you can copy/paste the URL to reproduce the round.
+        <strong style="color:var(--warn)">Not medical advice</strong> and not a diagnostic device.
+        If you’re worried about symptoms, contact a licensed clinician or local emergency services.
+      </div>
+    </div>
+    <div class="btns">
+      <button id="restart" class="danger" title="Clear current round and URL hash">Restart round</button>
+      <button id="copy" class="primary" title="Copy current URL including hash">Copy URL</button>
+    </div>
+  </header>
+
+  <div class="row">
+    <div class="stack">
+      <div class="card">
+        <div class="hd">
+          <div class="k">
+            <div class="t">Next question</div>
+            <div class="m">Chosen to eliminate diagnoses quickly (approx. expected remaining)</div>
+          </div>
+          <div class="pillbar">
+            <div class="pill"><strong id="remainN">—</strong> remaining</div>
+            <div class="pill"><strong id="elimN">—</strong> eliminated</div>
+            <div class="pill"><strong id="askedN">—</strong> answered</div>
+          </div>
+        </div>
+        <div class="bd">
+          <div id="notice" class="notice" style="display:none;"></div>
+          <div id="qbox" class="q" style="margin-top:10px;"></div>
+          <div id="guessbox" style="display:none; margin-top:12px;"></div>
+          <div class="hash" id="hashView"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <div class="k">
+            <div class="t">History</div>
+            <div class="m">All questions/answers remain visible during this round</div>
+          </div>
+        </div>
+        <div class="bd">
+          <div id="history" class="history"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <div class="hd">
+          <div class="k">
+            <div class="t">Remaining diagnoses</div>
+            <div class="m">Shown for transparency (not a real diagnosis)</div>
+          </div>
+        </div>
+        <div class="bd">
+          <details open>
+            <summary><span id="dxSummary">—</span></summary>
+            <div class="dxlist" id="dxList"></div>
+          </details>
+          <div class="footer">
+            Tips:
+            <ul style="margin:8px 0 0 18px; padding:0;">
+              <li>Restart clears only this round (and the hash).</li>
+              <li>Back/forward works because the hash is the state.</li>
+              <li>Some questions may not help if many diagnoses are compatible with “any” answer.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <div class="k">
+            <div class="t">About the model</div>
+            <div class="m">Lightweight rule-based elimination</div>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="notice">
+            <strong>How it works:</strong> each diagnosis lists which answers are compatible with certain questions.
+            If a diagnosis does not specify a question, it is treated as compatible with any answer (so it won’t be eliminated by that question).
+            The app picks the next question with the smallest estimated expected remaining set.
+          </div>
+          <div class="footer" style="margin-top:10px;">
+            This is intentionally simplified. Real clinical reasoning depends on timing, severity, exam findings, labs, imaging, prevalence, and risk.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // =========================
+  // 1) Questions (multiple choice only)
+  // =========================
+  const QUESTIONS = [
+    { id:"fever", text:"Is there a fever (≥38°C / 100.4°F)?", choices:[
+      {id:"yes", label:"Yes", hint:"Measured or clearly febrile"},
+      {id:"no",  label:"No",  hint:"No fever"},
+      {id:"unknown", label:"Not sure", hint:"No thermometer / unclear"}
+    ]},
+    { id:"onset", text:"How fast did symptoms start?", choices:[
+      {id:"sudden", label:"Sudden (minutes–hours)", hint:"Abrupt onset"},
+      {id:"acute", label:"Acute (1–3 days)", hint:"Developed over a couple days"},
+      {id:"subacute", label:"Subacute (4–14 days)", hint:"About a week"},
+      {id:"chronic", label:"Chronic (weeks+)", hint:"Long-standing / recurrent"}
+    ]},
+    { id:"cough", text:"Is there a cough?", choices:[
+      {id:"none", label:"No cough", hint:""},
+      {id:"dry", label:"Dry cough", hint:"No sputum"},
+      {id:"wet", label:"Productive cough", hint:"Sputum / phlegm"},
+      {id:"blood", label:"Coughing blood", hint:"Hemoptysis"}
+    ]},
+    { id:"sob", text:"Shortness of breath (dyspnea) level?", choices:[
+      {id:"none", label:"None", hint:"Breathing feels normal"},
+      {id:"mild", label:"Mild", hint:"With exertion"},
+      {id:"moderate", label:"Moderate", hint:"With minimal activity"},
+      {id:"severe", label:"Severe", hint:"At rest / can't speak full sentences"}
+    ]},
+    { id:"chestpain", text:"Is there chest pain?", choices:[
+      {id:"none", label:"No", hint:""},
+      {id:"pleuritic", label:"Sharp with breathing/cough", hint:"Pleuritic"},
+      {id:"pressure", label:"Pressure/heaviness", hint:"Exertional / crushing"},
+      {id:"burning", label:"Burning/acid", hint:"Reflux-like"}
+    ]},
+    { id:"sorethroat", text:"Sore throat?", choices:[
+      {id:"none", label:"No", hint:""},
+      {id:"mild", label:"Mild", hint:"Scratchy"},
+      {id:"severe", label:"Severe", hint:"Painful swallowing"},
+      {id:"exudate", label:"Severe with white patches", hint:"Exudate/tonsils"}
+    ]},
+    { id:"gi", text:"GI symptoms?", choices:[
+      {id:"none", label:"None", hint:"No vomiting/diarrhea"},
+      {id:"nausea", label:"Nausea/vomiting", hint:""},
+      {id:"diarrhea", label:"Diarrhea", hint:""},
+      {id:"both", label:"Both vomiting and diarrhea", hint:""}
+    ]},
+    { id:"rash", text:"Rash present?", choices:[
+      {id:"none", label:"No", hint:""},
+      {id:"hives", label:"Hives/itchy welts", hint:"Urticaria"},
+      {id:"target", label:"Target/bullseye rash", hint:"Erythema migrans-like"},
+      {id:"diffuse", label:"Diffuse red rash", hint:"Widespread maculopapular"},
+      {id:"vesicles", label:"Blisters/vesicles", hint:"Chickenpox-like"}
+    ]},
+    { id:"urinary", text:"Urinary symptoms?", choices:[
+      {id:"none", label:"None", hint:""},
+      {id:"burning", label:"Burning with urination", hint:"Dysuria"},
+      {id:"frequency", label:"Urgency/frequency", hint:""},
+      {id:"flank", label:"Flank pain", hint:"Kidney area pain"}
+    ]},
+    { id:"neuro", text:"Neurologic symptoms?", choices:[
+      {id:"none", label:"None", hint:""},
+      {id:"headache", label:"Headache", hint:""},
+      {id:"focal", label:"Weakness/numbness on one side", hint:"Focal deficit"},
+      {id:"confusion", label:"Confusion/altered mental status", hint:""}
+    ]},
+    { id:"pain_site", text:"Where is the primary pain (if any)?", choices:[
+      {id:"none", label:"No significant pain", hint:""},
+      {id:"abdomen", label:"Abdomen", hint:""},
+      {id:"pelvis", label:"Pelvis/low abdomen", hint:""},
+      {id:"back", label:"Back", hint:""},
+      {id:"joint", label:"Joints", hint:""}
+    ]},
+    { id:"abd_pattern", text:"If abdominal pain: where?", choices:[
+      {id:"na", label:"Not applicable", hint:"No abdominal pain"},
+      {id:"rlq", label:"Right lower quadrant", hint:"Appendix area"},
+      {id:"ruq", label:"Right upper quadrant", hint:"Gallbladder/liver area"},
+      {id:"epig", label:"Upper middle", hint:"Stomach/pancreas area"},
+      {id:"lowerdiff", label:"Lower diffuse/crampy", hint:"Pelvic/colon area"}
+    ]},
+    { id:"trigger", text:"Any clear trigger/exposure?", choices:[
+      {id:"none", label:"No clear trigger", hint:""},
+      {id:"sick", label:"Close sick contact", hint:"Household/work/school"},
+      {id:"food", label:"Risky food / food poisoning", hint:"Undercooked, buffet, etc."},
+      {id:"travel", label:"Recent travel", hint:"New region/country"},
+      {id:"allergen", label:"Allergen exposure", hint:"New med/food/sting"}
+    ]},
+    { id:"allergy_asthma", text:"History of asthma/allergies?", choices:[
+      {id:"yes", label:"Yes", hint:"Asthma, eczema, allergic rhinitis"},
+      {id:"no", label:"No", hint:""},
+      {id:"unknown", label:"Not sure", hint:""}
+    ]},
+    { id:"age", text:"Age group?", choices:[
+      {id:"child", label:"Child (<13)", hint:""},
+      {id:"teen", label:"Teen (13–17)", hint:""},
+      {id:"adult", label:"Adult (18–64)", hint:""},
+      {id:"older", label:"Older adult (65+)", hint:""}
+    ]},
+    { id:"sex", text:"Sex at birth?", choices:[
+      {id:"f", label:"Female", hint:""},
+      {id:"m", label:"Male", hint:""},
+      {id:"intersex", label:"Intersex/other", hint:"Prefer not to specify"},
+      {id:"unknown", label:"Prefer not to say", hint:""}
+    ]},
+    { id:"preg", text:"Pregnant (or could be)?", choices:[
+      {id:"no", label:"No", hint:""},
+      {id:"yes", label:"Yes", hint:""},
+      {id:"unknown", label:"Not sure / N/A", hint:""}
+    ]},
+    { id:"smoke", text:"Smoker / vaping history?", choices:[
+      {id:"no", label:"No", hint:""},
+      {id:"yes", label:"Yes", hint:"Current/recent"},
+      {id:"former", label:"Former", hint:"Quit previously"},
+      {id:"unknown", label:"Not sure", hint:""}
+    ]},
+    { id:"immuno", text:"Immune status?", choices:[
+      {id:"normal", label:"No known immune issues", hint:""},
+      {id:"compromised", label:"Immunocompromised", hint:"Chemo, transplant, high-dose steroids, etc."},
+      {id:"unknown", label:"Not sure", hint:""}
+    ]},
+    { id:"pain_quality", text:"If chest pain: what fits best?", choices:[
+      {id:"na", label:"Not applicable", hint:"No chest pain"},
+      {id:"worse_breath", label:"Worse with deep breath", hint:"Pleuritic"},
+      {id:"worse_exertion", label:"Worse with exertion", hint:"Angina-like"},
+      {id:"burning_meals", label:"Burning after meals/lying down", hint:"GERD-like"},
+      {id:"sharp_touch", label:"Sharp and tender to touch", hint:"Musculoskeletal"}
+    ]},
+  ];
+
+  // Utility: map question ids
+  const QMAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
+  const ALL_CHOICE_IDS = Object.fromEntries(QUESTIONS.map(q => [q.id, q.choices.map(c => c.id)]));
+
+  // =========================
+  // 2) Diagnoses
+  // Each dx.constraints[qid] = array of compatible choice ids (omit = compatible with any)
+  // =========================
+  function dx(name, constraints = {}, notes="") {
+    return { name, constraints, notes };
+  }
+
+  const DIAGNOSES = [
+    // Respiratory / infectious
+    dx("Common cold (viral URI)", { fever:["no","unknown"], cough:["dry","wet","none"], sorethroat:["mild","severe","none"], onset:["acute","subacute"], trigger:["sick","none"] }),
+    dx("Influenza", { fever:["yes"], onset:["acute"], cough:["dry","wet"], sorethroat:["mild","none"], gi:["none","nausea"], trigger:["sick","none"] }),
+    dx("COVID-19", { fever:["yes","no","unknown"], onset:["acute","subacute"], cough:["dry","wet","none"], sob:["none","mild","moderate"], sorethroat:["none","mild"], gi:["none","diarrhea","nausea","both"], trigger:["sick","travel","none"] }),
+    dx("Acute bronchitis", { cough:["wet","dry"], fever:["no","unknown","yes"], onset:["acute","subacute"], sob:["none","mild"], chestpain:["none","pleuritic"], smoke:["yes","former","no","unknown"] }),
+    dx("Pneumonia (community-acquired)", { fever:["yes"], cough:["wet","dry"], sob:["mild","moderate","severe"], chestpain:["pleuritic","none"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
+    dx("Asthma exacerbation", { sob:["moderate","severe","mild"], cough:["dry","none"], fever:["no","unknown"], allergy_asthma:["yes"], trigger:["allergen","none"] }),
+    dx("Allergic rhinitis", { fever:["no","unknown"], cough:["none","dry"], sorethroat:["mild","none"], trigger:["allergen"], allergy_asthma:["yes"] }),
+    dx("Sinusitis (acute)", { fever:["yes","no","unknown"], onset:["subacute"], cough:["dry","wet","none"], sorethroat:["mild","none"], headache:["(unused)"] }),
+    dx("Strep throat (GAS pharyngitis)", { fever:["yes"], sorethroat:["exudate","severe"], cough:["none"], onset:["acute"] }),
+    dx("Mononucleosis (EBV)", { fever:["yes","unknown"], sorethroat:["severe","exudate"], onset:["subacute"], age:["teen","adult"], cough:["none","dry"] }),
+
+    // Cardiac / chest
+    dx("Acute coronary syndrome (heart attack/unstable angina)", { chestpain:["pressure"], pain_quality:["worse_exertion"], sob:["mild","moderate","severe"], age:["adult","older"], onset:["sudden","acute"] }),
+    dx("GERD / reflux", { chestpain:["burning"], pain_quality:["burning_meals"], fever:["no","unknown"], cough:["none","dry"] }),
+    dx("Costochondritis / musculoskeletal chest pain", { chestpain:["none","pressure","pleuritic"], pain_quality:["sharp_touch"], fever:["no","unknown"], onset:["acute","subacute"] }),
+    dx("Pulmonary embolism", { sob:["moderate","severe"], chestpain:["pleuritic","none"], onset:["sudden","acute"], cough:["none","dry","blood"], fever:["no","unknown","yes"] }),
+
+    // GI
+    dx("Gastroenteritis (viral)", { gi:["diarrhea","both","nausea"], fever:["yes","no","unknown"], onset:["acute"], trigger:["sick","food","travel","none"], pain_site:["abdomen","none"] }),
+    dx("Food poisoning (toxin-mediated)", { gi:["both","nausea"], onset:["sudden","acute"], trigger:["food"], fever:["no","unknown"], pain_site:["abdomen","none"] }),
+    dx("Appendicitis", { pain_site:["abdomen"], abd_pattern:["rlq"], onset:["acute"], fever:["yes","unknown"], gi:["none","nausea"], sex:["f","m","intersex","unknown"] }),
+    dx("Cholecystitis (gallbladder inflammation)", { pain_site:["abdomen"], abd_pattern:["ruq"], onset:["acute"], fever:["yes","unknown"], gi:["nausea","none"] }),
+    dx("Pancreatitis", { pain_site:["abdomen","back"], abd_pattern:["epig"], onset:["acute"], gi:["nausea","both"], fever:["yes","no","unknown"] }),
+    dx("Peptic ulcer disease / gastritis", { pain_site:["abdomen"], abd_pattern:["epig"], onset:["subacute","chronic","acute"], gi:["none","nausea"], fever:["no","unknown"] }),
+    dx("Irritable bowel syndrome (IBS)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["chronic"], gi:["diarrhea","none"], fever:["no","unknown"] }),
+    dx("Inflammatory bowel disease (IBD flare)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["subacute","chronic"], gi:["diarrhea"], fever:["yes","no","unknown"] }),
+
+    // GU
+    dx("Urinary tract infection (cystitis)", { urinary:["burning","frequency"], fever:["no","unknown","yes"], pain_site:["pelvis","abdomen","none"], onset:["acute"] }),
+    dx("Pyelonephritis (kidney infection)", { urinary:["flank","burning","frequency"], fever:["yes"], onset:["acute"], pain_site:["back","abdomen"] }),
+    dx("Kidney stone (nephrolithiasis)", { urinary:["flank","none"], pain_site:["back","abdomen"], fever:["no","unknown"], onset:["sudden","acute"] }),
+
+    // Neuro
+    dx("Migraine", { neuro:["headache"], fever:["no","unknown"], onset:["acute","subacute"], pain_site:["none"], age:["teen","adult"] }),
+    dx("Tension headache", { neuro:["headache"], fever:["no","unknown"], onset:["subacute","chronic"], pain_site:["none"] }),
+    dx("Meningitis (emergency)", { fever:["yes"], neuro:["headache","confusion"], onset:["acute"], sorethroat:["none","mild","severe","exudate"] }),
+    dx("Stroke / TIA (emergency)", { neuro:["focal"], onset:["sudden"], fever:["no","unknown"], age:["adult","older"] }),
+
+    // Skin/allergy
+    dx("Allergic reaction / urticaria", { rash:["hives"], trigger:["allergen"], fever:["no","unknown"], sob:["none","mild","severe"] }),
+    dx("Anaphylaxis (emergency)", { trigger:["allergen"], rash:["hives","none"], sob:["severe","moderate"], onset:["sudden"], fever:["no","unknown"] }),
+    dx("Lyme disease", { rash:["target"], fever:["yes","no","unknown"], onset:["subacute"], trigger:["travel","none"] }),
+    dx("Varicella (chickenpox)", { rash:["vesicles"], fever:["yes","unknown"], age:["child","teen"], onset:["acute"] }),
+    dx("Measles (rare; emergency if suspected)", { rash:["diffuse"], fever:["yes"], onset:["acute"], cough:["dry","wet"], trigger:["travel","sick","none"] }),
+
+    // MSK / rheum
+    dx("Gout flare", { pain_site:["joint"], fever:["no","unknown","yes"], onset:["sudden","acute"], age:["adult","older"] }),
+    dx("Rheumatoid arthritis flare", { pain_site:["joint"], onset:["chronic"], fever:["no","unknown"] }),
+    dx("Septic arthritis (emergency)", { pain_site:["joint"], fever:["yes"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
+
+    // OB/GYN / pregnancy-related
+    dx("Ectopic pregnancy (emergency)", { sex:["f","intersex","unknown"], preg:["yes","unknown"], pain_site:["pelvis","abdomen"], onset:["acute","sudden"], fever:["no","unknown"] }),
+    dx("Pelvic inflammatory disease (PID)", { sex:["f","intersex","unknown"], pain_site:["pelvis"], fever:["yes","unknown"], onset:["acute","subacute"] }),
+
+    // Other common-ish
+    dx("Dehydration", { gi:["diarrhea","both","nausea","none"], fever:["yes","no","unknown"], onset:["acute","subacute"], sob:["none","mild"] }),
+    dx("Anemia (symptomatic)", { sob:["mild","moderate"], onset:["chronic"], fever:["no","unknown"], chestpain:["none","pressure"], age:["adult","older"] }),
+    dx("COPD exacerbation", { sob:["moderate","severe","mild"], cough:["wet","dry"], smoke:["yes","former"], fever:["no","unknown","yes"], onset:["acute"] }),
+  ];
+
+  // =========================
+  // 3) URL hash state: only answers in current round
+  // answers: array of {qid, choice}
+  // =========================
+  function base64UrlEncode(str){
+    const b64 = btoa(unescape(encodeURIComponent(str)));
+    return b64.replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  }
+  function base64UrlDecode(b64url){
+    const b64 = b64url.replace(/-/g,"+").replace(/_/g,"/");
+    const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
+    const str = atob(b64 + pad);
+    return decodeURIComponent(escape(str));
+  }
+
+  function readHash(){
+    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+    if(!raw) return [];
+    try{
+      const json = base64UrlDecode(raw);
+      const arr = JSON.parse(json);
+      if(!Array.isArray(arr)) return [];
+      // sanitize
+      return arr
+        .filter(x => x && typeof x.qid==="string" && typeof x.choice==="string" && QMAP[x.qid])
+        .filter(x => ALL_CHOICE_IDS[x.qid].includes(x.choice));
+    }catch{ return []; }
+  }
+  function writeHash(answers){
+    const json = JSON.stringify(answers);
+    const enc = base64UrlEncode(json);
+    history.replaceState(null, "", "#" + enc);
+  }
+
+  // =========================
+  // 4) Reasoning: filter diagnoses by compatibility
+  // =========================
+  function compatible(dx, qid, choice){
+    const allowed = dx.constraints[qid];
+    if(!allowed) return true; // unspecified => compatible with any
+    return allowed.includes(choice);
+  }
+
+  function filterDx(answers){
+    return DIAGNOSES.filter(d => answers.every(a => compatible(d, a.qid, a.choice)));
+  }
+
+  // Choose next question: min expected remaining (approx)
+  function expectedRemainingForQuestion(remainingDx, qid){
+    const q = QMAP[qid];
+    const choiceIds = q.choices.map(c => c.id);
+
+    // Probability mass: each dx splits equally across its compatible choices
+    const mass = Object.fromEntries(choiceIds.map(id => [id, 0]));
+    const countByChoice = Object.fromEntries(choiceIds.map(id => [id, 0]));
+
+    for(const d of remainingDx){
+      const compatChoices = choiceIds.filter(cid => compatible(d, qid, cid));
+      const share = 1 / compatChoices.length;
+      for(const cid of compatChoices){
+        mass[cid] += share;
+        countByChoice[cid] += 1;
+      }
+    }
+    const totalMass = Object.values(mass).reduce((a,b)=>a+b,0) || 1;
+    // Normalize in case of float drift
+    for(const k of choiceIds) mass[k] /= totalMass;
+
+    // Expected remaining
+    let exp = 0;
+    for(const cid of choiceIds){
+      exp += mass[cid] * countByChoice[cid];
+    }
+    return exp;
+  }
+
+  function pickNextQuestion(answers, remainingDx){
+    const answered = new Set(answers.map(a => a.qid));
+    const candidates = QUESTIONS
+      .map(q => q.id)
+      .filter(qid => !answered.has(qid));
+
+    if(candidates.length === 0) return null;
+
+    let best = null;
+    let bestScore = Infinity;
+
+    for(const qid of candidates){
+      const score = expectedRemainingForQuestion(remainingDx, qid);
+      if(score < bestScore){
+        bestScore = score;
+        best = qid;
+      }
+    }
+    return { qid: best, score: bestScore };
+  }
+
+  // =========================
+  // 5) UI wiring
+  // =========================
+  const elRemainN = document.getElementById("remainN");
+  const elElimN = document.getElementById("elimN");
+  const elAskedN = document.getElementById("askedN");
+  const elQBox = document.getElementById("qbox");
+  const elHistory = document.getElementById("history");
+  const elDxList = document.getElementById("dxList");
+  const elDxSummary = document.getElementById("dxSummary");
+  const elNotice = document.getElementById("notice");
+  const elGuessBox = document.getElementById("guessbox");
+  const elHashView = document.getElementById("hashView");
+
+  function render(){
+    const answers = readHash();
+    const remaining = filterDx(answers);
+    const eliminated = DIAGNOSES.length - remaining.length;
+
+    elRemainN.textContent = String(remaining.length);
+    elElimN.textContent = String(eliminated);
+    elAskedN.textContent = String(answers.length);
+    elHashView.textContent = "URL state (hash) = " + (location.hash || "#<empty>");
+
+    // Remaining list
+    elDxList.innerHTML = "";
+    for(const d of remaining){
+      const chip = document.createElement("div");
+      chip.className = "dx";
+      chip.textContent = d.name;
+      elDxList.appendChild(chip);
+    }
+    elDxSummary.textContent = `${remaining.length} remaining (of ${DIAGNOSES.length})`;
+
+    // History
+    elHistory.innerHTML = "";
+    if(answers.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "notice";
+      empty.innerHTML = "<strong>Round is empty.</strong> Answer questions to narrow the possibilities. Copy/paste the URL to share the current state.";
+      elHistory.appendChild(empty);
+    } else {
+      answers.forEach((a, idx) => {
+        const q = QMAP[a.qid];
+        const c = q.choices.find(x => x.id === a.choice);
+        const item = document.createElement("div");
+        item.className = "hitem";
+        item.innerHTML = `
+          <div class="ht">Q${idx+1}</div>
+          <div class="hq">${escapeHtml(q.text)}</div>
+          <div class="ha">
+            <span class="chip">${escapeHtml(c ? c.label : a.choice)}</span>
+            <span class="chip" style="color:var(--muted);">${escapeHtml(c && c.hint ? c.hint : "")}</span>
+          </div>`;
+        elHistory.appendChild(item);
+      });
+    }
+
+    // Decide what to show next
+    const done = (answers.length >= 20) || remaining.length <= 1;
+    const next = pickNextQuestion(answers, remaining);
+
+    elQBox.innerHTML = "";
+    elGuessBox.style.display = "none";
+    elNotice.style.display = "none";
+
+    // Guessing heuristics: if narrowed enough or out of questions
+    const outOfQuestions = !next;
+    const narrowEnough = remaining.length <= 3 || done || outOfQuestions;
+
+    if(narrowEnough){
+      elGuessBox.style.display = "block";
+      const top = remaining.slice(0, Math.min(5, remaining.length)).map(d => d.name);
+      const guessText = remaining.length === 0
+        ? "No diagnoses remain compatible with your answers. (This indicates the toy rule set is inconsistent for your selections.)"
+        : remaining.length === 1
+          ? `Best guess: <strong>${escapeHtml(remaining[0].name)}</strong>`
+          : `Narrowed to <strong>${remaining.length}</strong>. Possible guesses: <strong>${top.map(escapeHtml).join("</strong>, <strong>")}</strong>`;
+
+      elGuessBox.innerHTML = `
+        <div class="notice" style="border-color:rgba(64,211,156,.35); background:rgba(64,211,156,.08);">
+          <strong style="color:var(--accent2);">Status:</strong>
+          ${guessText}<br/>
+          <span style="color:var(--muted);">This is educational only. If symptoms are concerning, seek clinical evaluation.</span>
+        </div>
+      `;
+
+      if(outOfQuestions && remaining.length > 1){
+        elNotice.style.display = "block";
+        elNotice.innerHTML = `<strong>Out of questions.</strong> Restart to try a different path, or add more questions/diagnoses in the single file.`;
+      }
+    }
+
+    if(!done && next){
+      const q = QMAP[next.qid];
+      const score = next.score;
+      const exp = (isFinite(score) ? score.toFixed(1) : "—");
+
+      const header = document.createElement("div");
+      header.className = "qtext";
+      header.textContent = q.text;
+      elQBox.appendChild(header);
+
+      const meta = document.createElement("div");
+      meta.className = "pillbar";
+      meta.innerHTML = `<span class="pill">Estimated expected remaining: <strong>${exp}</strong></span>`;
+      elQBox.appendChild(meta);
+
+      const grid = document.createElement("div");
+      grid.className = "choices";
+
+      q.choices.forEach(ch => {
+        const btn = document.createElement("button");
+        btn.className = "choice";
+        btn.innerHTML = `<div class="ct">${escapeHtml(ch.label)}</div><div class="cm">${escapeHtml(ch.hint || "")}</div>`;
+        btn.onclick = () => {
+          const answers2 = readHash();
+          answers2.push({ qid: q.id, choice: ch.id });
+          writeHash(answers2);
+          render();
+        };
+        grid.appendChild(btn);
+      });
+
+      elQBox.appendChild(grid);
+
+      // Show elimination effect preview (optional but helpful)
+      const preview = document.createElement("div");
+      preview.className = "notice";
+      preview.style.borderColor = "rgba(122,162,255,.35)";
+      preview.style.background = "rgba(122,162,255,.08)";
+      preview.innerHTML =
+        `<strong style="color:var(--accent);">Preview:</strong> After you answer, the remaining set is filtered to diagnoses compatible with that choice.`;
+      elQBox.appendChild(preview);
+    } else if(done && remaining.length > 1){
+      elNotice.style.display = "block";
+      elNotice.innerHTML = `<strong>Stopped.</strong> Reached 20 answers or narrowed enough. You can restart any time.`;
+    }
+  }
+
+  // =========================
+  // 6) Helpers + events
+  // =========================
+  function escapeHtml(s){
+    return String(s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
+  document.getElementById("restart").onclick = () => {
+    history.replaceState(null, "", location.pathname + location.search); // remove hash
+    render();
+  };
+
+  document.getElementById("copy").onclick = async () => {
+    try{
+      await navigator.clipboard.writeText(location.href);
+      const btn = document.getElementById("copy");
+      const old = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(()=>btn.textContent = old, 900);
+    }catch{
+      // fallback
+      prompt("Copy URL:", location.href);
+    }
+  };
+
+  window.addEventListener("hashchange", render);
+
+  // Initial canonicalization: if hash exists but is invalid, clear it.
+  (function init(){
+    const answers = readHash();
+    if(location.hash && answers.length === 0){
+      history.replaceState(null, "", location.pathname + location.search);
+    } else if(answers.length > 0){
+      // normalize hash encoding (sanitized)
+      writeHash(answers);
+    }
+    render();
+  })();
+
+})();
+</script>
+</body>
+</html>
