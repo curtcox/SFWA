@@ -396,75 +396,345 @@
   const QMAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
   const ALL_CHOICE_IDS = Object.fromEntries(QUESTIONS.map(q => [q.id, q.choices.map(c => c.id)]));
 
+// =========================
+// 2) Diagnoses
+// Each dx.constraints[qid] = array of compatible choice ids (omit = compatible with any)
+// =========================
+function dx(name, constraints = {}, notes="") {
+  return { name, constraints, notes };
+}
+
+const DIAGNOSES = [
+  // Respiratory / infectious
+  dx("Common cold (viral URI)", { fever:["no","unknown"], cough:["dry","wet","none"], sorethroat:["mild","severe","none"], onset:["acute","subacute"], trigger:["sick","none"] }),
+  dx("Influenza", { fever:["yes"], onset:["acute"], cough:["dry","wet"], sorethroat:["mild","none"], gi:["none","nausea"], trigger:["sick","none"] }),
+  dx("COVID-19", { fever:["yes","no","unknown"], onset:["acute","subacute"], cough:["dry","wet","none"], sob:["none","mild","moderate"], sorethroat:["none","mild"], gi:["none","diarrhea","nausea","both"], trigger:["sick","travel","none"] }),
+  dx("Acute bronchitis", { cough:["wet","dry"], fever:["no","unknown","yes"], onset:["acute","subacute"], sob:["none","mild"], chestpain:["none","pleuritic"], smoke:["yes","former","no","unknown"] }),
+  dx("Pneumonia (community-acquired)", { fever:["yes"], cough:["wet","dry"], sob:["mild","moderate","severe"], chestpain:["pleuritic","none"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
+  dx("Asthma exacerbation", { sob:["moderate","severe","mild"], cough:["dry","none"], fever:["no","unknown"], allergy_asthma:["yes"], trigger:["allergen","none"] }),
+  dx("Allergic rhinitis", { fever:["no","unknown"], cough:["none","dry"], sorethroat:["mild","none"], trigger:["allergen"], allergy_asthma:["yes"] }),
+  dx("Sinusitis (acute)", { fever:["yes","no","unknown"], onset:["subacute"], cough:["dry","wet","none"], sorethroat:["mild","none"] }),
+  dx("Strep throat (GAS pharyngitis)", { fever:["yes"], sorethroat:["exudate","severe"], cough:["none"], onset:["acute"] }),
+  dx("Mononucleosis (EBV)", { fever:["yes","unknown"], sorethroat:["severe","exudate"], onset:["subacute"], age:["teen","adult"], cough:["none","dry"] }),
+
+  // Cardiac / chest
+  dx("Acute coronary syndrome (heart attack/unstable angina)", { chestpain:["pressure"], pain_quality:["worse_exertion"], sob:["mild","moderate","severe"], age:["adult","older"], onset:["sudden","acute"] }),
+  dx("GERD / reflux", { chestpain:["burning"], pain_quality:["burning_meals"], fever:["no","unknown"], cough:["none","dry"] }),
+  dx("Costochondritis / musculoskeletal chest pain", { chestpain:["none","pressure","pleuritic"], pain_quality:["sharp_touch"], fever:["no","unknown"], onset:["acute","subacute"] }),
+  dx("Pulmonary embolism", { sob:["moderate","severe"], chestpain:["pleuritic","none"], onset:["sudden","acute"], cough:["none","dry","blood"], fever:["no","unknown","yes"] }),
+
+  // GI
+  dx("Gastroenteritis (viral)", { gi:["diarrhea","both","nausea"], fever:["yes","no","unknown"], onset:["acute"], trigger:["sick","food","travel","none"], pain_site:["abdomen","none"] }),
+  dx("Food poisoning (toxin-mediated)", { gi:["both","nausea"], onset:["sudden","acute"], trigger:["food"], fever:["no","unknown"], pain_site:["abdomen","none"] }),
+  dx("Appendicitis", { pain_site:["abdomen"], abd_pattern:["rlq"], onset:["acute"], fever:["yes","unknown"], gi:["none","nausea"], sex:["f","m","intersex","unknown"] }),
+  dx("Cholecystitis (gallbladder inflammation)", { pain_site:["abdomen"], abd_pattern:["ruq"], onset:["acute"], fever:["yes","unknown"], gi:["nausea","none"] }),
+  dx("Pancreatitis", { pain_site:["abdomen","back"], abd_pattern:["epig"], onset:["acute"], gi:["nausea","both"], fever:["yes","no","unknown"] }),
+  dx("Peptic ulcer disease / gastritis", { pain_site:["abdomen"], abd_pattern:["epig"], onset:["subacute","chronic","acute"], gi:["none","nausea"], fever:["no","unknown"] }),
+  dx("Irritable bowel syndrome (IBS)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["chronic"], gi:["diarrhea","none"], fever:["no","unknown"] }),
+  dx("Inflammatory bowel disease (IBD flare)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["subacute","chronic"], gi:["diarrhea"], fever:["yes","no","unknown"] }),
+
+  // GU
+  dx("Urinary tract infection (cystitis)", { urinary:["burning","frequency"], fever:["no","unknown","yes"], pain_site:["pelvis","abdomen","none"], onset:["acute"] }),
+  dx("Pyelonephritis (kidney infection)", { urinary:["flank","burning","frequency"], fever:["yes"], onset:["acute"], pain_site:["back","abdomen"] }),
+  dx("Kidney stone (nephrolithiasis)", { urinary:["flank","none"], pain_site:["back","abdomen"], fever:["no","unknown"], onset:["sudden","acute"] }),
+
+  // Neuro
+  dx("Migraine", { neuro:["headache"], fever:["no","unknown"], onset:["acute","subacute"], pain_site:["none"], age:["teen","adult"] }),
+  dx("Tension headache", { neuro:["headache"], fever:["no","unknown"], onset:["subacute","chronic"], pain_site:["none"] }),
+  dx("Meningitis (emergency)", { fever:["yes"], neuro:["headache","confusion"], onset:["acute"], sorethroat:["none","mild","severe","exudate"] }),
+  dx("Stroke / TIA (emergency)", { neuro:["focal"], onset:["sudden"], fever:["no","unknown"], age:["adult","older"] }),
+
+  // Skin/allergy
+  dx("Allergic reaction / urticaria", { rash:["hives"], trigger:["allergen"], fever:["no","unknown"], sob:["none","mild","severe"] }),
+  dx("Anaphylaxis (emergency)", { trigger:["allergen"], rash:["hives","none"], sob:["severe","moderate"], onset:["sudden"], fever:["no","unknown"] }),
+  dx("Lyme disease", { rash:["target"], fever:["yes","no","unknown"], onset:["subacute"], trigger:["travel","none"] }),
+  dx("Varicella (chickenpox)", { rash:["vesicles"], fever:["yes","unknown"], age:["child","teen"], onset:["acute"] }),
+  dx("Measles (rare; emergency if suspected)", { rash:["diffuse"], fever:["yes"], onset:["acute"], cough:["dry","wet"], trigger:["travel","sick","none"] }),
+
+  // MSK / rheum
+  dx("Gout flare", { pain_site:["joint"], fever:["no","unknown","yes"], onset:["sudden","acute"], age:["adult","older"] }),
+  dx("Rheumatoid arthritis flare", { pain_site:["joint"], onset:["chronic"], fever:["no","unknown"] }),
+  dx("Septic arthritis (emergency)", { pain_site:["joint"], fever:["yes"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
+
+  // OB/GYN / pregnancy-related
+  dx("Ectopic pregnancy (emergency)", { sex:["f","intersex","unknown"], preg:["yes","unknown"], pain_site:["pelvis","abdomen"], onset:["acute","sudden"], fever:["no","unknown"] }),
+  dx("Pelvic inflammatory disease (PID)", { sex:["f","intersex","unknown"], pain_site:["pelvis"], fever:["yes","unknown"], onset:["acute","subacute"] }),
+
+  // Other common-ish
+  dx("Dehydration", { gi:["diarrhea","both","nausea","none"], fever:["yes","no","unknown"], onset:["acute","subacute"], sob:["none","mild"] }),
+  dx("Anemia (symptomatic)", { sob:["mild","moderate"], onset:["chronic"], fever:["no","unknown"], chestpain:["none","pressure"], age:["adult","older"] }),
+  dx("COPD exacerbation", { sob:["moderate","severe","mild"], cough:["wet","dry"], smoke:["yes","former"], fever:["no","unknown","yes"], onset:["acute"] }),
+
   // =========================
-  // 2) Diagnoses
-  // Each dx.constraints[qid] = array of compatible choice ids (omit = compatible with any)
+  // Additions: neuro / ENT / eye
   // =========================
-  function dx(name, constraints = {}, notes="") {
-    return { name, constraints, notes };
-  }
+  dx("Cluster headache", { neuro:["headache"], onset:["sudden","acute"], fever:["no","unknown"], age:["adult"], pain_site:["none"] }),
+  dx("Subarachnoid hemorrhage (emergency)", { neuro:["headache"], onset:["sudden"], fever:["no","unknown"], age:["adult","older"], pain_site:["none"] }),
+  dx("Concussion / mild TBI", { neuro:["headache","confusion"], onset:["sudden","acute"], fever:["no","unknown"], pain_site:["none"] }),
+  dx("Acute angle-closure glaucoma (emergency)", { neuro:["headache"], onset:["sudden","acute"], fever:["no","unknown"], pain_site:["none"] }),
+  dx("Otitis media", { fever:["yes","unknown"], onset:["acute"], age:["child","teen"], sorethroat:["none","mild","severe"], cough:["none","dry","wet"] }),
+  dx("Otitis externa", { fever:["no","unknown","yes"], onset:["acute"], age:["child","teen","adult"], sorethroat:["none","mild"], cough:["none"] }),
+  dx("Dental infection / abscess", { fever:["yes","unknown"], onset:["acute","subacute"], pain_site:["none"], sorethroat:["none","mild","severe"] }),
+  dx("Peritonsillar abscess (emergency)", { fever:["yes"], sorethroat:["severe","exudate"], onset:["acute"], cough:["none"], age:["teen","adult"] }),
 
-  const DIAGNOSES = [
-    // Respiratory / infectious
-    dx("Common cold (viral URI)", { fever:["no","unknown"], cough:["dry","wet","none"], sorethroat:["mild","severe","none"], onset:["acute","subacute"], trigger:["sick","none"] }),
-    dx("Influenza", { fever:["yes"], onset:["acute"], cough:["dry","wet"], sorethroat:["mild","none"], gi:["none","nausea"], trigger:["sick","none"] }),
-    dx("COVID-19", { fever:["yes","no","unknown"], onset:["acute","subacute"], cough:["dry","wet","none"], sob:["none","mild","moderate"], sorethroat:["none","mild"], gi:["none","diarrhea","nausea","both"], trigger:["sick","travel","none"] }),
-    dx("Acute bronchitis", { cough:["wet","dry"], fever:["no","unknown","yes"], onset:["acute","subacute"], sob:["none","mild"], chestpain:["none","pleuritic"], smoke:["yes","former","no","unknown"] }),
-    dx("Pneumonia (community-acquired)", { fever:["yes"], cough:["wet","dry"], sob:["mild","moderate","severe"], chestpain:["pleuritic","none"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
-    dx("Asthma exacerbation", { sob:["moderate","severe","mild"], cough:["dry","none"], fever:["no","unknown"], allergy_asthma:["yes"], trigger:["allergen","none"] }),
-    dx("Allergic rhinitis", { fever:["no","unknown"], cough:["none","dry"], sorethroat:["mild","none"], trigger:["allergen"], allergy_asthma:["yes"] }),
-    dx("Sinusitis (acute)", { fever:["yes","no","unknown"], onset:["subacute"], cough:["dry","wet","none"], sorethroat:["mild","none"], headache:["(unused)"] }),
-    dx("Strep throat (GAS pharyngitis)", { fever:["yes"], sorethroat:["exudate","severe"], cough:["none"], onset:["acute"] }),
-    dx("Mononucleosis (EBV)", { fever:["yes","unknown"], sorethroat:["severe","exudate"], onset:["subacute"], age:["teen","adult"], cough:["none","dry"] }),
+  // =========================
+  // Additions: respiratory / blood
+  // =========================
+  dx("Tuberculosis", { cough:["wet","dry","blood"], onset:["chronic"], fever:["yes","unknown"], sob:["mild","moderate"], trigger:["travel","none"], immuno:["normal","compromised","unknown"] }),
+  dx("Pertussis (whooping cough)", { cough:["dry","wet"], onset:["subacute"], fever:["no","unknown"], age:["child","teen","adult"], trigger:["sick","none"] }),
+  dx("RSV infection", { cough:["wet","dry"], fever:["yes","no","unknown"], onset:["acute"], age:["child","older"], sob:["mild","moderate","severe"], trigger:["sick","none"] }),
+  dx("Acute heart failure exacerbation", { sob:["moderate","severe"], cough:["wet","dry"], chestpain:["none","pressure"], onset:["acute","subacute"], age:["older","adult"] }),
+  dx("Pericarditis", { chestpain:["pressure","pleuritic"], pain_quality:["worse_breath"], fever:["yes","unknown","no"], onset:["acute"], cough:["none","dry"] }),
+  dx("Pneumothorax", { onset:["sudden"], sob:["moderate","severe"], chestpain:["pleuritic"], cough:["none","dry"], fever:["no","unknown"] }),
 
-    // Cardiac / chest
-    dx("Acute coronary syndrome (heart attack/unstable angina)", { chestpain:["pressure"], pain_quality:["worse_exertion"], sob:["mild","moderate","severe"], age:["adult","older"], onset:["sudden","acute"] }),
-    dx("GERD / reflux", { chestpain:["burning"], pain_quality:["burning_meals"], fever:["no","unknown"], cough:["none","dry"] }),
-    dx("Costochondritis / musculoskeletal chest pain", { chestpain:["none","pressure","pleuritic"], pain_quality:["sharp_touch"], fever:["no","unknown"], onset:["acute","subacute"] }),
-    dx("Pulmonary embolism", { sob:["moderate","severe"], chestpain:["pleuritic","none"], onset:["sudden","acute"], cough:["none","dry","blood"], fever:["no","unknown","yes"] }),
+  // =========================
+  // Additions: GI / hepatobiliary
+  // =========================
+  dx("Diverticulitis", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["acute"], fever:["yes","unknown"], gi:["none","nausea","diarrhea"] }),
+  dx("Viral hepatitis", { pain_site:["abdomen"], abd_pattern:["ruq","epig"], onset:["subacute"], fever:["yes","unknown","no"], gi:["nausea","none"], trigger:["travel","food","none"] }),
+  dx("Acute alcohol gastritis", { pain_site:["abdomen"], abd_pattern:["epig"], onset:["acute"], gi:["nausea"], fever:["no","unknown"] }),
+  dx("Small bowel obstruction", { pain_site:["abdomen"], abd_pattern:["lowerdiff","epig"], onset:["acute"], gi:["nausea","both"], fever:["no","unknown","yes"] }),
+  dx("Constipation", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["subacute","chronic"], gi:["none"], fever:["no","unknown"] }),
 
-    // GI
-    dx("Gastroenteritis (viral)", { gi:["diarrhea","both","nausea"], fever:["yes","no","unknown"], onset:["acute"], trigger:["sick","food","travel","none"], pain_site:["abdomen","none"] }),
-    dx("Food poisoning (toxin-mediated)", { gi:["both","nausea"], onset:["sudden","acute"], trigger:["food"], fever:["no","unknown"], pain_site:["abdomen","none"] }),
-    dx("Appendicitis", { pain_site:["abdomen"], abd_pattern:["rlq"], onset:["acute"], fever:["yes","unknown"], gi:["none","nausea"], sex:["f","m","intersex","unknown"] }),
-    dx("Cholecystitis (gallbladder inflammation)", { pain_site:["abdomen"], abd_pattern:["ruq"], onset:["acute"], fever:["yes","unknown"], gi:["nausea","none"] }),
-    dx("Pancreatitis", { pain_site:["abdomen","back"], abd_pattern:["epig"], onset:["acute"], gi:["nausea","both"], fever:["yes","no","unknown"] }),
-    dx("Peptic ulcer disease / gastritis", { pain_site:["abdomen"], abd_pattern:["epig"], onset:["subacute","chronic","acute"], gi:["none","nausea"], fever:["no","unknown"] }),
-    dx("Irritable bowel syndrome (IBS)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["chronic"], gi:["diarrhea","none"], fever:["no","unknown"] }),
-    dx("Inflammatory bowel disease (IBD flare)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["subacute","chronic"], gi:["diarrhea"], fever:["yes","no","unknown"] }),
+  // =========================
+  // Additions: GU / reproductive
+  // =========================
+  dx("Prostatitis", { sex:["m"], urinary:["burning","frequency","none"], fever:["yes","unknown","no"], pain_site:["pelvis","back"], onset:["acute","subacute"] }),
+  dx("Testicular torsion (emergency)", { sex:["m"], onset:["sudden"], fever:["no","unknown"], pain_site:["pelvis"], urinary:["none"] }),
+  dx("Ovarian torsion (emergency)", { sex:["f","intersex","unknown"], onset:["sudden"], fever:["no","unknown"], pain_site:["pelvis"], preg:["no","unknown","yes"] }),
+  dx("Endometriosis", { sex:["f","intersex","unknown"], onset:["chronic"], pain_site:["pelvis"], fever:["no","unknown"], urinary:["none","frequency"] }),
 
-    // GU
-    dx("Urinary tract infection (cystitis)", { urinary:["burning","frequency"], fever:["no","unknown","yes"], pain_site:["pelvis","abdomen","none"], onset:["acute"] }),
-    dx("Pyelonephritis (kidney infection)", { urinary:["flank","burning","frequency"], fever:["yes"], onset:["acute"], pain_site:["back","abdomen"] }),
-    dx("Kidney stone (nephrolithiasis)", { urinary:["flank","none"], pain_site:["back","abdomen"], fever:["no","unknown"], onset:["sudden","acute"] }),
+  // =========================
+  // Additions: skin / infection
+  // =========================
+  dx("Cellulitis", { rash:["diffuse"], fever:["yes","unknown","no"], onset:["acute"], pain_site:["none"] }),
+  dx("Shingles (herpes zoster)", { rash:["vesicles"], fever:["no","unknown","yes"], onset:["acute"], age:["adult","older"], pain_site:["back","none"] }),
+  dx("Hand-foot-and-mouth disease", { rash:["vesicles","diffuse"], fever:["yes","unknown"], onset:["acute"], age:["child"], sorethroat:["mild","severe","none"] }),
+  dx("Scarlet fever", { rash:["diffuse"], fever:["yes"], sorethroat:["severe","exudate"], cough:["none"], onset:["acute"], age:["child","teen"] }),
 
-    // Neuro
-    dx("Migraine", { neuro:["headache"], fever:["no","unknown"], onset:["acute","subacute"], pain_site:["none"], age:["teen","adult"] }),
-    dx("Tension headache", { neuro:["headache"], fever:["no","unknown"], onset:["subacute","chronic"], pain_site:["none"] }),
-    dx("Meningitis (emergency)", { fever:["yes"], neuro:["headache","confusion"], onset:["acute"], sorethroat:["none","mild","severe","exudate"] }),
-    dx("Stroke / TIA (emergency)", { neuro:["focal"], onset:["sudden"], fever:["no","unknown"], age:["adult","older"] }),
+  // =========================
+  // Additions: metabolic / systemic
+  // =========================
+  dx("Diabetic ketoacidosis (emergency)", { gi:["nausea","both"], onset:["acute"], fever:["no","unknown","yes"], sob:["mild","moderate","severe"], pain_site:["abdomen","none"] }),
+  dx("Sepsis (emergency)", { fever:["yes"], onset:["acute"], neuro:["confusion","none","headache"], sob:["none","mild","moderate","severe"], pain_site:["none","abdomen","back","pelvis","joint"] }),
+  dx("Heat exhaustion/heat illness", { fever:["yes","unknown","no"], onset:["acute"], neuro:["headache","confusion","none"], gi:["nausea","none"], sob:["none","mild"] }),
 
-    // Skin/allergy
-    dx("Allergic reaction / urticaria", { rash:["hives"], trigger:["allergen"], fever:["no","unknown"], sob:["none","mild","severe"] }),
-    dx("Anaphylaxis (emergency)", { trigger:["allergen"], rash:["hives","none"], sob:["severe","moderate"], onset:["sudden"], fever:["no","unknown"] }),
-    dx("Lyme disease", { rash:["target"], fever:["yes","no","unknown"], onset:["subacute"], trigger:["travel","none"] }),
-    dx("Varicella (chickenpox)", { rash:["vesicles"], fever:["yes","unknown"], age:["child","teen"], onset:["acute"] }),
-    dx("Measles (rare; emergency if suspected)", { rash:["diffuse"], fever:["yes"], onset:["acute"], cough:["dry","wet"], trigger:["travel","sick","none"] }),
+  // =========================
+  // Additions: GI / abdominal emergencies & common causes
+  // =========================
+  dx("Mesenteric ischemia (emergency)", { pain_site:["abdomen"], onset:["sudden","acute"], fever:["no","unknown","yes"], gi:["nausea","none","both"], age:["older","adult"] }),
+  dx("Abdominal aortic aneurysm (rupture/dissection — emergency)", { pain_site:["abdomen","back"], onset:["sudden"], fever:["no","unknown"], age:["older","adult"] }),
+  dx("Acute gastroenteritis (bacterial)", { gi:["diarrhea","both"], fever:["yes","unknown"], onset:["acute"], trigger:["food","travel","none"] }),
+  dx("C. difficile colitis", { gi:["diarrhea"], fever:["yes","unknown"], onset:["acute","subacute"], trigger:["none","travel"] }),
+  dx("Lactose intolerance", { gi:["diarrhea"], fever:["no","unknown"], onset:["acute","subacute","chronic"], trigger:["food"] }),
+  dx("Celiac disease", { gi:["diarrhea"], fever:["no","unknown"], onset:["chronic"], pain_site:["abdomen","none"] }),
+  dx("GERD with chronic cough", { chestpain:["burning","none"], pain_quality:["burning_meals","na"], cough:["dry"], fever:["no","unknown"], onset:["chronic","subacute"] }),
 
-    // MSK / rheum
-    dx("Gout flare", { pain_site:["joint"], fever:["no","unknown","yes"], onset:["sudden","acute"], age:["adult","older"] }),
-    dx("Rheumatoid arthritis flare", { pain_site:["joint"], onset:["chronic"], fever:["no","unknown"] }),
-    dx("Septic arthritis (emergency)", { pain_site:["joint"], fever:["yes"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
+  // =========================
+  // Additions: chest / vascular
+  // =========================
+  dx("Aortic dissection (emergency)", { chestpain:["pressure"], onset:["sudden"], fever:["no","unknown"], age:["older","adult"], pain_site:["back","none","abdomen"] }),
+  dx("Myocarditis", { chestpain:["pressure","none"], fever:["yes","unknown","no"], onset:["acute","subacute"], sob:["mild","moderate","severe"], cough:["none","dry"] }),
+  dx("Stable angina", { chestpain:["pressure"], pain_quality:["worse_exertion"], fever:["no","unknown"], onset:["subacute","chronic"], age:["adult","older"] }),
 
-    // OB/GYN / pregnancy-related
-    dx("Ectopic pregnancy (emergency)", { sex:["f","intersex","unknown"], preg:["yes","unknown"], pain_site:["pelvis","abdomen"], onset:["acute","sudden"], fever:["no","unknown"] }),
-    dx("Pelvic inflammatory disease (PID)", { sex:["f","intersex","unknown"], pain_site:["pelvis"], fever:["yes","unknown"], onset:["acute","subacute"] }),
+  // =========================
+  // Additions: pulmonary / allergy
+  // =========================
+  dx("Viral pleurisy", { chestpain:["pleuritic"], pain_quality:["worse_breath"], fever:["yes","no","unknown"], cough:["dry","none"], onset:["acute"] }),
+  dx("Hypersensitivity pneumonitis", { sob:["mild","moderate","severe"], cough:["dry"], fever:["yes","unknown","no"], onset:["acute","subacute"], trigger:["allergen","none"] }),
 
-    // Other common-ish
-    dx("Dehydration", { gi:["diarrhea","both","nausea","none"], fever:["yes","no","unknown"], onset:["acute","subacute"], sob:["none","mild"] }),
-    dx("Anemia (symptomatic)", { sob:["mild","moderate"], onset:["chronic"], fever:["no","unknown"], chestpain:["none","pressure"], age:["adult","older"] }),
-    dx("COPD exacerbation", { sob:["moderate","severe","mild"], cough:["wet","dry"], smoke:["yes","former"], fever:["no","unknown","yes"], onset:["acute"] }),
-  ];
+  // =========================
+  // Additions: neuro
+  // =========================
+  dx("Vertigo (BPPV)", { neuro:["headache","none"], onset:["sudden","acute"], fever:["no","unknown"], pain_site:["none"] }),
+  dx("Encephalitis (emergency)", { fever:["yes"], neuro:["confusion","headache"], onset:["acute"], immuno:["normal","compromised","unknown"] }),
+
+  // =========================
+  // Additions: infectious / systemic
+  // =========================
+  dx("Acute HIV seroconversion", { fever:["yes","unknown"], onset:["subacute"], rash:["diffuse","none"], sorethroat:["mild","severe","none"], gi:["diarrhea","none","nausea"], trigger:["none","travel"] }),
+  dx("Malaria (travel-related)", { fever:["yes"], onset:["subacute","acute"], trigger:["travel"], gi:["nausea","diarrhea","both","none"], age:["child","teen","adult","older"] }),
+  dx("Dengue (travel-related)", { fever:["yes"], onset:["acute"], trigger:["travel"], rash:["diffuse","none"], gi:["nausea","none"] }),
+  dx("UTI in pregnancy", { sex:["f","intersex","unknown"], preg:["yes"], urinary:["burning","frequency","none"], fever:["no","unknown","yes"], onset:["acute"] }),
+
+  // =========================
+  // Additions: rheum / inflammatory
+  // =========================
+  dx("Osteoarthritis flare", { pain_site:["joint"], onset:["chronic"], fever:["no","unknown"], age:["older","adult"] }),
+  dx("Reactive arthritis", { pain_site:["joint"], onset:["subacute"], fever:["yes","no","unknown"], urinary:["none","burning","frequency"], gi:["none","diarrhea"] }),
+  dx("Systemic lupus erythematosus flare", { pain_site:["joint","none"], rash:["diffuse","none"], fever:["yes","no","unknown"], onset:["subacute","chronic"] }),
+
+  // =========================
+  // Additions: endocrine / pregnancy / postpartum-ish approximations
+  // =========================
+  dx("Hyperthyroidism", { onset:["subacute","chronic"], fever:["no","unknown"], sob:["none","mild"], gi:["diarrhea","none"] }),
+  dx("Hypothyroidism", { onset:["chronic"], fever:["no","unknown"], sob:["none","mild"], gi:["none"] }),
+
+  // =========================
+  // Additions: dermatologic / allergic
+  // =========================
+  dx("Contact dermatitis", { rash:["diffuse","hives"], fever:["no","unknown"], trigger:["allergen"], onset:["acute","subacute"] }),
+  dx("Drug eruption (morbilliform)", { rash:["diffuse"], fever:["yes","no","unknown"], onset:["acute","subacute"], trigger:["allergen","none"] }),
+
+  // =========================
+  // Additions: GU / renal / pelvic
+  // =========================
+  dx("Acute urinary retention", { urinary:["frequency","none"], pain_site:["pelvis","abdomen"], onset:["acute","sudden"], fever:["no","unknown"], sex:["m","f","intersex","unknown"] }),
+  dx("Interstitial cystitis / bladder pain syndrome", { urinary:["frequency","burning","none"], pain_site:["pelvis"], onset:["chronic"], fever:["no","unknown"], sex:["f","m","intersex","unknown"] }),
+  dx("Epididymitis", { sex:["m"], pain_site:["pelvis"], onset:["acute","subacute"], fever:["yes","unknown","no"], urinary:["burning","frequency","none"] }),
+
+  // =========================
+  // Additions: abdominal / surgical-ish
+  // =========================
+  dx("Hernia (incarcerated/strangulated — emergency if severe)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["acute","sudden"], fever:["no","unknown","yes"], gi:["none","nausea","both"] }),
+  dx("Bowel perforation (emergency)", { pain_site:["abdomen"], onset:["sudden"], fever:["yes","unknown"], gi:["none","nausea","both"], abd_pattern:["epig","rlq","ruq","lowerdiff"] }),
+  dx("Acute mesenteric adenitis", { pain_site:["abdomen"], abd_pattern:["rlq","lowerdiff"], onset:["acute"], fever:["yes","unknown","no"], age:["child","teen"] }),
+  dx("Gallstones / biliary colic", { pain_site:["abdomen"], abd_pattern:["ruq"], onset:["sudden","acute"], fever:["no","unknown"], gi:["nausea","none"] }),
+
+  // =========================
+  // Additions: skin / soft tissue
+  // =========================
+  dx("Abscess (skin/soft tissue)", { fever:["yes","no","unknown"], onset:["acute"], rash:["diffuse","none"], pain_site:["none"] }),
+  dx("Impetigo", { rash:["diffuse"], fever:["no","unknown","yes"], onset:["acute"], age:["child"] }),
+  dx("Scabies", { rash:["diffuse"], fever:["no","unknown"], onset:["subacute","chronic"], trigger:["none","travel"] }),
+
+  // =========================
+  // Additions: respiratory variants
+  // =========================
+  dx("Viral croup", { cough:["dry"], fever:["yes","no","unknown"], onset:["acute"], age:["child"], sob:["mild","moderate","severe"], sorethroat:["mild","none"] }),
+  dx("Epiglottitis (emergency)", { fever:["yes"], onset:["acute"], sorethroat:["severe"], cough:["none"], age:["child","teen","adult"] }),
+  dx("Laryngitis", { fever:["no","unknown","yes"], onset:["acute"], sorethroat:["mild","severe","none"], cough:["dry","none"], trigger:["sick","none"] }),
+
+  // =========================
+  // Additions: hematologic / systemic
+  // =========================
+  dx("Mononucleosis-like illness (CMV)", { fever:["yes","unknown"], onset:["subacute"], sorethroat:["mild","severe","none"], cough:["none","dry"], age:["adult","older"] }),
+  dx("Pneumocystis pneumonia (PJP)", { fever:["yes","unknown"], onset:["subacute"], cough:["dry"], sob:["moderate","severe"], immuno:["compromised"], chestpain:["none","pleuritic"] }),
+  dx("Opioid overdose / respiratory depression (emergency)", { sob:["severe"], onset:["sudden","acute"], fever:["no","unknown"], neuro:["confusion","none"] }),
+
+  // =========================
+  // Additions: psych/functional (kept minimal; still symptom-based)
+  // =========================
+  dx("Panic attack", { sob:["moderate","severe"], chestpain:["pressure","none"], onset:["sudden"], fever:["no","unknown"], cough:["none"], neuro:["none","confusion"] }),
+  dx("Somatic symptom / functional disorder", { onset:["chronic"], fever:["no","unknown"], pain_site:["none","abdomen","back","joint","pelvis"], gi:["none","diarrhea","nausea"], urinary:["none","frequency"] }),
+
+  // =========================
+  // Additions: CNS / infectious / emergent
+  // =========================
+  dx("Brain abscess (emergency)", { fever:["yes","unknown"], neuro:["headache","confusion","focal"], onset:["subacute","acute"], immuno:["normal","compromised","unknown"] }),
+  dx("Temporal arteritis / giant cell arteritis (emergency risk to vision)", { neuro:["headache"], onset:["subacute","chronic"], fever:["yes","no","unknown"], age:["older"] }),
+  dx("Carbon monoxide poisoning (emergency)", { neuro:["headache","confusion"], onset:["acute"], fever:["no","unknown"], gi:["nausea","none"], sob:["none","mild","moderate"] }),
+
+  // =========================
+  // Additions: respiratory / ENT / allergy
+  // =========================
+  dx("Acute bacterial sinusitis", { onset:["subacute"], fever:["yes","unknown","no"], cough:["dry","wet","none"], sorethroat:["mild","none"], neuro:["headache","none"] }),
+  dx("Viral pharyngitis", { sorethroat:["mild","severe"], cough:["dry","none"], fever:["yes","no","unknown"], onset:["acute"] }),
+  dx("Diphtheria (rare; emergency if suspected)", { sorethroat:["exudate","severe"], fever:["yes","unknown"], onset:["acute"], cough:["none"], age:["child","teen","adult"] }),
+  dx("Bronchiolitis", { age:["child"], cough:["wet","dry"], fever:["yes","no","unknown"], onset:["acute"], sob:["mild","moderate","severe"] }),
+  dx("Aspiration pneumonitis", { cough:["wet","dry"], fever:["no","unknown","yes"], onset:["sudden","acute"], sob:["mild","moderate","severe"] }),
+
+  // =========================
+  // Additions: cardiac / vascular
+  // =========================
+  dx("Arrhythmia (e.g., SVT/AF) with symptoms", { onset:["sudden","acute"], chestpain:["pressure","none"], sob:["mild","moderate","severe"], fever:["no","unknown"], age:["teen","adult","older"] }),
+  dx("Hypertensive emergency (emergency)", { chestpain:["pressure","none"], neuro:["headache","confusion","focal"], onset:["acute"], fever:["no","unknown"], age:["adult","older"] }),
+
+  // =========================
+  // Additions: MSK / spine
+  // =========================
+  dx("Acute low back strain", { pain_site:["back"], onset:["acute"], fever:["no","unknown"], urinary:["none"], neuro:["none","headache"] }),
+  dx("Spinal epidural abscess (emergency)", { pain_site:["back"], onset:["acute","subacute"], fever:["yes","unknown"], neuro:["focal","none"], immuno:["compromised","normal","unknown"] }),
+
+  // =========================
+  // Additions: endocrine / metabolic
+  // =========================
+  dx("Hypoglycemia", { onset:["sudden","acute"], neuro:["confusion","none","headache"], fever:["no","unknown"], gi:["nausea","none"] }),
+  dx("Hyponatremia (symptomatic)", { onset:["acute","subacute"], neuro:["confusion","headache","none"], fever:["no","unknown"], gi:["nausea","none"] }),
+
+  // =========================
+  // Additions: dermatologic / infectious
+  // =========================
+  dx("Meningococcemia (emergency)", { fever:["yes"], rash:["diffuse","none"], onset:["acute"], neuro:["confusion","headache","none"] }),
+  dx("Rocky Mountain spotted fever (emergency)", { fever:["yes"], rash:["diffuse","none"], onset:["acute"], trigger:["travel","none"] }),
+  dx("Erysipelas", { rash:["diffuse"], fever:["yes","unknown","no"], onset:["acute"] }),
+
+  // =========================
+  // Additions: pregnancy-related / postpartum-ish approximations
+  // =========================
+  dx("Preeclampsia (emergency)", { preg:["yes"], neuro:["headache","confusion","none"], onset:["acute","subacute"], fever:["no","unknown"], age:["adult","older"] }),
+  dx("Pulmonary embolism in pregnancy", { preg:["yes"], onset:["sudden","acute"], sob:["moderate","severe"], chestpain:["pleuritic","none"], cough:["none","blood","dry"], fever:["no","unknown","yes"] }),
+
+  // =========================
+  // Additions: eye / ENT / facial pain
+  // =========================
+  dx("Conjunctivitis", { fever:["no","unknown","yes"], onset:["acute"], cough:["none","dry","wet"], sorethroat:["none","mild"], age:["child","teen","adult","older"] }),
+  dx("Orbital cellulitis (emergency)", { fever:["yes","unknown"], onset:["acute"], neuro:["headache","confusion","none"] }),
+  dx("Trigeminal neuralgia", { pain_site:["none"], onset:["sudden","acute","chronic"], fever:["no","unknown"], neuro:["none","headache"] }),
+
+  // =========================
+  // Additions: chest / pulmonary / pleural
+  // =========================
+  dx("Pleural effusion", { sob:["mild","moderate","severe"], chestpain:["pleuritic","none"], cough:["dry","wet","none"], onset:["subacute","chronic"], fever:["yes","no","unknown"] }),
+  dx("Acute respiratory distress (ARDS — emergency)", { sob:["severe"], onset:["acute"], fever:["yes","unknown"], cough:["dry","wet","none"] }),
+  dx("Legionella pneumonia", { fever:["yes"], onset:["acute"], cough:["dry","wet"], gi:["diarrhea","nausea","both","none"], trigger:["travel","none"] }),
+
+  // =========================
+  // Additions: GI / hepatobiliary / pelvic
+  // =========================
+  dx("Gastric outlet obstruction", { gi:["nausea","both"], onset:["subacute","chronic"], pain_site:["abdomen"], abd_pattern:["epig"], fever:["no","unknown"] }),
+  dx("Acute cholangitis (emergency)", { fever:["yes"], pain_site:["abdomen"], abd_pattern:["ruq"], onset:["acute"], gi:["nausea","none"] }),
+  dx("Ovarian cyst rupture", { sex:["f","intersex","unknown"], pain_site:["pelvis"], onset:["sudden","acute"], fever:["no","unknown"], preg:["no","unknown"] }),
+  dx("Mittelschmerz (ovulation pain)", { sex:["f","intersex","unknown"], pain_site:["pelvis"], onset:["acute"], fever:["no","unknown"], preg:["no","unknown"] }),
+
+  // =========================
+  // Additions: hematologic / thrombotic / systemic
+  // =========================
+  dx("Deep vein thrombosis (DVT)", { onset:["acute","subacute"], fever:["no","unknown","yes"], sob:["none","mild"], chestpain:["none"], trigger:["travel","none"] }),
+  dx("Sickle cell pain crisis", { pain_site:["joint","back","abdomen"], onset:["acute"], fever:["yes","no","unknown"], age:["child","teen","adult"] }),
+
+  // =========================
+  // Additions: rheum / inflammatory / infectious joints
+  // =========================
+  dx("Osteomyelitis", { fever:["yes","unknown"], onset:["subacute","acute"], pain_site:["joint","none"], immuno:["normal","compromised","unknown"] }),
+  dx("Polymyalgia rheumatica", { pain_site:["joint"], onset:["subacute","chronic"], fever:["no","unknown","yes"], age:["older"] }),
+
+  // =========================
+  // Additions: tox / ingestion
+  // =========================
+  dx("Alcohol withdrawal", { onset:["acute"], fever:["no","unknown","yes"], neuro:["confusion","headache","none"], gi:["nausea","none"], sob:["none","mild"] }),
+  dx("Serotonin syndrome (emergency)", { onset:["acute"], fever:["yes"], neuro:["confusion","none"], gi:["diarrhea","nausea","both","none"] }),
+  dx("Opioid withdrawal", { onset:["acute","subacute"], fever:["no","unknown"], gi:["diarrhea","nausea","both"], neuro:["none","headache"] }),
+
+  // =========================
+  // Additions: GU / renal / pelvic (more)
+  // =========================
+  dx("Acute urinary retention", { urinary:["frequency","none"], pain_site:["pelvis","abdomen"], onset:["acute","sudden"], fever:["no","unknown"], sex:["m","f","intersex","unknown"] }),
+  dx("Interstitial cystitis / bladder pain syndrome", { urinary:["frequency","burning","none"], pain_site:["pelvis"], onset:["chronic"], fever:["no","unknown"], sex:["f","m","intersex","unknown"] }),
+  dx("Epididymitis", { sex:["m"], pain_site:["pelvis"], onset:["acute","subacute"], fever:["yes","unknown","no"], urinary:["burning","frequency","none"] }),
+
+  // =========================
+  // Additions: abdominal / surgical-ish (more)
+  // =========================
+  dx("Hernia (incarcerated/strangulated — emergency if severe)", { pain_site:["abdomen"], abd_pattern:["lowerdiff"], onset:["acute","sudden"], fever:["no","unknown","yes"], gi:["none","nausea","both"] }),
+  dx("Bowel perforation (emergency)", { pain_site:["abdomen"], onset:["sudden"], fever:["yes","unknown"], gi:["none","nausea","both"], abd_pattern:["epig","rlq","ruq","lowerdiff"] }),
+  dx("Acute mesenteric adenitis", { pain_site:["abdomen"], abd_pattern:["rlq","lowerdiff"], onset:["acute"], fever:["yes","unknown","no"], age:["child","teen"] }),
+  dx("Gallstones / biliary colic", { pain_site:["abdomen"], abd_pattern:["ruq"], onset:["sudden","acute"], fever:["no","unknown"], gi:["nausea","none"] }),
+
+  // =========================
+  // Additions: skin / soft tissue (more)
+  // =========================
+  dx("Abscess (skin/soft tissue)", { fever:["yes","no","unknown"], onset:["acute"], rash:["diffuse","none"], pain_site:["none"] }),
+  dx("Impetigo", { rash:["diffuse"], fever:["no","unknown","yes"], onset:["acute"], age:["child"] }),
+  dx("Scabies", { rash:["diffuse"], fever:["no","unknown"], onset:["subacute","chronic"], trigger:["none","travel"] }),
+
+  // =========================
+  // Additions: respiratory variants (more)
+  // =========================
+  dx("Viral croup", { cough:["dry"], fever:["yes","no","unknown"], onset:["acute"], age:["child"], sob:["mild","moderate","severe"], sorethroat:["mild","none"] }),
+  dx("Epiglottitis (emergency)", { fever:["yes"], onset:["acute"], sorethroat:["severe"], cough:["none"], age:["child","teen","adult"] }),
+  dx("Laryngitis", { fever:["no","unknown","yes"], onset:["acute"], sorethroat:["mild","severe","none"], cough:["dry","none"], trigger:["sick","none"] }),
+];
 
   // =========================
   // 3) URL hash state: only answers in current round
