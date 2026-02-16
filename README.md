@@ -1052,3 +1052,8 @@ I typically use the one built into python.
 ```bash
 python -m http.server
 ```
+
+# See Also
+- [Gwtar: a static efficient single-file HTML format](https://gwern.net/gwtar)
+- [256t](https://curtcox.github.io/256t.org/)
+
