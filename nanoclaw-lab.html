@@ -1,0 +1,1968 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NanoClaw Function Lab (SFWA)</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #111824;
+      --panel2: #0f1622;
+      --border: #223048;
+      --text: #e8eef9;
+      --muted: #a8b3c7;
+      --accent: #67d1ff;
+      --bad: #ff6b6b;
+      --ok: #7dffb2;
+      --warn: #ffd166;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background: radial-gradient(1000px 600px at 30% -20%, #14304a 0%, transparent 60%) , var(--bg);
+    }
+    a { color: var(--accent); }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(11,15,20,0.8);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .title {
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      flex: 1;
+    }
+    .title small { color: var(--muted); font-weight: 500; }
+    .btn {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #172234 0%, #101827 100%);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 650;
+      font-size: 13px;
+    }
+    .btn:hover { border-color: #35507a; }
+    .btn:active { transform: translateY(1px); }
+    .btn.secondary {
+      background: transparent;
+    }
+    .btn.danger {
+      border-color: rgba(255,107,107,0.6);
+      color: #ffdede;
+      background: rgba(255,107,107,0.07);
+    }
+    .pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .pill.ok { border-color: rgba(125,255,178,0.35); color: #c9ffe0; }
+    .pill.warn { border-color: rgba(255,209,102,0.45); color: #fff0c2; }
+    .pill.bad { border-color: rgba(255,107,107,0.45); color: #ffd1d1; }
+
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(17,24,36,0.95) 0%, rgba(15,22,34,0.95) 100%);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    }
+    .panel h2, .panel h3 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+    .panel .head {
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255,255,255,0.02);
+    }
+    .panel .body { padding: 12px; }
+    .panel .body.tight { padding: 10px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .col { display: flex; flex-direction: column; gap: 8px; }
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); }
+    .small { font-size: 12px; }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .item {
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.12);
+      border-radius: 12px;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .item:hover { border-color: #35507a; }
+    .item.selected { border-color: rgba(103,209,255,0.6); box-shadow: 0 0 0 2px rgba(103,209,255,0.12) inset; }
+    .item .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .item .name { font-weight: 750; }
+    .item .desc { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.25rem; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    label { font-size: 12px; color: var(--muted); font-weight: 650; }
+    input[type="text"], input[type="password"], textarea, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      outline: none;
+    }
+    textarea { min-height: 130px; resize: vertical; }
+    .code {
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.20);
+      border-radius: 12px;
+      padding: 10px;
+      overflow: auto;
+      max-height: 380px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre;
+      line-height: 1.35rem;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px) {
+      .split { grid-template-columns: 1fr; }
+    }
+
+    .kbd {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .table th, .table td {
+      text-align: left;
+      padding: 8px 8px;
+      border-bottom: 1px solid rgba(34,48,72,0.7);
+      vertical-align: top;
+    }
+    .table th { color: var(--muted); font-weight: 750; }
+    .nowrap { white-space: nowrap; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      z-index: 30;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal.show { display: flex; }
+    .modal .card {
+      width: min(980px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(17,24,36,0.98) 0%, rgba(15,22,34,0.98) 100%);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+    .modal .card .head { padding: 12px; border-bottom: 1px solid var(--border); display:flex; justify-content: space-between; align-items:center; gap: 10px; }
+    .modal .card .body { padding: 12px; }
+    .modal .card .foot { padding: 12px; border-top: 1px solid var(--border); display:flex; justify-content:flex-end; gap: 10px; }
+    .hr { height: 1px; background: rgba(34,48,72,0.7); margin: 10px 0; }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .toggle input { accent-color: var(--accent); }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="title">
+      NanoClaw Function Lab <small>(Single-file • URL-hash state • cookie keys)</small>
+    </div>
+    <span id="statusPill" class="pill">Loading…</span>
+    <button class="btn secondary" id="btnCopyUrl">Copy URL</button>
+    <button class="btn secondary" id="btnSeed">Seed Demo Data</button>
+    <button class="btn danger" id="btnReset">Reset</button>
+  </div>
+</header>
+
+<main>
+  <div id="app">Loading…</div>
+</main>
+
+<div class="modal" id="pauseModal" aria-hidden="true">
+  <div class="card">
+    <div class="head">
+      <div class="col" style="gap:2px">
+        <div style="font-weight:800" id="pauseTitle">Paused</div>
+        <div class="muted small" id="pauseSubtitle"></div>
+      </div>
+      <span class="pill warn" id="pausePhase">breakpoint</span>
+    </div>
+    <div class="body">
+      <div class="split">
+        <div class="field">
+          <label>Arguments (editable before continue)</label>
+          <textarea id="pauseArgs" spellcheck="false"></textarea>
+          <div class="muted small">Tip: keep keys out of args. Keys come from cookies only.</div>
+        </div>
+        <div class="field">
+          <label>Result (end-breakpoint) / Notes</label>
+          <textarea id="pauseResult" spellcheck="false" readonly></textarea>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div class="field">
+        <label>Side effects (diff)</label>
+        <div class="code" id="pauseDiff"></div>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn secondary" id="pauseAbort">Abort Run</button>
+      <button class="btn" id="pauseContinue">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /********************************************************************
+   * SFWA URL STATE (all state in hash, except cookie-based keys)
+   ********************************************************************/
+  const HASH_PREFIX = "nc1:";
+  const MAX_TRACE = 60;
+  const MAX_MESSAGES = 250;
+
+  function base64UrlEncode(bytes) {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function base64UrlDecode(str) {
+    const pad = str.length % 4 ? "=".repeat(4 - (str.length % 4)) : "";
+    const b64 = (str + pad).replace(/-/g, "+").replace(/_/g, "/");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  function utf8Encode(s) { return new TextEncoder().encode(s); }
+  function utf8Decode(b) { return new TextDecoder().decode(b); }
+
+  async function gzipCompress(bytes) {
+    if (!("CompressionStream" in window)) return null;
+    const cs = new CompressionStream("gzip");
+    const w = cs.writable.getWriter();
+    await w.write(bytes);
+    await w.close();
+    const out = await new Response(cs.readable).arrayBuffer();
+    return new Uint8Array(out);
+  }
+  async function gzipDecompress(bytes) {
+    if (!("DecompressionStream" in window)) return null;
+    const ds = new DecompressionStream("gzip");
+    const w = ds.writable.getWriter();
+    await w.write(bytes);
+    await w.close();
+    const out = await new Response(ds.readable).arrayBuffer();
+    return new Uint8Array(out);
+  }
+
+  function stableClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
+  function randId(prefix="id") {
+    return prefix + "_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+  }
+
+  function defaultState() {
+    return {
+      v: 1,
+      ui: {
+        selectedFn: "loadState",
+        argsDrafts: {},
+        showKeys: true,
+        showEnv: true,
+        showTrace: true,
+        showCode: true,
+      },
+      settings: {
+        useGzip: true,
+        traceLimit: MAX_TRACE,
+      },
+      breakpoints: {
+        // per fn: { begin: bool, end: bool }
+      },
+      pipeline: {
+        steps: [
+          { id: randId("step"), fn: "mainStep", args: {} },
+          { id: randId("step"), fn: "startMessageLoopStep", args: {} },
+        ],
+        running: false,
+        paused: false,
+        cursor: 0,
+        pauseCtx: null,
+      },
+      env: {
+        // Modeled after src/index.ts globals (but stored in URL state)
+        config: {
+          ASSISTANT_NAME: "Andy",
+          POLL_INTERVAL: 2000,
+          IDLE_TIMEOUT: 1800000,
+          MAIN_GROUP_FOLDER: "main",
+          TRIGGER_PATTERN: "^@Andy\\b",
+        },
+        routerState: {
+          last_timestamp: "",
+          last_agent_timestamp: "{}",
+        },
+        lastTimestamp: "",
+        sessions: {},              // groupFolder -> sessionId
+        registeredGroups: {},      // jid -> { name, folder, requiresTrigger? }
+        lastAgentTimestamp: {},    // jid -> timestamp string
+        messageLoopRunning: false,
+
+        // Mock "DB tables"
+        chats: [],                 // { jid, name, last_message_time, is_group, channel }
+        messages: [],              // { id, chat_jid, timestamp, sender, content }
+        tasks: [],                 // minimal task structure
+
+        // Mock "snapshots" written for containers
+        snapshots: {
+          tasksByGroupFolder: {},  // folder -> { isMain, tasks: [...] }
+          groupsByGroupFolder: {}, // folder -> { isMain, availableGroups: [...], registeredJids: [...] }
+        },
+
+        // Mock queue + channel
+        queue: {
+          pendingChecks: [],       // [jid]
+          active: {},              // jid -> { containerName, groupFolder, stdinOpen, piped: [ {at, text} ], status }
+          idleNotices: [],         // log
+          stdinClosed: [],         // log
+        },
+        channel: {
+          typing: {},              // jid -> bool
+          outbound: [],            // log of sent messages
+        },
+
+        // Trace of calls (kept small)
+        trace: [],                 // { id, at, fn, args, result, error, diff, phase }
+      }
+    };
+  }
+
+  let state = null;
+  let writingHash = false;
+  let persistTimer = null;
+
+  function safeJsonParse(s, fallback) {
+    try { return JSON.parse(s); } catch { return fallback; }
+  }
+
+  async function decodeHashToState(hash) {
+    if (!hash || !hash.startsWith("#" + HASH_PREFIX)) return null;
+    const payload = hash.slice(("#" + HASH_PREFIX).length);
+    if (!payload) return null;
+
+    // Try gzip->base64url first; fall back to plain base64url JSON
+    try {
+      const bytes = base64UrlDecode(payload);
+      const maybe = await gzipDecompress(bytes);
+      if (maybe) {
+        const json = utf8Decode(maybe);
+        return safeJsonParse(json, null);
+      }
+    } catch {}
+    try {
+      const bytes = base64UrlDecode(payload);
+      const json = utf8Decode(bytes);
+      return safeJsonParse(json, null);
+    } catch {}
+    return null;
+  }
+
+  async function encodeStateToHash(st) {
+    const json = JSON.stringify(st);
+    const bytes = utf8Encode(json);
+    if (st?.settings?.useGzip) {
+      const gz = await gzipCompress(bytes);
+      if (gz) return "#" + HASH_PREFIX + base64UrlEncode(gz);
+    }
+    return "#" + HASH_PREFIX + base64UrlEncode(bytes);
+  }
+
+  function schedulePersist() {
+    if (!state) return;
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(async () => {
+      persistTimer = null;
+      const hash = await encodeStateToHash(state);
+      writingHash = true;
+      try {
+        history.replaceState(null, "", hash);
+      } finally {
+        // allow hashchange to fire if the user changes it externally
+        setTimeout(() => writingHash = false, 0);
+      }
+      updateStatusPill();
+    }, 150);
+  }
+
+  window.addEventListener("hashchange", async () => {
+    if (writingHash) return;
+    const decoded = await decodeHashToState(location.hash);
+    if (decoded) {
+      state = normalizeState(decoded);
+      render();
+      updateStatusPill();
+    }
+  });
+
+  function normalizeState(s) {
+    // merge missing defaults (non-destructive)
+    const d = defaultState();
+    function merge(dst, src) {
+      for (const k of Object.keys(src)) {
+        if (dst[k] === undefined) dst[k] = src[k];
+        else if (dst[k] && src[k] && typeof dst[k] === "object" && typeof src[k] === "object" && !Array.isArray(dst[k]) && !Array.isArray(src[k])) {
+          merge(dst[k], src[k]);
+        }
+      }
+      return dst;
+    }
+    const out = merge(s, d);
+
+    // ensure trace/messages bounded
+    out.env.trace = (out.env.trace || []).slice(-out.settings.traceLimit);
+    out.env.messages = (out.env.messages || []).slice(-MAX_MESSAGES);
+
+    // ensure breakpoint keys exist for all functions
+    for (const fn of Object.keys(FUNCTIONS)) {
+      if (!out.breakpoints[fn]) out.breakpoints[fn] = { begin: false, end: false };
+    }
+    return out;
+  }
+
+  /********************************************************************
+   * COOKIE KEYS (NOT stored in URL)
+   ********************************************************************/
+  function parseCookies() {
+    const out = {};
+    const raw = document.cookie || "";
+    raw.split(";").map(s => s.trim()).filter(Boolean).forEach(pair => {
+      const idx = pair.indexOf("=");
+      const k = idx >= 0 ? decodeURIComponent(pair.slice(0, idx).trim()) : decodeURIComponent(pair.trim());
+      const v = idx >= 0 ? decodeURIComponent(pair.slice(idx+1)) : "";
+      out[k] = v;
+    });
+    return out;
+  }
+  function setCookie(name, value, maxAgeSeconds=60*60*24*365) {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) +
+      `; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax` + secure;
+  }
+  function clearCookie(name) {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = encodeURIComponent(name) + `=; Path=/; Max-Age=0; SameSite=Lax` + secure;
+  }
+  function mask(s) {
+    if (!s) return "";
+    if (s.length <= 6) return "••••••";
+    return s.slice(0, 2) + "••••••" + s.slice(-2);
+  }
+
+  /********************************************************************
+   * “LOGGER” (writes into env.trace, URL-stored)
+   ********************************************************************/
+  function traceAdd(entry) {
+    const e = Object.assign({ id: randId("trace"), at: nowIso() }, entry);
+    state.env.trace.push(e);
+    // bound
+    state.env.trace = state.env.trace.slice(-state.settings.traceLimit);
+  }
+
+  const logger = {
+    info(meta, msg) { traceAdd({ level: "info", msg, meta }); },
+    warn(meta, msg) { traceAdd({ level: "warn", msg, meta }); },
+    error(meta, msg) { traceAdd({ level: "error", msg, meta }); },
+    debug(meta, msg) { traceAdd({ level: "debug", msg, meta }); },
+    fatal(meta, msg) { traceAdd({ level: "fatal", msg, meta }); },
+  };
+
+  /********************************************************************
+   * MOCK DB + ROUTER HELPERS (browser-friendly)
+   ********************************************************************/
+  function initDatabase() {
+    // no-op for browser, but keep the same call sites
+    logger.info({}, "Database initialized (mock)");
+  }
+
+  function getRouterState(key) {
+    return state.env.routerState[key] ?? "";
+  }
+  function setRouterState(key, val) {
+    state.env.routerState[key] = String(val);
+  }
+  function getAllSessions() { return stableClone(state.env.sessions); }
+  function setSession(folder, sessionId) {
+    state.env.sessions[folder] = sessionId;
+  }
+  function getAllRegisteredGroups() { return stableClone(state.env.registeredGroups); }
+  function setRegisteredGroup(jid, group) {
+    state.env.registeredGroups[jid] = stableClone(group);
+  }
+  function getAllChats() { return stableClone(state.env.chats); }
+  function storeChatMetadata(chatJid, timestamp, name, channel="mock", isGroup=true) {
+    const chats = state.env.chats;
+    let c = chats.find(x => x.jid === chatJid);
+    if (!c) {
+      c = { jid: chatJid, name: name || chatJid, last_message_time: timestamp, is_group: !!isGroup, channel };
+      chats.push(c);
+    } else {
+      c.name = name ?? c.name;
+      c.last_message_time = timestamp ?? c.last_message_time;
+      c.is_group = (isGroup ?? c.is_group);
+      c.channel = channel ?? c.channel;
+    }
+  }
+
+  function storeMessage(msg) {
+    // msg: { chat_jid, timestamp, sender, content }
+    const m = Object.assign({ id: randId("m") }, msg);
+    state.env.messages.push(m);
+    state.env.messages = state.env.messages.slice(-MAX_MESSAGES);
+
+    // update chat last_message_time
+    const ts = m.timestamp;
+    let c = state.env.chats.find(x => x.jid === m.chat_jid);
+    if (!c) {
+      c = { jid: m.chat_jid, name: m.chat_jid, last_message_time: ts, is_group: true, channel: "mock" };
+      state.env.chats.push(c);
+    } else {
+      c.last_message_time = ts;
+    }
+    return m;
+  }
+
+  function getAllTasks() { return stableClone(state.env.tasks); }
+
+  function isAfter(tsA, tsB) {
+    if (!tsB) return true;
+    return tsA > tsB; // ISO strings compare lexicographically
+  }
+
+  function getMessagesSince(chatJid, sinceTimestamp, assistantName) {
+    const msgs = state.env.messages
+      .filter(m => m.chat_jid === chatJid)
+      .filter(m => isAfter(m.timestamp, sinceTimestamp))
+      // mimic filtering out assistant messages (to avoid loops)
+      .filter(m => (m.sender || "").toLowerCase() !== (assistantName || "").toLowerCase())
+      .sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+    return stableClone(msgs);
+  }
+
+  function getNewMessages(jids, lastTimestamp, assistantName) {
+    const set = new Set(jids);
+    const msgs = state.env.messages
+      .filter(m => set.has(m.chat_jid))
+      .filter(m => isAfter(m.timestamp, lastTimestamp))
+      .filter(m => (m.sender || "").toLowerCase() !== (assistantName || "").toLowerCase())
+      .sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+
+    const newTimestamp = msgs.length ? msgs[msgs.length - 1].timestamp : lastTimestamp;
+    // map to schema used by index.ts loop
+    const mapped = msgs.map(m => ({
+      id: m.id,
+      chat_jid: m.chat_jid,
+      timestamp: m.timestamp,
+      sender: m.sender,
+      content: m.content,
+    }));
+    return { messages: mapped, newTimestamp };
+  }
+
+  function formatMessages(msgs) {
+    // keep it simple but explicit
+    return msgs.map(m => `[${m.timestamp}] ${m.sender}: ${m.content}`).join("\n");
+  }
+  function formatOutbound(rawText) {
+    const t = String(rawText ?? "").replace(/\r\n/g, "\n").trim();
+    return t;
+  }
+
+  /********************************************************************
+   * MOCK CHANNEL + ROUTER
+   ********************************************************************/
+  const MockChannel = {
+    ownsJid(_jid) { return true; },
+    async connect() { logger.info({}, "MockChannel connected"); },
+    async disconnect() { logger.info({}, "MockChannel disconnected"); },
+    async setTyping(jid, on) {
+      state.env.channel.typing[jid] = !!on;
+      logger.debug({ jid, on }, "Typing indicator updated (mock)");
+    },
+    async sendMessage(jid, text) {
+      const out = { at: nowIso(), jid, text };
+      state.env.channel.outbound.push(out);
+      // Also store as an assistant message in the chat history to make effects visible
+      storeMessage({
+        chat_jid: jid,
+        timestamp: nowIso(),
+        sender: state.env.config.ASSISTANT_NAME,
+        content: text
+      });
+      logger.info({ jid }, "Sent message (mock)");
+    },
+    async syncGroupMetadata(_force) {
+      logger.info({}, "syncGroupMetadata (mock) - no-op");
+    }
+  };
+
+  function findChannel(channels, jid) {
+    return channels.find(ch => ch.ownsJid?.(jid)) || null;
+  }
+
+  /********************************************************************
+   * MOCK CONTAINER RUNNER (simulates streaming + session ids)
+   ********************************************************************/
+  async function runContainerAgent(group, input, onProcess, onOutput) {
+    // Keys come from cookies ONLY (not URL state)
+    const cookies = parseCookies();
+    const keyName = cookies["NAN0CLAW_API_KEY_NAME"] || "ANTHROPIC_API_KEY";
+    const apiKey = cookies[keyName] || "";
+    if (!apiKey) {
+      return { status: "error", error: `Missing API key cookie: ${keyName}. Set it in Keys panel.`, newSessionId: null, result: null };
+    }
+
+    const containerName = `mock-container-${group.folder}-${Math.random().toString(16).slice(2,6)}`;
+    const proc = { pid: Math.floor(Math.random()*10000), stdinOpen: true };
+    onProcess?.(proc, containerName);
+
+    // Simulate streaming results
+    const sessionBump = "sess_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+    const chunks = [
+      { status: "running", result: "<internal>thinking…</internal>\n" },
+      { status: "running", result: `Group=${group.name} Folder=${group.folder}\n` },
+      { status: "running", result: `Prompt preview:\n${String(input.prompt).slice(0, 260)}\n` },
+      { status: "success", result: "OK: (mock) container completed.\n", newSessionId: sessionBump },
+    ];
+
+    for (const c of chunks) {
+      await new Promise(r => setTimeout(r, 60));
+      if (onOutput) await onOutput(c);
+    }
+
+    return { status: "success", error: null, newSessionId: sessionBump, result: "OK: done", };
+  }
+
+  function writeTasksSnapshot(groupFolder, isMain, tasks) {
+    state.env.snapshots.tasksByGroupFolder[groupFolder] = { at: nowIso(), isMain: !!isMain, tasks: stableClone(tasks) };
+  }
+  function writeGroupsSnapshot(groupFolder, isMain, availableGroups, registeredJidsSet) {
+    state.env.snapshots.groupsByGroupFolder[groupFolder] = {
+      at: nowIso(),
+      isMain: !!isMain,
+      availableGroups: stableClone(availableGroups),
+      registeredJids: Array.from(registeredJidsSet || [])
+    };
+  }
+
+  /********************************************************************
+   * MOCK GROUP QUEUE (minimal behaviors used by index.ts)
+   ********************************************************************/
+  const queue = {
+    setProcessMessagesFn(fn) { state.env._processFnName = fn?.name || "processGroupMessages"; },
+    registerProcess(jid, proc, containerName, groupFolder) {
+      state.env.queue.active[jid] = {
+        jid, groupFolder, containerName,
+        stdinOpen: !!proc.stdinOpen,
+        status: "running",
+        piped: [],
+        createdAt: nowIso()
+      };
+      logger.info({ jid, containerName, groupFolder }, "Queue registered process (mock)");
+    },
+    closeStdin(jid) {
+      const p = state.env.queue.active[jid];
+      if (p) p.stdinOpen = false;
+      state.env.queue.stdinClosed.push({ at: nowIso(), jid });
+      logger.debug({ jid }, "Queue closed stdin (mock)");
+    },
+    notifyIdle(jid) {
+      state.env.queue.idleNotices.push({ at: nowIso(), jid });
+      logger.debug({ jid }, "Queue notifyIdle (mock)");
+    },
+    shutdown(_timeoutMs) {
+      state.env.queue.active = {};
+      state.env.queue.pendingChecks = [];
+      logger.info({}, "Queue shutdown (mock)");
+      return Promise.resolve();
+    },
+    sendMessage(jid, text) {
+      const p = state.env.queue.active[jid];
+      if (!p || !p.stdinOpen) return false;
+      p.piped.push({ at: nowIso(), text });
+      logger.debug({ jid }, "Piped message to active container (mock)");
+      return true;
+    },
+    enqueueMessageCheck(jid) {
+      if (!state.env.queue.pendingChecks.includes(jid)) {
+        state.env.queue.pendingChecks.push(jid);
+        logger.info({ jid }, "Enqueued message check (mock)");
+      }
+    },
+    async tick(processGroupMessagesFn) {
+      const jid = state.env.queue.pendingChecks.shift();
+      if (!jid) return { didWork: false };
+      const ok = await processGroupMessagesFn(jid);
+      if (!ok) {
+        // retry later
+        state.env.queue.pendingChecks.push(jid);
+      }
+      return { didWork: true, jid, ok };
+    }
+  };
+
+  /********************************************************************
+   * NANOCLAW FUNCTIONS (modeled after src/index.ts, adapted to browser)
+   * Core flow and naming mirrors index.ts closely. :contentReference[oaicite:1]{index=1}
+   ********************************************************************/
+  function getConfig() {
+    const c = state.env.config;
+    const trigger = new RegExp(c.TRIGGER_PATTERN, "i");
+    return {
+      ASSISTANT_NAME: c.ASSISTANT_NAME,
+      POLL_INTERVAL: c.POLL_INTERVAL,
+      IDLE_TIMEOUT: c.IDLE_TIMEOUT,
+      MAIN_GROUP_FOLDER: c.MAIN_GROUP_FOLDER,
+      TRIGGER_PATTERN: trigger
+    };
+  }
+
+  function loadState() {
+    const { } = getConfig();
+    state.env.lastTimestamp = getRouterState("last_timestamp") || "";
+    const agentTs = getRouterState("last_agent_timestamp");
+    try {
+      state.env.lastAgentTimestamp = agentTs ? JSON.parse(agentTs) : {};
+    } catch {
+      logger.warn({}, "Corrupted last_agent_timestamp in DB, resetting");
+      state.env.lastAgentTimestamp = {};
+    }
+    state.env.sessions = getAllSessions();
+    state.env.registeredGroups = getAllRegisteredGroups();
+    logger.info({ groupCount: Object.keys(state.env.registeredGroups).length }, "State loaded");
+    return true;
+  }
+
+  function saveState() {
+    setRouterState("last_timestamp", state.env.lastTimestamp);
+    setRouterState("last_agent_timestamp", JSON.stringify(state.env.lastAgentTimestamp));
+    return true;
+  }
+
+  function resolveGroupFolderPath(folder) {
+    // Browser-safe approximation: disallow path traversal and empty
+    if (!folder || typeof folder !== "string") throw new Error("Invalid folder");
+    if (folder.includes("..") || folder.includes("\\") || folder.startsWith("/")) throw new Error("Invalid folder path");
+    return folder;
+  }
+
+  function registerGroup(jid, group) {
+    let groupDir;
+    try {
+      groupDir = resolveGroupFolderPath(group.folder);
+    } catch (err) {
+      logger.warn({ jid, folder: group.folder, err: String(err) }, "Rejecting group registration with invalid folder");
+      return false;
+    }
+
+    state.env.registeredGroups[jid] = stableClone(group);
+    setRegisteredGroup(jid, group);
+
+    // Create group folder/logs would happen in Node. Here we record it for inspection.
+    logger.info({ jid, name: group.name, folder: group.folder, groupDir }, "Group registered");
+    return true;
+  }
+
+  function getAvailableGroups() {
+    const chats = getAllChats();
+    const registeredJids = new Set(Object.keys(state.env.registeredGroups));
+    return chats
+      .filter(c => c.jid !== "__group_sync__" && c.is_group)
+      .map(c => ({
+        jid: c.jid,
+        name: c.name,
+        lastActivity: c.last_message_time,
+        isRegistered: registeredJids.has(c.jid),
+      }));
+  }
+
+  function _setRegisteredGroups(groups) {
+    state.env.registeredGroups = stableClone(groups || {});
+    return true;
+  }
+
+  async function runAgent(group, prompt, chatJid, onOutput) {
+    const { ASSISTANT_NAME, MAIN_GROUP_FOLDER } = getConfig();
+    const isMain = group.folder === MAIN_GROUP_FOLDER;
+    const sessionId = state.env.sessions[group.folder];
+
+    // tasks snapshot
+    const tasks = getAllTasks();
+    writeTasksSnapshot(
+      group.folder,
+      isMain,
+      tasks.map(t => ({
+        id: t.id,
+        groupFolder: t.group_folder,
+        prompt: t.prompt,
+        schedule_type: t.schedule_type,
+        schedule_value: t.schedule_value,
+        status: t.status,
+        next_run: t.next_run,
+      }))
+    );
+
+    // groups snapshot
+    const availableGroups = getAvailableGroups();
+    writeGroupsSnapshot(group.folder, isMain, availableGroups, new Set(Object.keys(state.env.registeredGroups)));
+
+    // wrapped output to track sessions
+    const wrappedOnOutput = onOutput ? async (output) => {
+      if (output.newSessionId) {
+        state.env.sessions[group.folder] = output.newSessionId;
+        setSession(group.folder, output.newSessionId);
+      }
+      await onOutput(output);
+    } : undefined;
+
+    try {
+      const output = await runContainerAgent(
+        group,
+        {
+          prompt,
+          sessionId,
+          groupFolder: group.folder,
+          chatJid,
+          isMain,
+          assistantName: ASSISTANT_NAME,
+        },
+        (proc, containerName) => queue.registerProcess(chatJid, proc, containerName, group.folder),
+        wrappedOnOutput
+      );
+
+      if (output.newSessionId) {
+        state.env.sessions[group.folder] = output.newSessionId;
+        setSession(group.folder, output.newSessionId);
+      }
+      if (output.status === "error") {
+        logger.error({ group: group.name, error: output.error }, "Container agent error");
+        return "error";
+      }
+      return "success";
+    } catch (err) {
+      logger.error({ group: group.name, err: String(err) }, "Agent error");
+      return "error";
+    }
+  }
+
+  async function processGroupMessages(chatJid) {
+    const { ASSISTANT_NAME, IDLE_TIMEOUT, MAIN_GROUP_FOLDER, TRIGGER_PATTERN } = getConfig();
+
+    const group = state.env.registeredGroups[chatJid];
+    if (!group) return true;
+
+    const channels = [MockChannel];
+    const channel = findChannel(channels, chatJid);
+    if (!channel) {
+      logger.warn({ chatJid }, "No channel owns JID, skipping messages");
+      return true;
+    }
+
+    const isMainGroup = group.folder === MAIN_GROUP_FOLDER;
+    const sinceTimestamp = state.env.lastAgentTimestamp[chatJid] || "";
+    const missedMessages = getMessagesSince(chatJid, sinceTimestamp, ASSISTANT_NAME);
+    if (missedMessages.length === 0) return true;
+
+    if (!isMainGroup && group.requiresTrigger !== false) {
+      const hasTrigger = missedMessages.some(m => TRIGGER_PATTERN.test(String(m.content).trim()));
+      if (!hasTrigger) return true;
+    }
+
+    const prompt = formatMessages(missedMessages);
+
+    const previousCursor = state.env.lastAgentTimestamp[chatJid] || "";
+    state.env.lastAgentTimestamp[chatJid] = missedMessages[missedMessages.length - 1].timestamp;
+    saveState();
+
+    logger.info({ group: group.name, messageCount: missedMessages.length }, "Processing messages");
+
+    let idleTimer = null;
+    const resetIdleTimer = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        logger.debug({ group: group.name }, "Idle timeout, closing container stdin");
+        queue.closeStdin(chatJid);
+      }, IDLE_TIMEOUT);
+    };
+
+    await channel.setTyping?.(chatJid, true);
+
+    let hadError = false;
+    let outputSentToUser = false;
+
+    const output = await runAgent(group, prompt, chatJid, async (result) => {
+      if (result.result) {
+        const raw = typeof result.result === "string" ? result.result : JSON.stringify(result.result);
+        const text = raw.replace(/[\s\S]*?<\/internal>/g, "").trim();
+        logger.info({ group: group.name }, `Agent output (mock): ${raw.slice(0, 200)}`);
+        if (text) {
+          await channel.sendMessage(chatJid, text);
+          outputSentToUser = true;
+        }
+        resetIdleTimer();
+      }
+      if (result.status === "success") queue.notifyIdle(chatJid);
+      if (result.status === "error") hadError = true;
+    });
+
+    await channel.setTyping?.(chatJid, false);
+    if (idleTimer) clearTimeout(idleTimer);
+
+    if (output === "error" || hadError) {
+      if (outputSentToUser) {
+        logger.warn({ group: group.name }, "Agent error after output sent; skipping cursor rollback");
+        return true;
+      }
+      state.env.lastAgentTimestamp[chatJid] = previousCursor;
+      saveState();
+      logger.warn({ group: group.name }, "Agent error; rolled back message cursor for retry");
+      return false;
+    }
+    return true;
+  }
+
+  async function startMessageLoopStep() {
+    const { ASSISTANT_NAME, MAIN_GROUP_FOLDER, TRIGGER_PATTERN } = getConfig();
+
+    // Single iteration of the while(true) loop in index.ts
+    if (state.env.messageLoopRunning) {
+      // in the original, it prevents duplicate starts; here, a "step" can still run
+      logger.debug({}, "Message loop already marked running (step will still execute)");
+    } else {
+      state.env.messageLoopRunning = true;
+      logger.info({}, `NanoClaw running (trigger: @${ASSISTANT_NAME})`);
+    }
+
+    const jids = Object.keys(state.env.registeredGroups);
+    const { messages, newTimestamp } = getNewMessages(jids, state.env.lastTimestamp, ASSISTANT_NAME);
+
+    const stepReport = {
+      newMessages: messages.length,
+      advancedSeenCursor: false,
+      groupsPiped: [],
+      groupsEnqueued: [],
+      queueTicks: [],
+    };
+
+    if (messages.length > 0) {
+      logger.info({ count: messages.length }, "New messages");
+
+      state.env.lastTimestamp = newTimestamp;
+      saveState();
+      stepReport.advancedSeenCursor = true;
+
+      const messagesByGroup = new Map();
+      for (const msg of messages) {
+        const existing = messagesByGroup.get(msg.chat_jid);
+        if (existing) existing.push(msg);
+        else messagesByGroup.set(msg.chat_jid, [msg]);
+      }
+
+      for (const [chatJid, groupMessages] of messagesByGroup) {
+        const group = state.env.registeredGroups[chatJid];
+        if (!group) continue;
+
+        const channels = [MockChannel];
+        const channel = findChannel(channels, chatJid);
+        if (!channel) {
+          logger.warn({ chatJid }, "No channel owns JID, skipping messages");
+          continue;
+        }
+
+        const isMainGroup = group.folder === MAIN_GROUP_FOLDER;
+        const needsTrigger = !isMainGroup && group.requiresTrigger !== false;
+
+        if (needsTrigger) {
+          const hasTrigger = groupMessages.some(m => TRIGGER_PATTERN.test(String(m.content).trim()));
+          if (!hasTrigger) continue;
+        }
+
+        const allPending = getMessagesSince(chatJid, state.env.lastAgentTimestamp[chatJid] || "", ASSISTANT_NAME);
+        const messagesToSend = allPending.length > 0 ? allPending : groupMessages;
+        const formatted = formatMessages(messagesToSend);
+
+        if (queue.sendMessage(chatJid, formatted)) {
+          logger.debug({ chatJid, count: messagesToSend.length }, "Piped messages to active container");
+          state.env.lastAgentTimestamp[chatJid] = messagesToSend[messagesToSend.length - 1].timestamp;
+          saveState();
+
+          // typing indicator while processing
+          channel.setTyping?.(chatJid, true)?.catch(err => logger.warn({ chatJid, err: String(err) }, "Failed to set typing indicator"));
+          stepReport.groupsPiped.push(chatJid);
+        } else {
+          queue.enqueueMessageCheck(chatJid);
+          stepReport.groupsEnqueued.push(chatJid);
+        }
+      }
+    }
+
+    // run a few queue ticks to show progress (bounded)
+    for (let i = 0; i < 3; i++) {
+      const r = await queue.tick(processGroupMessages);
+      if (!r.didWork) break;
+      stepReport.queueTicks.push(r);
+    }
+
+    return stepReport;
+  }
+
+  function recoverPendingMessages() {
+    const { ASSISTANT_NAME } = getConfig();
+    for (const [chatJid, group] of Object.entries(state.env.registeredGroups)) {
+      const sinceTimestamp = state.env.lastAgentTimestamp[chatJid] || "";
+      const pending = getMessagesSince(chatJid, sinceTimestamp, ASSISTANT_NAME);
+      if (pending.length > 0) {
+        logger.info({ group: group.name, pendingCount: pending.length }, "Recovery: found unprocessed messages");
+        queue.enqueueMessageCheck(chatJid);
+      }
+    }
+    return true;
+  }
+
+  function ensureContainerRuntimeRunning() {
+    logger.info({}, "ensureContainerRuntimeRunning (mock) - ok");
+  }
+  function cleanupOrphans() {
+    logger.info({}, "cleanupOrphans (mock) - ok");
+  }
+  function ensureContainerSystemRunning() {
+    ensureContainerRuntimeRunning();
+    cleanupOrphans();
+    return true;
+  }
+
+  async function mainStep() {
+    // A browser-safe "main" that performs setup but does NOT start infinite loops.
+    ensureContainerSystemRunning();
+    initDatabase();
+    loadState();
+
+    // create and connect channel
+    const channels = [MockChannel];
+    await MockChannel.connect();
+
+    // in node: scheduler + ipc watcher; here: mock hooks exist implicitly
+    logger.info({}, "Scheduler loop started (mock)");
+    logger.info({}, "IPC watcher started (mock)");
+
+    // queue wiring
+    queue.setProcessMessagesFn(processGroupMessages);
+
+    recoverPendingMessages();
+    return { ok: true, channels: channels.length };
+  }
+
+  const FUNCTIONS = {
+    loadState: {
+      desc: "Loads router/sessions/groups state into in-memory globals (URL state here).",
+      fn: loadState,
+      argsTemplate: {}
+    },
+    saveState: {
+      desc: "Persists last_timestamp and last_agent_timestamp back to routerState (URL).",
+      fn: saveState,
+      argsTemplate: {}
+    },
+    registerGroup: {
+      desc: "Registers a group (jid → folder/name/requiresTrigger) with folder validation.",
+      fn: registerGroup,
+      argsTemplate: { jid: "g:demo", group: { name: "Demo Group", folder: "demo", requiresTrigger: true } }
+    },
+    getAvailableGroups: {
+      desc: "Returns available groups list based on chats, marking registration status.",
+      fn: getAvailableGroups,
+      argsTemplate: {}
+    },
+    _setRegisteredGroups: {
+      desc: "Test helper: overwrite registeredGroups map.",
+      fn: _setRegisteredGroups,
+      argsTemplate: { groups: {} }
+    },
+    processGroupMessages: {
+      desc: "Processes pending messages for a group jid: trigger checks, runAgent, cursor rollback on error.",
+      fn: processGroupMessages,
+      argsTemplate: { chatJid: "g:demo" }
+    },
+    runAgent: {
+      desc: "Writes snapshots, runs container agent (mock), updates session id, returns success/error.",
+      fn: runAgent,
+      argsTemplate: { group: { name: "Demo Group", folder: "demo", requiresTrigger: true }, prompt: "Hello", chatJid: "g:demo" }
+    },
+    startMessageLoopStep: {
+      desc: "Runs one iteration of the message loop (dedupe, trigger logic, queue piping/enqueue + a few queue ticks).",
+      fn: startMessageLoopStep,
+      argsTemplate: {}
+    },
+    recoverPendingMessages: {
+      desc: "Startup recovery: enqueue checks for groups with unprocessed messages.",
+      fn: recoverPendingMessages,
+      argsTemplate: {}
+    },
+    ensureContainerSystemRunning: {
+      desc: "Mock container runtime checks + orphan cleanup.",
+      fn: ensureContainerSystemRunning,
+      argsTemplate: {}
+    },
+    mainStep: {
+      desc: "Browser-safe setup: init db, load state, connect channel, wire queue, recover pending.",
+      fn: mainStep,
+      argsTemplate: {}
+    }
+  };
+
+  /********************************************************************
+   * DEBUGGER: breakpoints + diff
+   ********************************************************************/
+  function diffObjects(before, after) {
+    // small, readable diff (path-based), not a full JSON patch
+    const changes = [];
+    const seen = new Set();
+
+    function walk(path, a, b) {
+      const key = path.join(".");
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const aType = Array.isArray(a) ? "array" : typeof a;
+      const bType = Array.isArray(b) ? "array" : typeof b;
+
+      if (aType !== bType) {
+        changes.push({ path: key || "(root)", before: a, after: b });
+        return;
+      }
+
+      if (aType === "object" && a && b) {
+        const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+        for (const k of keys) walk([...path, k], a[k], b[k]);
+        return;
+      }
+
+      if (aType === "array") {
+        // shallow compare arrays by JSON string (bounded impact)
+        const sa = JSON.stringify(a);
+        const sb = JSON.stringify(b);
+        if (sa !== sb) changes.push({ path: key || "(root)", before: a, after: b });
+        return;
+      }
+
+      if (a !== b) changes.push({ path: key || "(root)", before: a, after: b });
+    }
+
+    walk([], before, after);
+    // keep diff readable
+    return changes.slice(0, 120);
+  }
+
+  function snapshotForEffects() {
+    // exclude trace noise for diffs
+    const e = state.env;
+    return {
+      routerState: stableClone(e.routerState),
+      lastTimestamp: e.lastTimestamp,
+      sessions: stableClone(e.sessions),
+      registeredGroups: stableClone(e.registeredGroups),
+      lastAgentTimestamp: stableClone(e.lastAgentTimestamp),
+      queue: stableClone(e.queue),
+      channel: stableClone(e.channel),
+      snapshots: stableClone(e.snapshots),
+      chatsCount: (e.chats || []).length,
+      messagesCount: (e.messages || []).length,
+      tasksCount: (e.tasks || []).length,
+    };
+  }
+
+  async function execWithDebugger(fnName, args, mode) {
+    // mode: { fromPipeline: bool, stepId? }
+    const meta = FUNCTIONS[fnName];
+    if (!meta) throw new Error("Unknown function: " + fnName);
+
+    const bp = state.breakpoints[fnName] || { begin: false, end: false };
+    const before = snapshotForEffects();
+
+    // begin breakpoint
+    if (bp.begin && mode?.fromPipeline) {
+      const edited = await pauseAtBreakpoint({ phase: "begin", fnName, args, before });
+      if (edited.aborted) throw new Error("Run aborted by user");
+      args = edited.args;
+    }
+
+    const callId = randId("call");
+    let result = null;
+    let error = null;
+
+    try {
+      // call function with args mapped to signature
+      const fn = meta.fn;
+      if (fnName === "registerGroup") {
+        result = fn(args.jid, args.group);
+      } else if (fnName === "_setRegisteredGroups") {
+        result = fn(args.groups);
+      } else if (fnName === "processGroupMessages") {
+        result = await fn(args.chatJid);
+      } else if (fnName === "runAgent") {
+        result = await fn(args.group, args.prompt, args.chatJid, null);
+      } else {
+        result = await fn();
+      }
+    } catch (e) {
+      error = String(e && e.message ? e.message : e);
+    }
+
+    const after = snapshotForEffects();
+    const diff = diffObjects(before, after);
+
+    // store trace record
+    traceAdd({
+      kind: "call",
+      callId,
+      fn: fnName,
+      args: stableClone(args),
+      result: error ? null : stableClone(result),
+      error,
+      diff
+    });
+
+    // end breakpoint
+    if (bp.end && mode?.fromPipeline) {
+      const edited = await pauseAtBreakpoint({ phase: "end", fnName, args, before, result, error, diff });
+      if (edited.aborted) throw new Error("Run aborted by user");
+    }
+
+    schedulePersist();
+    render();
+
+    if (error) throw new Error(error);
+    return { result, diff };
+  }
+
+  const pauseModal = document.getElementById("pauseModal");
+  const pauseTitle = document.getElementById("pauseTitle");
+  const pauseSubtitle = document.getElementById("pauseSubtitle");
+  const pausePhase = document.getElementById("pausePhase");
+  const pauseArgs = document.getElementById("pauseArgs");
+  const pauseResult = document.getElementById("pauseResult");
+  const pauseDiff = document.getElementById("pauseDiff");
+  const pauseAbort = document.getElementById("pauseAbort");
+  const pauseContinue = document.getElementById("pauseContinue");
+
+  function pauseAtBreakpoint(ctx) {
+    return new Promise((resolve) => {
+      pauseModal.classList.add("show");
+      pauseModal.setAttribute("aria-hidden","false");
+
+      pauseTitle.textContent = `Paused at ${ctx.phase} breakpoint: ${ctx.fnName}()`;
+      pauseSubtitle.textContent = "Edit args (begin) or inspect result (end), then Continue.";
+      pausePhase.textContent = ctx.phase === "begin" ? "begin" : "end";
+
+      pauseArgs.value = JSON.stringify(ctx.args ?? {}, null, 2);
+      pauseResult.value = ctx.phase === "end"
+        ? JSON.stringify({ result: ctx.result ?? null, error: ctx.error ?? null }, null, 2)
+        : "(will run when you continue)";
+      pauseDiff.textContent = JSON.stringify(ctx.diff ?? [], null, 2);
+
+      let done = false;
+      const cleanup = () => {
+        if (done) return;
+        done = true;
+        pauseModal.classList.remove("show");
+        pauseModal.setAttribute("aria-hidden","true");
+        pauseAbort.onclick = null;
+        pauseContinue.onclick = null;
+      };
+
+      pauseAbort.onclick = () => {
+        cleanup();
+        resolve({ aborted: true, args: ctx.args });
+      };
+      pauseContinue.onclick = () => {
+        let newArgs = ctx.args;
+        try { newArgs = JSON.parse(pauseArgs.value || "{}"); }
+        catch (e) {
+          pauseSubtitle.textContent = "Invalid JSON in args. Fix it before continuing.";
+          pauseSubtitle.style.color = "var(--bad)";
+          return;
+        }
+        cleanup();
+        resolve({ aborted: false, args: newArgs });
+      };
+    });
+  }
+
+  /********************************************************************
+   * UI RENDER
+   ********************************************************************/
+  function updateStatusPill() {
+    const el = document.getElementById("statusPill");
+    if (!state) { el.textContent = "Loading…"; return; }
+    const cookies = parseCookies();
+    const keyName = cookies["NAN0CLAW_API_KEY_NAME"] || "ANTHROPIC_API_KEY";
+    const hasKey = !!cookies[keyName];
+    const pipe = state.pipeline;
+    if (pipe.running) {
+      el.textContent = pipe.paused ? "Paused" : "Running";
+      el.className = "pill warn";
+    } else if (!hasKey) {
+      el.textContent = `Key missing (${keyName})`;
+      el.className = "pill bad";
+    } else {
+      el.textContent = "Ready";
+      el.className = "pill ok";
+    }
+  }
+
+  function htmlEscape(s) {
+    return String(s).replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[ch]));
+  }
+
+  function fnArgsTemplate(fnName) {
+    const t = FUNCTIONS[fnName]?.argsTemplate ?? {};
+    return stableClone(t);
+  }
+
+  function getArgsDraft(fnName) {
+    const drafts = state.ui.argsDrafts || (state.ui.argsDrafts = {});
+    if (!drafts[fnName]) drafts[fnName] = JSON.stringify(fnArgsTemplate(fnName), null, 2);
+    return drafts[fnName];
+  }
+
+  function setArgsDraft(fnName, text) {
+    state.ui.argsDrafts[fnName] = text;
+    schedulePersist();
+  }
+
+  function ensureBp(fnName) {
+    if (!state.breakpoints[fnName]) state.breakpoints[fnName] = { begin: false, end: false };
+    return state.breakpoints[fnName];
+  }
+
+  function render() {
+    if (!state) return;
+    updateStatusPill();
+
+    const selectedFn = state.ui.selectedFn;
+    const meta = FUNCTIONS[selectedFn];
+    const bp = ensureBp(selectedFn);
+    const cookies = parseCookies();
+    const keyName = cookies["NAN0CLAW_API_KEY_NAME"] || "ANTHROPIC_API_KEY";
+    const apiKeyMasked = cookies[keyName] ? mask(cookies[keyName]) : "(not set)";
+
+    const fnList = Object.keys(FUNCTIONS).map(fn => {
+      const m = FUNCTIONS[fn];
+      const b = ensureBp(fn);
+      const selected = fn === selectedFn ? "selected" : "";
+      const bpMark = (b.begin || b.end) ? `<span class="pill warn">bp</span>` : `<span class="pill"> </span>`;
+      return `
+        <div class="item ${selected}" data-action="selectFn" data-fn="${htmlEscape(fn)}">
+          <div class="top">
+            <div class="name mono">${htmlEscape(fn)}()</div>
+            ${bpMark}
+          </div>
+          <div class="desc">${htmlEscape(m.desc)}</div>
+        </div>
+      `;
+    }).join("");
+
+    const traceRows = (state.env.trace || []).slice().reverse().slice(0, 25).map(t => {
+      const level = t.level || (t.kind === "call" ? "call" : "info");
+      const pillClass = level === "error" || level === "fatal" ? "pill bad" : level === "warn" ? "pill warn" : "pill";
+      const msg = t.kind === "call"
+        ? `${t.fn}()`
+        : (t.msg || "");
+      return `
+        <tr>
+          <td class="nowrap mono">${htmlEscape((t.at||"").slice(11,19))}</td>
+          <td><span class="${pillClass}">${htmlEscape(level)}</span></td>
+          <td class="mono">${htmlEscape(msg)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const envSummary = (() => {
+      const e = state.env;
+      return {
+        config: e.config,
+        lastTimestamp: e.lastTimestamp,
+        registeredGroups: Object.keys(e.registeredGroups).length,
+        chats: e.chats.length,
+        messages: e.messages.length,
+        pendingChecks: e.queue.pendingChecks.length,
+        activeContainers: Object.keys(e.queue.active).length,
+        typing: Object.entries(e.channel.typing).filter(([,v]) => v).map(([k]) => k),
+      };
+    })();
+
+    const pipelineSteps = state.pipeline.steps.map((s, idx) => {
+      const isCursor = state.pipeline.cursor === idx;
+      const cursorMark = isCursor ? `<span class="pill warn">next</span>` : `<span class="pill"> </span>`;
+      return `
+        <div class="item ${isCursor ? "selected" : ""}" style="cursor:default">
+          <div class="top">
+            <div class="mono">${cursorMark} ${idx+1}. ${htmlEscape(s.fn)}()</div>
+            <div class="row">
+              <button class="btn secondary" data-action="pipelineUp" data-step="${s.id}" title="Move up">↑</button>
+              <button class="btn secondary" data-action="pipelineDown" data-step="${s.id}" title="Move down">↓</button>
+              <button class="btn danger" data-action="pipelineDel" data-step="${s.id}" title="Delete">Del</button>
+            </div>
+          </div>
+          <div class="field" style="margin-top:8px">
+            <label>Args (JSON)</label>
+            <textarea spellcheck="false" data-action="pipelineArgs" data-step="${s.id}">${htmlEscape(JSON.stringify(s.args ?? {}, null, 2))}</textarea>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const fnCode = meta && meta.fn ? meta.fn.toString() : "";
+
+    document.getElementById("app").innerHTML = `
+      <div class="grid">
+        <div class="col" style="gap:14px">
+          <div class="panel">
+            <div class="head">
+              <h2>Keys (cookies only)</h2>
+              <span class="pill">${htmlEscape(keyName)} = ${htmlEscape(apiKeyMasked)}</span>
+            </div>
+            <div class="body">
+              <div class="field">
+                <label>API key cookie name (optional)</label>
+                <input type="text" id="keyName" value="${htmlEscape(cookies["NAN0CLAW_API_KEY_NAME"] || "")}" placeholder="Leave blank to use ANTHROPIC_API_KEY" />
+                <div class="muted small">This sets cookie <span class="mono">NAN0CLAW_API_KEY_NAME</span>. The value cookie is read by that name. Not stored in URL.</div>
+              </div>
+              <div class="split">
+                <div class="field">
+                  <label>Set key cookie value</label>
+                  <input type="password" id="keyValue" placeholder="paste key here" />
+                </div>
+                <div class="field">
+                  <label>&nbsp;</label>
+                  <div class="row">
+                    <button class="btn" id="btnSetKey">Set</button>
+                    <button class="btn danger" id="btnClearKey">Clear</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="field">
+                <label>Other cookies (read-only)</label>
+                <div class="code">${htmlEscape(JSON.stringify(cookies, null, 2))}</div>
+              </div>
+
+              <div class="muted small">Note: cookies may not persist on <span class="mono">file://</span>. Serve this HTML over HTTP.</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="head">
+              <h2>NanoClaw functions</h2>
+              <span class="pill">${htmlEscape(Object.keys(FUNCTIONS).length)} funcs</span>
+            </div>
+            <div class="body tight">
+              <div class="list">${fnList}</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="head">
+              <h2>Pipeline runner</h2>
+              <div class="row">
+                <button class="btn" data-action="pipelineRun">${state.pipeline.running ? "Running…" : "Run"}</button>
+                <button class="btn secondary" data-action="pipelineStep">Step</button>
+                <button class="btn danger" data-action="pipelineStop">Stop</button>
+              </div>
+            </div>
+            <div class="body">
+              <div class="muted small">Runs steps in order. Begin/end breakpoints pause execution for edits/inspection.</div>
+              <div class="row" style="margin:10px 0">
+                <select id="pipelineAddFn">
+                  ${Object.keys(FUNCTIONS).map(fn => `<option value="${htmlEscape(fn)}">${htmlEscape(fn)}()</option>`).join("")}
+                </select>
+                <button class="btn secondary" id="btnPipelineAdd">Add step</button>
+              </div>
+              <div class="col">${pipelineSteps}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col" style="gap:14px">
+          <div class="panel">
+            <div class="head">
+              <h2>Function detail</h2>
+              <span class="pill mono">${htmlEscape(selectedFn)}()</span>
+            </div>
+            <div class="body">
+              <div class="row" style="justify-content:space-between; align-items:flex-start">
+                <div class="col" style="flex:1">
+                  <div class="muted">${htmlEscape(meta?.desc || "")}</div>
+                  <div class="muted small">Modeled after NanoClaw host orchestrator functions; browser uses mocks for DB/channel/container.</div>
+                </div>
+                <div class="col" style="align-items:flex-end">
+                  <label class="toggle"><input type="checkbox" data-action="bpBegin" ${bp.begin ? "checked":""}/> begin breakpoint</label>
+                  <label class="toggle"><input type="checkbox" data-action="bpEnd" ${bp.end ? "checked":""}/> end breakpoint</label>
+                </div>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="split">
+                <div class="field">
+                  <label>Arguments (JSON)</label>
+                  <textarea id="argsBox" spellcheck="false">${htmlEscape(getArgsDraft(selectedFn))}</textarea>
+                  <div class="row">
+                    <button class="btn" id="btnRunFn">Run ${htmlEscape(selectedFn)}()</button>
+                    <button class="btn secondary" id="btnResetArgs">Reset args</button>
+                  </div>
+                  <div class="muted small">Arguments are stored in URL state. Do not paste secrets here.</div>
+                </div>
+                <div class="field">
+                  <label>Latest output (from trace)</label>
+                  <div class="code" id="outBox">${htmlEscape(latestCallOutput(selectedFn))}</div>
+                </div>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="field">
+                <label>Implementation (JS)</label>
+                <div class="code">${htmlEscape(fnCode)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="head">
+              <h2>Environment</h2>
+              <span class="pill">URL state</span>
+            </div>
+            <div class="body">
+              <div class="split">
+                <div class="field">
+                  <label>Summary</label>
+                  <div class="code">${htmlEscape(JSON.stringify(envSummary, null, 2))}</div>
+                </div>
+                <div class="field">
+                  <label>Edit env (advanced)</label>
+                  <textarea id="envEditor" spellcheck="false">${htmlEscape(JSON.stringify(state.env, null, 2))}</textarea>
+                  <div class="row">
+                    <button class="btn secondary" id="btnApplyEnv">Apply env</button>
+                    <span class="muted small">Stored in URL. Keys are not here.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="head">
+              <h2>Trace</h2>
+              <span class="pill">${htmlEscape(state.env.trace.length)} events</span>
+            </div>
+            <div class="body">
+              <table class="table">
+                <thead><tr><th class="nowrap">Time</th><th>Lvl</th><th>What</th></tr></thead>
+                <tbody>${traceRows || `<tr><td colspan="3" class="muted">No trace yet.</td></tr>`}</tbody>
+              </table>
+              <div class="row" style="margin-top:10px; justify-content:space-between">
+                <button class="btn secondary" id="btnClearTrace">Clear trace</button>
+                <label class="toggle"><input type="checkbox" id="toggleGzip" ${state.settings.useGzip ? "checked":""}/> gzip URL</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Wire header buttons
+    document.getElementById("btnCopyUrl").onclick = onCopyUrl;
+    document.getElementById("btnReset").onclick = onReset;
+    document.getElementById("btnSeed").onclick = onSeed;
+
+    // Keys UI
+    document.getElementById("btnSetKey").onclick = () => {
+      const nm = (document.getElementById("keyName").value || "").trim();
+      const val = document.getElementById("keyValue").value || "";
+      if (nm) setCookie("NAN0CLAW_API_KEY_NAME", nm);
+      else clearCookie("NAN0CLAW_API_KEY_NAME");
+      const effName = nm || "ANTHROPIC_API_KEY";
+      if (val) setCookie(effName, val);
+      document.getElementById("keyValue").value = "";
+      updateStatusPill();
+      render();
+    };
+    document.getElementById("btnClearKey").onclick = () => {
+      const nm = (document.getElementById("keyName").value || "").trim();
+      const effName = (parseCookies()["NAN0CLAW_API_KEY_NAME"] || nm || "ANTHROPIC_API_KEY");
+      clearCookie(effName);
+      updateStatusPill();
+      render();
+    };
+
+    // Function args editor
+    const argsBox = document.getElementById("argsBox");
+    argsBox.oninput = () => setArgsDraft(selectedFn, argsBox.value);
+
+    document.getElementById("btnResetArgs").onclick = () => {
+      const d = JSON.stringify(fnArgsTemplate(selectedFn), null, 2);
+      setArgsDraft(selectedFn, d);
+      render();
+    };
+
+    document.getElementById("btnRunFn").onclick = async () => {
+      let args;
+      try { args = JSON.parse(getArgsDraft(selectedFn) || "{}"); }
+      catch (e) {
+        alert("Args JSON invalid: " + e);
+        return;
+      }
+
+      // For single-call runs, we allow begin/end breakpoints to act like a confirmation/inspection pause too.
+      // Treat it as a one-step pipeline run so breakpoints work consistently.
+      try {
+        await execWithDebugger(selectedFn, args, { fromPipeline: true });
+      } catch (e) {
+        alert("Error: " + e.message);
+      }
+    };
+
+    // Breakpoints toggles
+    document.querySelectorAll('input[data-action="bpBegin"]').forEach(el => {
+      el.onchange = (ev) => {
+        bp.begin = !!ev.target.checked;
+        schedulePersist();
+        render();
+      };
+    });
+    document.querySelectorAll('input[data-action="bpEnd"]').forEach(el => {
+      el.onchange = (ev) => {
+        bp.end = !!ev.target.checked;
+        schedulePersist();
+        render();
+      };
+    });
+
+    // Apply env
+    document.getElementById("btnApplyEnv").onclick = () => {
+      const txt = document.getElementById("envEditor").value || "";
+      const parsed = safeJsonParse(txt, null);
+      if (!parsed) { alert("Env JSON invalid."); return; }
+      // protect against accidentally putting keys here
+      state.env = parsed;
+      state = normalizeState(state);
+      schedulePersist();
+      render();
+    };
+
+    // Clear trace
+    document.getElementById("btnClearTrace").onclick = () => {
+      state.env.trace = [];
+      schedulePersist();
+      render();
+    };
+
+    // gzip toggle
+    document.getElementById("toggleGzip").onchange = (ev) => {
+      state.settings.useGzip = !!ev.target.checked;
+      schedulePersist();
+      render();
+    };
+
+    // Pipeline add
+    document.getElementById("btnPipelineAdd").onclick = () => {
+      const fn = document.getElementById("pipelineAddFn").value;
+      state.pipeline.steps.push({ id: randId("step"), fn, args: fnArgsTemplate(fn) });
+      schedulePersist();
+      render();
+    };
+
+    // Pipeline controls
+    document.querySelectorAll('[data-action="pipelineRun"]').forEach(el => el.onclick = () => pipelineRun(false));
+    document.querySelectorAll('[data-action="pipelineStep"]').forEach(el => el.onclick = () => pipelineRun(true));
+    document.querySelectorAll('[data-action="pipelineStop"]').forEach(el => el.onclick = () => pipelineStop());
+
+    // Pipeline step edits
+    document.querySelectorAll('textarea[data-action="pipelineArgs"]').forEach(el => {
+      el.oninput = (ev) => {
+        const stepId = ev.target.getAttribute("data-step");
+        const step = state.pipeline.steps.find(s => s.id === stepId);
+        if (!step) return;
+        const v = ev.target.value || "{}";
+        const parsed = safeJsonParse(v, null);
+        if (parsed) step.args = parsed;
+        schedulePersist();
+      };
+    });
+    document.querySelectorAll('button[data-action="pipelineDel"]').forEach(el => el.onclick = (ev) => {
+      const stepId = ev.target.getAttribute("data-step");
+      state.pipeline.steps = state.pipeline.steps.filter(s => s.id !== stepId);
+      state.pipeline.cursor = Math.min(state.pipeline.cursor, Math.max(0, state.pipeline.steps.length - 1));
+      schedulePersist();
+      render();
+    });
+    document.querySelectorAll('button[data-action="pipelineUp"]').forEach(el => el.onclick = (ev) => {
+      const stepId = ev.target.getAttribute("data-step");
+      const i = state.pipeline.steps.findIndex(s => s.id === stepId);
+      if (i <= 0) return;
+      const tmp = state.pipeline.steps[i-1];
+      state.pipeline.steps[i-1] = state.pipeline.steps[i];
+      state.pipeline.steps[i] = tmp;
+      schedulePersist();
+      render();
+    });
+    document.querySelectorAll('button[data-action="pipelineDown"]').forEach(el => el.onclick = (ev) => {
+      const stepId = ev.target.getAttribute("data-step");
+      const i = state.pipeline.steps.findIndex(s => s.id === stepId);
+      if (i < 0 || i >= state.pipeline.steps.length - 1) return;
+      const tmp = state.pipeline.steps[i+1];
+      state.pipeline.steps[i+1] = state.pipeline.steps[i];
+      state.pipeline.steps[i] = tmp;
+      schedulePersist();
+      render();
+    });
+
+    // function selection
+    document.querySelectorAll('[data-action="selectFn"]').forEach(el => {
+      el.onclick = (ev) => {
+        const fn = ev.currentTarget.getAttribute("data-fn");
+        state.ui.selectedFn = fn;
+        // ensure args draft exists
+        getArgsDraft(fn);
+        schedulePersist();
+        render();
+      };
+    });
+  }
+
+  function latestCallOutput(fnName) {
+    const calls = (state.env.trace || []).filter(t => t.kind === "call" && t.fn === fnName);
+    const last = calls[calls.length - 1];
+    if (!last) return "(no calls yet)";
+    return JSON.stringify({ result: last.result ?? null, error: last.error ?? null, diff: last.diff ?? [] }, null, 2);
+  }
+
+  async function pipelineRun(stepMode) {
+    if (state.pipeline.running && !state.pipeline.paused) return;
+    state.pipeline.running = true;
+    state.pipeline.paused = false;
+
+    updateStatusPill();
+    schedulePersist();
+    render();
+
+    try {
+      if (stepMode) {
+        // run just one step
+        await pipelineRunOne();
+        state.pipeline.running = false;
+      } else {
+        while (state.pipeline.cursor < state.pipeline.steps.length) {
+          await pipelineRunOne();
+        }
+        state.pipeline.running = false;
+      }
+    } catch (e) {
+      logger.error({ err: String(e) }, "Pipeline stopped due to error");
+      state.pipeline.running = false;
+    }
+
+    updateStatusPill();
+    schedulePersist();
+    render();
+  }
+
+  async function pipelineRunOne() {
+    const i = state.pipeline.cursor;
+    const step = state.pipeline.steps[i];
+    if (!step) return;
+
+    await execWithDebugger(step.fn, step.args ?? {}, { fromPipeline: true, stepId: step.id });
+
+    state.pipeline.cursor++;
+    if (state.pipeline.cursor >= state.pipeline.steps.length) {
+      state.pipeline.cursor = Math.min(state.pipeline.cursor, state.pipeline.steps.length);
+    }
+  }
+
+  function pipelineStop() {
+    state.pipeline.running = false;
+    state.pipeline.paused = false;
+    state.pipeline.cursor = 0;
+    updateStatusPill();
+    schedulePersist();
+    render();
+  }
+
+  async function onCopyUrl() {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      logger.info({}, "Copied URL to clipboard");
+      schedulePersist();
+      render();
+    } catch {
+      prompt("Copy URL:", location.href);
+    }
+  }
+
+  function onReset() {
+    state = normalizeState(defaultState());
+    schedulePersist();
+    render();
+  }
+
+  function onSeed() {
+    // Seed chats, a group, and messages to illustrate trigger logic / pipeline.
+    const e = state.env;
+    const t1 = new Date(Date.now() - 1000*60*4).toISOString();
+    const t2 = new Date(Date.now() - 1000*60*3).toISOString();
+    const t3 = new Date(Date.now() - 1000*60*2).toISOString();
+
+    storeChatMetadata("g:demo", t1, "Demo Group", "mock", true);
+    storeChatMetadata("g:main", t1, "Main Group", "mock", true);
+
+    registerGroup("g:main", { name: "Main Group", folder: "main", requiresTrigger: false });
+    registerGroup("g:demo", { name: "Demo Group", folder: "demo", requiresTrigger: true });
+
+    // messages: demo group has non-trigger + trigger
+    storeMessage({ chat_jid: "g:demo", timestamp: t1, sender: "Alice", content: "hello (no trigger yet)" });
+    storeMessage({ chat_jid: "g:demo", timestamp: t2, sender: "Bob", content: "@Andy please explain how you work" });
+    storeMessage({ chat_jid: "g:main", timestamp: t3, sender: "Curt", content: "status?" });
+
+    logger.info({}, "Seeded demo chats/groups/messages");
+    schedulePersist();
+    render();
+  }
+
+  /********************************************************************
+   * BOOT
+   ********************************************************************/
+  (async function boot() {
+    const decoded = await decodeHashToState(location.hash);
+    state = normalizeState(decoded || defaultState());
+
+    // Ensure bp defaults exist
+    for (const fn of Object.keys(FUNCTIONS)) ensureBp(fn);
+
+    // Ensure args drafts exist for selected fn
+    getArgsDraft(state.ui.selectedFn);
+
+    // Persist initial canonical hash
+    schedulePersist();
+
+    // Wire header buttons (first render will overwrite handlers too)
+    document.getElementById("btnCopyUrl").onclick = onCopyUrl;
+    document.getElementById("btnReset").onclick = onReset;
+    document.getElementById("btnSeed").onclick = onSeed;
+
+    render();
+  })();
+
+})();
+</script>
+</body>
+</html>
