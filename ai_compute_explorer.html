@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Compute Scaling — Dependency Explorer</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #242838; --border: #2e3348;
+    --text: #e2e4ea; --text2: #9ca0b0; --accent: #6c8cff; --accent2: #4ecdc4;
+    --orange: #ff9f43; --red: #ff6b6b; --green: #51cf66; --purple: #cc5de8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; overflow:hidden; height:100vh; }
+
+  .app { display:grid; grid-template-columns:360px 1fr; grid-template-rows:auto 1fr; height:100vh; }
+  header { grid-column:1/-1; padding:14px 24px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  header h1 { font-size:17px; font-weight:700; letter-spacing:-0.3px; }
+  header .subtitle { font-size:12px; color:var(--text2); }
+  header a { color:var(--accent); text-decoration:none; }
+  header a:hover { text-decoration:underline; }
+  .scenario-bar { display:flex; gap:6px; flex-wrap:wrap; }
+  .scenario-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:4px 12px; border-radius:5px; font-size:11px; cursor:pointer; transition:all .15s; }
+  .scenario-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .scenario-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  /* ─── sidebar ─── */
+  .sidebar { overflow-y:auto; border-right:1px solid var(--border); background:var(--surface); }
+  .section { border-bottom:1px solid var(--border); }
+  .section-header { padding:12px 16px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; user-select:none; transition:background .15s; }
+  .section-header:hover { background:var(--surface2); }
+  .section-header.hl { background:rgba(108,140,255,.12); }
+  .section-header h3 { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .section-header .arrow { font-size:10px; color:var(--text2); transition:transform .2s; }
+  .section-header.open .arrow { transform:rotate(90deg); }
+  .section-body { padding:0 16px 14px; display:none; }
+  .section-header.open + .section-body { display:block; }
+
+  .param { margin-bottom:12px; }
+  .param label { display:flex; justify-content:space-between; font-size:11px; color:var(--text2); margin-bottom:3px; }
+  .param label .val { color:var(--accent); font-weight:600; font-variant-numeric:tabular-nums; }
+  .param input[type=range] { width:100%; accent-color:var(--accent); height:4px; }
+  .param .bounds { display:flex; justify-content:space-between; font-size:9px; color:#555; margin-top:1px; }
+  .source-link { display:inline-block; font-size:10px; color:var(--orange); text-decoration:none; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .source-link:hover { text-decoration:underline; }
+
+  /* ─── main panel ─── */
+  .main { display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ─── tabs ─── */
+  .tab-bar { display:flex; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+  .tab-btn { padding:10px 20px; font-size:12px; font-weight:600; cursor:pointer; border:none; background:transparent; color:var(--text2); border-bottom:2px solid transparent; transition:all .15s; }
+  .tab-btn:hover { color:var(--text); background:var(--surface2); }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  .tab-content { flex:1; overflow:hidden; display:none; }
+  .tab-content.active { display:flex; flex-direction:column; }
+
+  /* ─── diagram tab ─── */
+  .diagram-wrap { flex:1; overflow:auto; padding:16px; position:relative; background:#13151f; }
+  .diagram-wrap svg { width:100%; height:auto; min-width:900px; }
+
+  /* SVG highlighting */
+  .diagram-wrap svg .node { cursor:pointer; transition:opacity .2s; }
+  .diagram-wrap svg .edge { transition:opacity .2s; }
+  .diagram-wrap svg.has-selection .node { opacity:0.2; }
+  .diagram-wrap svg.has-selection .edge { opacity:0.08; }
+  .diagram-wrap svg.has-selection .node.hl { opacity:1; }
+  .diagram-wrap svg.has-selection .edge.hl { opacity:1; }
+  .diagram-wrap svg .node.hl polygon,
+  .diagram-wrap svg .node.hl ellipse { stroke:#6c8cff !important; stroke-width:3px !important; }
+  .diagram-wrap svg .node.hl-glow polygon,
+  .diagram-wrap svg .node.hl-glow ellipse { filter:drop-shadow(0 0 8px rgba(108,140,255,.6)); }
+  .diagram-wrap svg .edge.hl path { stroke:#6c8cff !important; stroke-width:2px !important; }
+  .diagram-wrap svg .edge.hl polygon { stroke:#6c8cff !important; fill:#6c8cff !important; }
+
+  .diagram-wrap svg .cluster polygon { cursor:pointer; transition:opacity .2s; }
+  .diagram-wrap svg.has-selection .cluster { opacity:0.25; }
+  .diagram-wrap svg.has-selection .cluster.hl { opacity:1; }
+
+  /* ─── analysis tab ─── */
+  .analysis { flex:1; overflow-y:auto; padding:20px; }
+  .results { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:18px; }
+  .results h3 { font-size:14px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .results h3::before { content:''; width:4px; height:16px; border-radius:2px; }
+  .result-row { display:flex; justify-content:space-between; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; gap:12px; }
+  .result-row:last-child { border-bottom:none; }
+  .result-row .label { color:var(--text2); flex:1; }
+  .result-row .value { font-weight:700; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  .value.green { color:var(--green); } .value.red { color:var(--red); }
+  .value.orange { color:var(--orange); } .value.accent { color:var(--accent); }
+
+  .flow-row { display:flex; gap:0; margin-bottom:18px; }
+  .flow-block { flex:1; padding:10px 12px; font-size:11px; position:relative; cursor:pointer; transition:filter .15s; }
+  .flow-block:hover { filter:brightness(1.3); }
+  .flow-block::after { content:'→'; position:absolute; right:-7px; top:50%; transform:translateY(-50%); font-size:15px; color:var(--text2); z-index:1; }
+  .flow-block:last-child::after { display:none; }
+  .flow-block .fb-label { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:.4px; }
+  .flow-block .fb-value { font-size:15px; font-weight:700; margin-top:1px; }
+  .flow-block.euv { background:#1a2744; border-left:3px solid var(--accent); }
+  .flow-block.fab { background:#1a3324; border-left:3px solid var(--green); }
+  .flow-block.pwr { background:#2a2010; border-left:3px solid var(--orange); }
+  .flow-block.dc  { background:#1a2a2a; border-left:3px solid var(--accent2); }
+  .flow-block.lab { background:#2a1a24; border-left:3px solid var(--red); }
+
+  /* ─── timeline projection ─── */
+  .timeline { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:18px; }
+  .timeline h3 { font-size:14px; font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .timeline h3::before { content:''; width:4px; height:16px; border-radius:2px; background:var(--accent2); }
+  .timeline .tl-sub { font-size:11px; color:var(--text2); margin-bottom:14px; }
+
+  .tl-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; margin-bottom:16px; }
+  .tl-col { text-align:center; }
+  .tl-year { font-size:11px; font-weight:600; color:var(--text2); margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+  .tl-year.now { color:var(--accent); border-bottom-color:var(--accent); }
+
+  .tl-bar-wrap { position:relative; height:120px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
+  .tl-bar { width:36px; border-radius:4px 4px 0 0; transition:height .3s ease; position:relative; min-height:4px; }
+  .tl-bar.chip  { background:linear-gradient(180deg, #6c8cff 0%, #4a6cd4 100%); }
+  .tl-bar.power { background:linear-gradient(180deg, #ff9f43 0%, #d4802e 100%); position:absolute; bottom:0; width:20px; left:calc(50% + 12px); border-radius:3px 3px 0 0; opacity:.55; }
+  .tl-bar-val { font-size:12px; font-weight:700; color:var(--accent2); margin-top:4px; }
+
+  .tl-demand-line { position:absolute; width:100%; border-top:2px dashed var(--red); left:0; }
+  .tl-demand-tag { position:absolute; right:-2px; top:-14px; font-size:8px; color:var(--red); font-weight:600; white-space:nowrap; }
+
+  .tl-metrics { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+  .tl-metric { background:var(--surface2); border-radius:8px; padding:10px 12px; text-align:center; }
+  .tl-metric .tm-label { font-size:10px; color:var(--text2); margin-bottom:2px; }
+  .tl-metric .tm-value { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .tl-metric .tm-detail { font-size:10px; color:var(--text2); margin-top:2px; }
+
+  .tl-bottleneck { display:flex; align-items:center; gap:8px; margin-top:12px; padding:10px 14px; border-radius:8px; font-size:12px; }
+  .tl-bottleneck.ok { background:rgba(81,207,102,.08); border:1px solid rgba(81,207,102,.2); color:var(--green); }
+  .tl-bottleneck.warn { background:rgba(255,159,67,.08); border:1px solid rgba(255,159,67,.2); color:var(--orange); }
+  .tl-bottleneck.crit { background:rgba(255,107,107,.08); border:1px solid rgba(255,107,107,.2); color:var(--red); }
+
+  /* ─── cards tab ─── */
+  .cards-wrap { flex:1; overflow-y:auto; padding:20px; }
+  .node-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:14px; }
+  .node-card { background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:14px; cursor:pointer; transition:all .2s; }
+  .node-card:hover { border-color:var(--accent); box-shadow:0 0 16px rgba(108,140,255,.12); }
+  .node-card.hl { border-color:var(--accent); background:rgba(108,140,255,.06); box-shadow:0 0 20px rgba(108,140,255,.18); }
+  .node-card h4 { font-size:13px; font-weight:600; margin-bottom:5px; display:flex; align-items:center; gap:7px; }
+  .node-card .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .node-card .stats { font-size:11px; color:var(--text2); }
+  .node-card .stats .num { color:var(--accent2); font-weight:600; }
+  .node-card .deps { margin-top:6px; font-size:10px; color:var(--text2); }
+  .node-card .deps span { color:var(--purple); }
+  .node-card .source { display:block; margin-top:6px; font-size:10px; color:var(--orange); text-decoration:none; }
+  .node-card .source:hover { text-decoration:underline; }
+
+  /* legend */
+  .legend { display:flex; flex-wrap:wrap; gap:10px; padding:10px 20px; border-bottom:1px solid var(--border); background:var(--surface); font-size:11px; flex-shrink:0; }
+  .legend .item { display:flex; align-items:center; gap:4px; cursor:pointer; padding:2px 6px; border-radius:4px; transition:background .15s; }
+  .legend .item:hover { background:var(--surface2); }
+  .legend .swatch { width:10px; height:10px; border-radius:2px; }
+  .legend .item.active { background:rgba(108,140,255,.15); }
+
+  .clear-btn { position:fixed; bottom:16px; right:16px; background:var(--surface2); border:1px solid var(--border); color:var(--text2); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; z-index:50; display:none; transition:all .15s; }
+  .clear-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .clear-btn.show { display:block; }
+
+  @media (max-width:900px) {
+    .app { grid-template-columns:1fr; grid-template-rows:auto auto 1fr; }
+    .sidebar { max-height:35vh; border-right:none; border-bottom:1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>AI Compute Scaling — Dependency Explorer</h1>
+      <div class="subtitle">Based on the <a href="https://www.dwarkesh.com/p/dylan-patel" target="_blank">Dwarkesh × Dylan Patel interview</a>. Click any node, card, or slider section to highlight its place in the supply chain.</div>
+    </div>
+    <div class="scenario-bar" id="scenarioBar"></div>
+  </header>
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="diagram">Diagram</button>
+      <button class="tab-btn" data-tab="analysis">Analysis</button>
+      <button class="tab-btn" data-tab="cards">Cards</button>
+    </div>
+
+    <div class="tab-content active" id="tab-diagram">
+      <div class="legend" id="legend"></div>
+      <div class="diagram-wrap" id="diagramWrap"><!-- SVG injected here --></div>
+    </div>
+    <div class="tab-content" id="tab-analysis">
+      <div class="analysis" id="analysisPanel"></div>
+    </div>
+    <div class="tab-content" id="tab-cards">
+      <div class="cards-wrap" id="cardsPanel"></div>
+    </div>
+  </div>
+</div>
+<button class="clear-btn" id="clearBtn" title="Clear selection">✕ Clear selection</button>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA MODEL
+// ═══════════════════════════════════════════════════════════
+const BASE = "https://www.dwarkesh.com/p/dylan-patel";
+const SRC = (frag) => `${BASE}#details`;
+
+// ---------- sections ----------
+const sections = {
+  euv:   { label:"EUV Lithography",      color:"#6c8cff", svgNodes:["cymer","zeiss","reticle_stage","wafer_stage","euv_assembly","euv_tools","euv_per_gw"], svgClusters:["cluster_asml_supply","cluster_euv"] },
+  fab:   { label:"Wafer Fabrication",     color:"#51cf66", svgNodes:["logic_3nm","logic_5nm","tsmc_alloc"], svgClusters:["cluster_fab"] },
+  mem:   { label:"Memory / HBM",          color:"#cc5de8", svgNodes:["dram_wafers","hbm","mem_cost"], svgClusters:["cluster_memory"] },
+  gpu:   { label:"GPU & Architecture",    color:"#e8b84d", svgNodes:["nvidia_gpu","nvidia_contracts","comm_bandwidth"], svgClusters:["cluster_chips"] },
+  power: { label:"Power & Construction",  color:"#ff9f43", svgNodes:["power_deploy","turbines","dc_build"], svgClusters:["cluster_power"] },
+  dc:    { label:"Data Centers",          color:"#4ecdc4", svgNodes:["dc","dc_build"], svgClusters:["cluster_dc"] },
+  labs:  { label:"AI Lab Demand",         color:"#ff6b6b", svgNodes:["anthropic","openai","h100_econ"], svgClusters:[] },
+  china: { label:"China Trajectory",      color:"#888",    svgNodes:["china_duv","china_euv"], svgClusters:["cluster_china"] },
+};
+
+// ---------- parameters ----------
+const params = {
+  euvToolsPerYear2025:{ val:80, min:50,max:150,step:5, unit:"tools/yr", label:"ASML EUV tools/yr (2025)", section:"euv", note:"ASML producing ~70 EUV tools/year, 2025: ~80 tools" },
+  euvToolsPerYear2030:{ val:100,min:60,max:200,step:5, unit:"tools/yr", label:"ASML EUV tools/yr (2030 max)", section:"euv", note:"2030 projection: ~100 tools maximum" },
+  euvInstalledBase2030:{ val:700,min:400,max:1200,step:25, unit:"tools", label:"Installed EUV base by 2030", section:"euv", note:"Total installed base by 2030: ~700 EUV tools" },
+  euvToolsPerGW:{ val:3.5,min:1,max:8,step:0.1, unit:"tools/GW", label:"EUV tools required per GW", section:"euv", note:"3.5 tools per GW (75 wafers/hr, 90% uptime)" },
+  euvToolCost:{ val:400,min:200,max:800,step:25, unit:"M$", label:"Cost per EUV tool", section:"euv", note:"Three EUV tools cost $1.2B → ~$400M each" },
+  logicWafers3nmPerGW:{ val:55000,min:20000,max:100000,step:5000, unit:"wafers/GW", label:"3 nm logic wafers per GW", section:"fab", note:"55,000 wafers of 3nm logic per GW" },
+  logicWafers5nmPerGW:{ val:6000,min:2000,max:20000,step:1000, unit:"wafers/GW", label:"5 nm logic wafers per GW", section:"fab", note:"6,000 wafers of 5nm logic per GW" },
+  dramWafersPerGW:{ val:170000,min:50000,max:400000,step:10000, unit:"wafers/GW", label:"DRAM wafers per GW", section:"mem", note:"170,000 wafers of DRAM per GW" },
+  hbmWaferPenalty:{ val:3.5,min:2,max:6,step:0.5, unit:"×", label:"HBM stacking wafer penalty", section:"mem", note:"DRAM has 3–4× more bits/wafer than HBM" },
+  usPowerDeployed2026:{ val:20,min:5,max:60,step:1, unit:"GW", label:"US power deployed (2026)", section:"power", note:"~20 gigawatts deployed in US this year" },
+  dcBuildMonths:{ val:10,min:4,max:24,step:1, unit:"months", label:"Data center build time", section:"power", note:"DC construction: 8 months to <1 year" },
+  fabBuildYears:{ val:2.5,min:1.5,max:5,step:0.5, unit:"years", label:"Fab construction time", section:"power", note:"Fab construction: 2–3 years" },
+  dcCapexPerGW:{ val:50,min:20,max:100,step:5, unit:"B$/GW", label:"Data center CapEx per GW", section:"dc", note:"One gigawatt DC CapEx: ~$50 billion" },
+  bigTechCapex2026:{ val:600,min:200,max:1200,step:50, unit:"B$", label:"Big Tech combined CapEx (2026)", section:"dc", note:"Big Tech 2026 CapEx: ~$600 billion" },
+  anthropicCurrentGW:{ val:2.25,min:1,max:10,step:0.25, unit:"GW", label:"Anthropic current capacity", section:"labs", note:"Current capacity: 2–2.5 gigawatts" },
+  anthropicNeededGW:{ val:5.5,min:3,max:15,step:0.5, unit:"GW", label:"Anthropic needed by EOY", section:"labs", note:"Needed by year-end: 5–6 gigawatts" },
+  openaiTargetGW:{ val:52,min:20,max:120,step:2, unit:"GW", label:"OpenAI 2030 target", section:"labs", note:"Sam Altman's goal: 52 GW/yr by 2030" },
+  h100MfgCostPerHr:{ val:1.40,min:0.50,max:3.00,step:0.05, unit:"$/hr", label:"H100 mfg cost (5-yr depr.)", section:"gpu", note:"Mfg cost: ~$1.40/hr across 5-year depreciation" },
+  h100SpotPricePerHr:{ val:2.40,min:1.00,max:5.00,step:0.10, unit:"$/hr", label:"H100 spot price", section:"gpu", note:"Spot pricing: up to $2.40/hr (2–3 yr contracts)" },
+  hopperToBlackwellSpeedup:{ val:20,min:5,max:50,step:1, unit:"×", label:"Hopper→Blackwell inference speedup", section:"gpu", note:"Hopper to Blackwell: ~20× speedup" },
+  chinaDuvTools2030:{ val:100,min:30,max:200,step:10, unit:"tools/yr", label:"China domestic DUV (2030)", section:"china", note:"DUV: likely ~100 tools/yr by 2030" },
+  chinaEuvHvmYears:{ val:6,min:3,max:15,step:1, unit:"years", label:"China EUV HVM timeline", section:"china", note:"Production hell: 5–7 yr minimum (ASML precedent)" },
+  // Power growth params
+  usPowerGrowthPctPerYr:{ val:15,min:5,max:40,step:1, unit:"%/yr", label:"US DC power growth rate", section:"power", note:"US transitioning from 0% to rapid DC power growth" },
+  // EUV ramp shape
+  euvInstalledBase2025:{ val:450,min:300,max:600,step:25, unit:"tools", label:"Installed EUV base (2025)", section:"euv", note:"Cumulative EUV tools installed by end of 2025" },
+};
+
+// ---------- graph edges (for connected-highlight) ----------
+const edges = {
+  cymer:["euv_assembly"], zeiss:["euv_assembly"], reticle_stage:["euv_assembly"], wafer_stage:["euv_assembly"],
+  euv_assembly:["euv_tools"], euv_tools:["euv_per_gw","china_euv"],
+  euv_per_gw:["logic_3nm","logic_5nm","dram_wafers"],
+  tsmc_alloc:["logic_3nm","logic_5nm"],
+  logic_3nm:["nvidia_gpu"], logic_5nm:["nvidia_gpu"],
+  dram_wafers:["hbm"], hbm:["nvidia_gpu","mem_cost"],
+  nvidia_contracts:["nvidia_gpu","hbm"], comm_bandwidth:["nvidia_gpu"],
+  nvidia_gpu:["dc"], power_deploy:["dc"], turbines:["power_deploy"], dc_build:["dc"],
+  dc:["anthropic","openai"], anthropic:["h100_econ"], openai:["h100_econ"],
+  h100_econ:["nvidia_gpu"], china_duv:["china_euv"],
+};
+
+// Build reverse edges + edge set
+const revEdges = {};
+const edgeSet = new Set();
+for (const [src, dsts] of Object.entries(edges)) {
+  for (const dst of dsts) {
+    (revEdges[dst] = revEdges[dst] || []).push(src);
+    edgeSet.add(`${src}->${dst}`);
+    edgeSet.add(`${dst}->${src}`); // for undirected lookup
+  }
+}
+
+function getConnected(nodeId) {
+  const nodes = new Set([nodeId]);
+  (edges[nodeId]||[]).forEach(n => nodes.add(n));
+  (revEdges[nodeId]||[]).forEach(n => nodes.add(n));
+  return nodes;
+}
+
+// ---------- node → card mapping ----------
+const cardDefs = [
+  { id:"cymer",     section:"euv",   title:"Cymer EUV Source",     color:"#ff9f43", svgNodes:["cymer"] },
+  { id:"zeiss",     section:"euv",   title:"Carl Zeiss Optics",    color:"#ff9f43", svgNodes:["zeiss"] },
+  { id:"euv_assembly", section:"euv", title:"EUV Assembly",        color:"#6c8cff", svgNodes:["euv_assembly"] },
+  { id:"euv_tools", section:"euv",   title:"ASML EUV Tools",       color:"#6c8cff", svgNodes:["euv_tools"] },
+  { id:"euv_per_gw",section:"euv",   title:"EUV → GW Conversion",  color:"#4ecdc4", svgNodes:["euv_per_gw"] },
+  { id:"logic_3nm", section:"fab",   title:"3 nm Logic Wafers",    color:"#51cf66", svgNodes:["logic_3nm"] },
+  { id:"logic_5nm", section:"fab",   title:"5 nm Logic Wafers",    color:"#51cf66", svgNodes:["logic_5nm"] },
+  { id:"tsmc_alloc",section:"fab",   title:"TSMC Allocation",      color:"#51cf66", svgNodes:["tsmc_alloc"] },
+  { id:"dram_wafers",section:"mem",  title:"DRAM Wafers",          color:"#cc5de8", svgNodes:["dram_wafers"] },
+  { id:"hbm",       section:"mem",   title:"HBM Stacking",         color:"#cc5de8", svgNodes:["hbm"] },
+  { id:"mem_cost",  section:"mem",   title:"Memory Cost Surge",    color:"#cc5de8", svgNodes:["mem_cost"] },
+  { id:"nvidia_gpu",section:"gpu",   title:"Nvidia GPUs",          color:"#e8b84d", svgNodes:["nvidia_gpu"] },
+  { id:"nvidia_contracts",section:"gpu", title:"Nvidia Contracts",  color:"#e8b84d", svgNodes:["nvidia_contracts"] },
+  { id:"comm_bandwidth",section:"gpu", title:"Comm Bandwidth",     color:"#e8b84d", svgNodes:["comm_bandwidth"] },
+  { id:"power_deploy",section:"power",title:"US Power Deployment", color:"#ff9f43", svgNodes:["power_deploy"] },
+  { id:"turbines",  section:"power", title:"Turbine / Land Deposits",color:"#ff9f43", svgNodes:["turbines"] },
+  { id:"dc_build",  section:"power", title:"DC Construction",      color:"#4ecdc4", svgNodes:["dc_build"] },
+  { id:"dc",        section:"dc",    title:"Data Centers",         color:"#4ecdc4", svgNodes:["dc"] },
+  { id:"anthropic", section:"labs",  title:"Anthropic",             color:"#ff6b6b", svgNodes:["anthropic"] },
+  { id:"openai",    section:"labs",  title:"OpenAI / Altman",       color:"#ff6b6b", svgNodes:["openai"] },
+  { id:"h100_econ", section:"labs",  title:"H100 Token Economics",  color:"#ff6b6b", svgNodes:["h100_econ"] },
+  { id:"china_duv", section:"china", title:"China DUV Tools",       color:"#888",    svgNodes:["china_duv"] },
+  { id:"china_euv", section:"china", title:"China EUV Attempt",     color:"#888",    svgNodes:["china_euv"] },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  SCENARIOS
+// ═══════════════════════════════════════════════════════════
+const scenarios = [
+  { name:"Baseline", preset:{} },
+  { name:"ASML ramps", preset:{ euvToolsPerYear2030:150, euvInstalledBase2030:950 } },
+  { name:"Memory crisis", preset:{ hbmWaferPenalty:5, dramWafersPerGW:250000 } },
+  { name:"Altman's dream", preset:{ euvToolsPerYear2030:180, euvInstalledBase2030:1100 } },
+  { name:"Power bottleneck", preset:{ usPowerDeployed2026:10, dcBuildMonths:18 } },
+];
+let activeScenario = 0;
+const originals = {};
+for (const [k,v] of Object.entries(params)) originals[k] = v.val;
+
+// ═══════════════════════════════════════════════════════════
+//  SELECTION STATE
+// ═══════════════════════════════════════════════════════════
+let selectedNodes = new Set();   // SVG node title strings
+let selectedSection = null;
+
+function clearSelection() {
+  selectedNodes.clear();
+  selectedSection = null;
+  applyHighlight();
+}
+
+function selectByNodeId(nodeId) {
+  selectedSection = null;
+  selectedNodes = getConnected(nodeId);
+  applyHighlight();
+}
+
+function selectBySection(secKey) {
+  selectedSection = secKey;
+  selectedNodes = new Set(sections[secKey].svgNodes);
+  applyHighlight();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SVG HIGHLIGHTING
+// ═══════════════════════════════════════════════════════════
+function applyHighlight() {
+  const svg = document.querySelector('#diagramWrap svg');
+  if (!svg) return;
+
+  const hasSelection = selectedNodes.size > 0;
+  svg.classList.toggle('has-selection', hasSelection);
+  document.getElementById('clearBtn').classList.toggle('show', hasSelection);
+
+  // --- Nodes ---
+  svg.querySelectorAll('.node').forEach(g => {
+    const title = g.querySelector('title');
+    if (!title) return;
+    const name = title.textContent.trim();
+    const isHl = selectedNodes.has(name);
+    g.classList.toggle('hl', isHl);
+    g.classList.toggle('hl-glow', isHl);
+  });
+
+  // --- Edges ---
+  svg.querySelectorAll('.edge').forEach(g => {
+    const title = g.querySelector('title');
+    if (!title) return;
+    const raw = title.textContent.trim();  // "src->dst" or "src&#45;&gt;dst"
+    const parts = raw.split(/->|&#45;&gt;|→/);
+    if (parts.length === 2) {
+      const [a,b] = parts.map(s=>s.trim());
+      const isHl = selectedNodes.has(a) && selectedNodes.has(b);
+      g.classList.toggle('hl', isHl);
+    }
+  });
+
+  // --- Clusters ---
+  const hlClusters = new Set();
+  if (selectedSection) {
+    (sections[selectedSection].svgClusters || []).forEach(c => hlClusters.add(c));
+  } else {
+    // find which sections the selected nodes belong to
+    for (const [sk,sv] of Object.entries(sections)) {
+      if (sv.svgNodes.some(n => selectedNodes.has(n))) {
+        (sv.svgClusters||[]).forEach(c => hlClusters.add(c));
+      }
+    }
+  }
+  svg.querySelectorAll('.cluster').forEach(g => {
+    const title = g.querySelector('title');
+    if (!title) return;
+    g.classList.toggle('hl', hlClusters.has(title.textContent.trim()));
+  });
+
+  // --- Sidebar section headers ---
+  document.querySelectorAll('.section-header').forEach(el => {
+    const sec = el.dataset.section;
+    if (!sec) return;
+    const secNodes = sections[sec]?.svgNodes || [];
+    el.classList.toggle('hl', secNodes.some(n => selectedNodes.has(n)));
+  });
+
+  // --- Cards ---
+  document.querySelectorAll('.node-card').forEach(el => {
+    el.classList.toggle('hl', selectedNodes.has(el.dataset.nodeId));
+  });
+
+  // --- Legend ---
+  document.querySelectorAll('.legend .item').forEach(el => {
+    el.classList.toggle('active', el.dataset.section === selectedSection);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COMPUTE
+// ═══════════════════════════════════════════════════════════
+function compute() {
+  const p = {}; for (const [k,v] of Object.entries(params)) p[k] = v.val;
+  const maxGW2030 = p.euvInstalledBase2030 / p.euvToolsPerGW;
+  const openaiSharePct = (p.openaiTargetGW / maxGW2030)*100;
+  const euvCostPerGW = (p.euvToolsPerGW * p.euvToolCost)/1000;
+  const euvPctOfDcCapex = (euvCostPerGW / p.dcCapexPerGW)*100;
+  const anthropicGap = p.anthropicNeededGW - p.anthropicCurrentGW;
+  const anthropicEuvTools = anthropicGap * p.euvToolsPerGW;
+  const h100GrossMargin = ((p.h100SpotPricePerHr - p.h100MfgCostPerHr)/p.h100SpotPricePerHr)*100;
+  const totalGWfromCapex = p.bigTechCapex2026 / p.dcCapexPerGW;
+  const euvToolsNeededForCapex = totalGWfromCapex * p.euvToolsPerGW;
+  const euvYearsToFillCapex = euvToolsNeededForCapex / p.euvToolsPerYear2025;
+  const hbmEffectiveWafers = p.dramWafersPerGW * p.hbmWaferPenalty;
+  const chinaEuvReady = 2026 + p.chinaEuvHvmYears;
+  return { maxGW2030, openaiSharePct, euvCostPerGW, euvPctOfDcCapex, anthropicGap, anthropicEuvTools,
+    h100GrossMargin, totalGWfromCapex, euvToolsNeededForCapex, euvYearsToFillCapex, hbmEffectiveWafers, chinaEuvReady };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TIMELINE PROJECTION — year-by-year capacity model
+// ═══════════════════════════════════════════════════════════
+function computeTimeline() {
+  const p = {}; for (const [k,v] of Object.entries(params)) p[k] = v.val;
+  const years = [2025, 2026, 2027, 2028, 2029, 2030];
+
+  // ── EUV tool production ramp (linear interpolation 2025→2030) ──
+  const euvRateSlope = (p.euvToolsPerYear2030 - p.euvToolsPerYear2025) / 5;
+  function euvRate(yr) { return p.euvToolsPerYear2025 + euvRateSlope * (yr - 2025); }
+
+  // ── Cumulative EUV installed base ──
+  // Start: euvInstalledBase2025. Each subsequent year adds that year's production.
+  const euvBase = [p.euvInstalledBase2025];
+  for (let i = 1; i < years.length; i++) {
+    euvBase.push(euvBase[i-1] + euvRate(years[i]));
+  }
+
+  // ── Chip-limited GW: installed tools ÷ tools-per-GW ──
+  const chipGW = euvBase.map(b => b / p.euvToolsPerGW);
+
+  // ── Power-limited GW: compound growth from 2026 baseline ──
+  const powerGrowth = p.usPowerGrowthPctPerYr / 100;
+  const powerGW = years.map(yr => {
+    if (yr <= 2026) return p.usPowerDeployed2026;
+    return p.usPowerDeployed2026 * Math.pow(1 + powerGrowth, yr - 2026);
+  });
+
+  // ── Effective GW = min(chip, power) ──
+  const effectiveGW = years.map((_, i) => Math.min(chipGW[i], powerGW[i]));
+
+  // ── Bottleneck identification ──
+  const bottleneck = years.map((_, i) => chipGW[i] <= powerGW[i] ? 'chip' : 'power');
+
+  // ── Demand markers ──
+  const anthropicDemand = years.map(yr => {
+    if (yr <= 2025) return p.anthropicCurrentGW;
+    // linear ramp to EOY 2026 need, then 40% yr/yr growth assumption after
+    if (yr === 2026) return p.anthropicNeededGW;
+    return p.anthropicNeededGW * Math.pow(1.4, yr - 2026);
+  });
+  const openaiDemand = years.map(yr => {
+    // Linear ramp from ~5 GW in 2025 to target in 2030
+    const start = 5;
+    if (yr <= 2025) return start;
+    const t = (yr - 2025) / 5;
+    return start + (p.openaiTargetGW - start) * t;
+  });
+
+  // ── Cumulative CapEx (billions) ──
+  const cumCapex = effectiveGW.map(gw => gw * p.dcCapexPerGW);
+
+  // ── EUV tools cost as % of total per year ──
+  const euvCapexPct = years.map((_, i) => {
+    const euvCost = euvBase[i] * (p.euvToolCost / 1000); // B$
+    return cumCapex[i] > 0 ? (euvCost / cumCapex[i]) * 100 : 0;
+  });
+
+  return { years, euvBase, euvRate: years.map(euvRate), chipGW, powerGW, effectiveGW,
+    bottleneck, anthropicDemand, openaiDemand, cumCapex, euvCapexPct };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════
+function fmt(v, unit) {
+  if (unit==='M$') return `$${v}M`;
+  if (unit==='B$') return `$${v}B`;
+  if (unit==='B$/GW') return `$${v}B/GW`;
+  if (unit==='$/hr') return `$${v.toFixed(2)}/hr`;
+  if (unit==='×') return `${v}×`;
+  if (v>=10000) return `${(v/1000).toFixed(0)}k ${unit}`;
+  if (v>=1000) return `${(v/1000).toFixed(1)}k ${unit}`;
+  return `${v} ${unit}`;
+}
+
+function renderSidebar() {
+  let html = '';
+  for (const [sk,sec] of Object.entries(sections)) {
+    const sp = Object.entries(params).filter(([,v])=>v.section===sk);
+    if (sp.length===0) continue;
+    html += `<div class="section"><div class="section-header open" data-section="${sk}" onclick="toggleSection(this,'${sk}')"><h3><span style="color:${sec.color}">●</span> ${sec.label}</h3><span class="arrow">▶</span></div><div class="section-body">`;
+    for (const [key,p] of sp) {
+      html += `<div class="param"><label><span>${p.label}</span><span class="val" id="lbl_${key}">${fmt(p.val,p.unit)}</span></label>
+        <input type="range" id="sl_${key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" oninput="onSlider('${key}',this.value)">
+        <div class="bounds"><span>${fmt(p.min,p.unit)}</span><span>${fmt(p.max,p.unit)}</span></div>
+        <a class="source-link" href="${SRC()}" target="_blank">📎 ${p.note}</a></div>`;
+    }
+    html += '</div></div>';
+  }
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+function toggleSection(el, secKey) {
+  el.classList.toggle('open');
+  // also select
+  if (selectedSection === secKey) { clearSelection(); }
+  else { selectBySection(secKey); }
+}
+
+function onSlider(key, val) {
+  params[key].val = parseFloat(val);
+  document.getElementById(`lbl_${key}`).textContent = fmt(params[key].val, params[key].unit);
+  renderAnalysis();
+  renderCards();
+  // highlight section
+  selectBySection(params[key].section);
+  document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+}
+
+function renderScenarios() {
+  document.getElementById('scenarioBar').innerHTML = scenarios.map((s,i)=>
+    `<button class="scenario-btn ${i===activeScenario?'active':''}" onclick="applyScenario(${i})">${s.name}</button>`
+  ).join('');
+}
+
+function renderLegend() {
+  document.getElementById('legend').innerHTML = Object.entries(sections).map(([sk,sec])=>
+    `<div class="item" data-section="${sk}" onclick="legendClick('${sk}')"><div class="swatch" style="background:${sec.color}"></div>${sec.label}</div>`
+  ).join('');
+}
+
+function legendClick(secKey) {
+  if (selectedSection === secKey) clearSelection();
+  else selectBySection(secKey);
+}
+
+function renderAnalysis() {
+  const c = compute();
+  const p = params;
+  const tl = computeTimeline();
+
+  // Find max value for bar scaling
+  const maxBarGW = Math.max(...tl.chipGW, ...tl.powerGW, ...tl.openaiDemand) * 1.1;
+  const barH = (gw) => Math.max(4, (gw / maxBarGW) * 120);
+
+  // Year-over-year growth in effective GW
+  const yoyGrowth = tl.effectiveGW.map((gw, i) => i === 0 ? 0 : ((gw - tl.effectiveGW[i-1]) / tl.effectiveGW[i-1]) * 100);
+
+  // Identify tightest bottleneck year
+  const surplusRatio = tl.years.map((_, i) => tl.effectiveGW[i] / Math.max(tl.openaiDemand[i], 1));
+  const tightestIdx = surplusRatio.reduce((min, r, i) => r < surplusRatio[min] ? i : min, 0);
+  const bnYear = tl.years[tightestIdx];
+  const bnType = tl.bottleneck[tightestIdx];
+  const bnSeverity = surplusRatio[tightestIdx] < 1 ? 'crit' : surplusRatio[tightestIdx] < 2 ? 'warn' : 'ok';
+  const bnIcon = bnSeverity === 'crit' ? '🔴' : bnSeverity === 'warn' ? '🟡' : '🟢';
+  const bnLabel = bnType === 'chip' ? 'EUV/chip supply' : 'Power infrastructure';
+
+  document.getElementById('analysisPanel').innerHTML = `
+    <!-- ═══ CAPACITY PROJECTION ═══ -->
+    <div class="timeline">
+      <h3>Capacity Projection 2025 → 2030</h3>
+      <div class="tl-sub">Bars = chip-limited GW (blue) vs power-limited GW (orange). Dashed lines = demand from OpenAI & Anthropic. Effective capacity = min(chip, power).</div>
+
+      <div class="tl-grid">
+        ${tl.years.map((yr, i) => {
+          const chipH = barH(tl.chipGW[i]);
+          const pwrH = barH(tl.powerGW[i]);
+          const oaiLine = 120 - barH(tl.openaiDemand[i]);
+          const antLine = 120 - barH(tl.anthropicDemand[i]);
+          const isNow = yr === 2026;
+          return `<div class="tl-col">
+            <div class="tl-year ${isNow?'now':''}">${yr}${isNow?' ←':''}</div>
+            <div class="tl-bar-wrap">
+              ${tl.openaiDemand[i] < maxBarGW ? `<div class="tl-demand-line" style="top:${oaiLine}px"><div class="tl-demand-tag">OAI ${tl.openaiDemand[i].toFixed(0)}</div></div>` : ''}
+              ${tl.anthropicDemand[i] < maxBarGW && yr <= 2028 ? `<div class="tl-demand-line" style="top:${antLine}px;border-color:var(--purple)"><div class="tl-demand-tag" style="color:var(--purple);left:-2px;right:auto">Ant ${tl.anthropicDemand[i].toFixed(0)}</div></div>` : ''}
+              <div class="tl-bar chip" style="height:${chipH}px" title="Chip-limited: ${tl.chipGW[i].toFixed(0)} GW"></div>
+              <div class="tl-bar power" style="height:${pwrH}px" title="Power-limited: ${tl.powerGW[i].toFixed(0)} GW"></div>
+            </div>
+            <div class="tl-bar-val">${tl.effectiveGW[i].toFixed(0)} <span style="font-size:9px;font-weight:400;color:var(--text2)">GW</span></div>
+            <div style="font-size:9px;color:${tl.bottleneck[i]==='chip'?'var(--accent)':'var(--orange)'};margin-top:2px">${tl.bottleneck[i]==='chip'?'chip':'power'}-limited</div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="tl-metrics">
+        <div class="tl-metric">
+          <div class="tm-label">Effective GW in 2030</div>
+          <div class="tm-value" style="color:var(--accent2)">${tl.effectiveGW[5].toFixed(0)}</div>
+          <div class="tm-detail">${tl.bottleneck[5]==='chip'?'Chip':'Power'}-limited · ${tl.euvBase[5].toFixed(0)} EUV tools</div>
+        </div>
+        <div class="tl-metric">
+          <div class="tm-label">Cumulative CapEx by 2030</div>
+          <div class="tm-value" style="color:var(--orange)">$${(tl.cumCapex[5]/1000).toFixed(1)}T</div>
+          <div class="tm-detail">@ $${p.dcCapexPerGW.val}B per GW</div>
+        </div>
+        <div class="tl-metric">
+          <div class="tm-label">OpenAI 2030 demand gap</div>
+          <div class="tm-value" style="color:${tl.effectiveGW[5]>=tl.openaiDemand[5]?'var(--green)':'var(--red)'}">
+            ${tl.effectiveGW[5]>=tl.openaiDemand[5]?'+':''}${(tl.effectiveGW[5]-tl.openaiDemand[5]).toFixed(0)} GW
+          </div>
+          <div class="tm-detail">${tl.effectiveGW[5]>=tl.openaiDemand[5]?'Surplus':'Shortfall'} vs ${p.openaiTargetGW.val} GW target</div>
+        </div>
+      </div>
+
+      <div class="tl-bottleneck ${bnSeverity}">
+        ${bnIcon} <strong>Tightest point: ${bnYear}</strong> — ${bnLabel} is the binding constraint (${tl.effectiveGW[tightestIdx].toFixed(0)} GW effective vs ${tl.openaiDemand[tightestIdx].toFixed(0)} GW OpenAI demand)
+      </div>
+    </div>
+
+    <!-- ═══ YEAR-BY-YEAR TABLE ═══ -->
+    <div class="results">
+      <h3 style="color:var(--accent2)">Year-by-Year Breakdown</h3>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="text-align:left;padding:6px 8px;color:var(--text2)">Year</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--accent)">EUV tools</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--accent)">+/yr</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--accent)">Chip GW</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--orange)">Power GW</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--accent2);font-weight:700">Effective</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--text2)">YoY</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--red)">OAI need</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--purple)">Ant need</th>
+              <th style="text-align:center;padding:6px 8px;color:var(--text2)">Bottleneck</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tl.years.map((yr, i) => `
+              <tr style="border-bottom:1px solid var(--border)${yr===2026?';background:rgba(108,140,255,.04)':''}">
+                <td style="padding:6px 8px;font-weight:${yr===2026?'700':'400'}">${yr}${yr===2026?' ←':''}</td>
+                <td style="text-align:right;padding:6px 8px">${tl.euvBase[i].toFixed(0)}</td>
+                <td style="text-align:right;padding:6px 8px;color:var(--text2)">${i===0?'—':'+'+tl.euvRate[i].toFixed(0)}</td>
+                <td style="text-align:right;padding:6px 8px">${tl.chipGW[i].toFixed(0)}</td>
+                <td style="text-align:right;padding:6px 8px">${tl.powerGW[i].toFixed(0)}</td>
+                <td style="text-align:right;padding:6px 8px;font-weight:700;color:var(--accent2)">${tl.effectiveGW[i].toFixed(0)} GW</td>
+                <td style="text-align:right;padding:6px 8px;color:${yoyGrowth[i]>0?'var(--green)':'var(--text2)'}">${i===0?'—':'+'+yoyGrowth[i].toFixed(0)+'%'}</td>
+                <td style="text-align:right;padding:6px 8px;color:${tl.openaiDemand[i]>tl.effectiveGW[i]?'var(--red)':'var(--text2)'}">${tl.openaiDemand[i].toFixed(0)}</td>
+                <td style="text-align:right;padding:6px 8px;color:${tl.anthropicDemand[i]>tl.effectiveGW[i]?'var(--purple)':'var(--text2)'}">${tl.anthropicDemand[i].toFixed(0)}</td>
+                <td style="text-align:center;padding:6px 8px"><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${tl.bottleneck[i]==='chip'?'rgba(108,140,255,.12)':'rgba(255,159,67,.12)'};color:${tl.bottleneck[i]==='chip'?'var(--accent)':'var(--orange)'}">${tl.bottleneck[i]==='chip'?'⚙ Chip':'⚡ Power'}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ORIGINAL FLOW + CONSTRAINTS ═══ -->
+    <div class="flow-row">
+      <div class="flow-block euv" onclick="selectBySection('euv')"><div class="fb-label">EUV installed 2030</div><div class="fb-value">${tl.euvBase[5].toFixed(0)} tools</div></div>
+      <div class="flow-block euv" onclick="selectBySection('euv')"><div class="fb-label">÷ tools per GW</div><div class="fb-value">${p.euvToolsPerGW.val}</div></div>
+      <div class="flow-block fab" onclick="selectBySection('fab')"><div class="fb-label">Max GW (2030)</div><div class="fb-value" style="color:var(--accent2)">${c.maxGW2030.toFixed(0)} GW</div></div>
+      <div class="flow-block lab" onclick="selectBySection('labs')"><div class="fb-label">OpenAI share</div><div class="fb-value" style="color:${c.openaiSharePct>30?'var(--red)':'var(--green)'}">${c.openaiSharePct.toFixed(0)}%</div></div>
+    </div>
+    <div class="results" style="--h3c:var(--accent)"><h3 style="color:var(--accent)">EUV & Fabrication</h3>
+      <div class="result-row"><span class="label">Max GW achievable by 2030 (EUV-limited)</span><span class="value accent">${c.maxGW2030.toFixed(0)} GW</span></div>
+      <div class="result-row"><span class="label">OpenAI's required share of total chip output</span><span class="value ${c.openaiSharePct>30?'red':'green'}">${c.openaiSharePct.toFixed(1)}%</span></div>
+      <div class="result-row"><span class="label">EUV cost per GW vs DC CapEx per GW</span><span class="value orange">$${c.euvCostPerGW.toFixed(1)}B / $${p.dcCapexPerGW.val}B (${c.euvPctOfDcCapex.toFixed(1)}%)</span></div>
+      <div class="result-row"><span class="label">Effective DRAM wafers/GW incl. HBM penalty</span><span class="value orange">${(c.hbmEffectiveWafers/1000).toFixed(0)}k wafers</span></div>
+    </div>
+    <div class="results"><h3 style="color:var(--red)">Lab Demand vs Supply</h3>
+      <div class="result-row"><span class="label">Anthropic capacity gap (current → EOY)</span><span class="value red">${c.anthropicGap.toFixed(1)} GW → ${c.anthropicEuvTools.toFixed(0)} EUV tools</span></div>
+      <div class="result-row"><span class="label">GW implied by Big Tech 2026 CapEx ($${p.bigTechCapex2026.val}B)</span><span class="value accent">${c.totalGWfromCapex.toFixed(0)} GW</span></div>
+      <div class="result-row"><span class="label">EUV tools needed for that CapEx</span><span class="value accent">${c.euvToolsNeededForCapex.toFixed(0)} tools (${c.euvYearsToFillCapex.toFixed(1)} yr backlog)</span></div>
+    </div>
+    <div class="results"><h3 style="color:var(--purple)">GPU Economics</h3>
+      <div class="result-row"><span class="label">H100 gross margin (spot − mfg) / spot</span><span class="value ${c.h100GrossMargin>30?'green':'red'}">${c.h100GrossMargin.toFixed(1)}%</span></div>
+      <div class="result-row"><span class="label">Hopper → Blackwell inference speedup</span><span class="value accent">${p.hopperToBlackwellSpeedup.val}×</span></div>
+    </div>
+    <div class="results"><h3 style="color:#888">China</h3>
+      <div class="result-row"><span class="label">China EUV HVM estimated ready date</span><span class="value" style="color:#888">~${c.chinaEuvReady}</span></div>
+    </div>`;
+}
+
+function cardStats(id) {
+  const c = compute(); const p = params;
+  const s = {
+    cymer: "Tin droplet + 3× laser → 13.5 nm light",
+    zeiss: "18 multilayer mirrors/tool · Mo-Ru · <1 nm accuracy · <1k specialists",
+    euv_assembly: '"Many, many months" — deconstruct → ship → reassemble',
+    euv_tools: `${p.euvToolsPerYear2025.val} tools/yr (2025) · ${p.euvToolsPerYear2030.val} max (2030) · ${p.euvInstalledBase2030.val} installed by 2030`,
+    euv_per_gw: `${p.euvToolsPerGW.val} tools/GW · EUV = ${c.euvPctOfDcCapex.toFixed(1)}% of DC CapEx ($${c.euvCostPerGW.toFixed(1)}B vs $${p.dcCapexPerGW.val}B)`,
+    logic_3nm: `${(p.logicWafers3nmPerGW.val/1000).toFixed(0)}k wafers/GW · Nvidia gets majority of 3nm`,
+    logic_5nm: `${(p.logicWafers5nmPerGW.val/1000).toFixed(0)}k wafers/GW · Used for I/O dies`,
+    tsmc_alloc: "Apple → 2nm · Nvidia → majority 3nm · Amazon/Google → CPUs first",
+    dram_wafers: `${(p.dramWafersPerGW.val/1000).toFixed(0)}k wafers/GW · ~2M EUV passes/GW`,
+    hbm: `${p.hbmWaferPenalty.val}× fewer bits/wafer vs standard DRAM → ${(c.hbmEffectiveWafers/1000).toFixed(0)}k effective wafers`,
+    mem_cost: "Prices doubling–tripling · Long-term contracts at elevated rates",
+    nvidia_gpu: `Blackwell FP16: 1–2 PFLOPS · Rubin: ~5 PFLOPS · ${p.hopperToBlackwellSpeedup.val}× inference jump`,
+    nvidia_contracts: "Non-cancelable, non-returnable · SK Hynix & Samsung deals",
+    comm_bandwidth: "On-chip: ~10s TB/s · Intra-rack: ~1 TB/s · Inter-rack: ~100 GB/s",
+    power_deploy: `~${p.usPowerDeployed2026.val} GW (2026) · Build: ${p.dcBuildMonths.val} months · "Not a bottleneck"`,
+    turbines: "Deposits placed for 2028–2029 · Google acquiring energy cos.",
+    dc_build: `${p.dcBuildMonths.val} months (vs fab: ${p.fabBuildYears.val} yrs)`,
+    dc: `$${p.dcCapexPerGW.val}B/GW · Big Tech 2026: $${p.bigTechCapex2026.val}B → ${c.totalGWfromCapex.toFixed(0)} GW`,
+    anthropic: `Current: ${p.anthropicCurrentGW.val} GW · Need: ${p.anthropicNeededGW.val} GW · Gap: ${c.anthropicGap.toFixed(1)} GW · Margins <50%`,
+    openai: `Target: ${p.openaiTargetGW.val} GW by 2030 = ${c.openaiSharePct.toFixed(0)}% of chip output`,
+    h100_econ: `Mfg: $${p.h100MfgCostPerHr.val.toFixed(2)}/hr · Spot: $${p.h100SpotPricePerHr.val.toFixed(2)}/hr · Margin: ${c.h100GrossMargin.toFixed(0)}%`,
+    china_duv: `${p.chinaDuvTools2030.val} domestic tools/yr by 2030 · 7nm/14nm via ASML DUV`,
+    china_euv: `Prototypes by 2030 · HVM: ~${c.chinaEuvReady} (${p.chinaEuvHvmYears.val} yr production hell)`,
+  };
+  return s[id] || "";
+}
+
+function cardDeps(id) {
+  const up = (revEdges[id]||[]).map(n=>cardDefs.find(c=>c.id===n)?.title||n);
+  const down = (edges[id]||[]).map(n=>cardDefs.find(c=>c.id===n)?.title||n);
+  let html = '';
+  if (up.length) html += `<span style="color:var(--text2)">← </span>${up.map(t=>`<span>${t}</span>`).join(', ')}`;
+  if (up.length && down.length) html += ' · ';
+  if (down.length) html += `<span style="color:var(--text2)">→ </span>${down.map(t=>`<span>${t}</span>`).join(', ')}`;
+  return html;
+}
+
+const cardNotes = {
+  cymer:"EUV source from Cymer in San Diego", zeiss:"Irreplaceable projection optics subsystem",
+  euv_assembly:"Assembly takes many months per tool", euv_tools:"The hard ceiling on chip production",
+  euv_per_gw:"Only ~2.4% of CapEx but the irreplaceable constraint",
+  logic_3nm:"55,000 wafers of 3nm logic per GW", logic_5nm:"6,000 wafers of 5nm logic per GW",
+  tsmc_alloc:"Nvidia secured allocation early; Google getting squeezed",
+  dram_wafers:"170,000 DRAM wafers per GW", hbm:"Memory crunch eclipses logic constraints",
+  mem_cost:"Memory vendors raising prices significantly",
+  nvidia_gpu:"Multi-die integration reduces inter-chip penalties",
+  nvidia_contracts:"Signed long-term non-cancelable contracts with deposits",
+  comm_bandwidth:"Primary factor in Blackwell's 20× speedup",
+  power_deploy:"Power is shorter lead-time than manufacturing",
+  turbines:"Turbine deposits for 2028–2029", dc_build:"DC builds in 8–12 months vs 2–3 yr for fabs",
+  dc:"CapEx outpaces what EUV can supply",
+  anthropic:"Cannot serve demand faster than compute deployment",
+  openai:"Requires 25% market share — other markets must shrink",
+  h100_econ:"Newer models increase older chip value — inverted depreciation",
+  china_duv:"DUV likely fully domesticated by 2030",
+  china_euv:"Working prototypes possible, HVM unlikely within decade",
+};
+
+function renderCards() {
+  document.getElementById('cardsPanel').innerHTML = `<div class="node-grid">${cardDefs.map(cd => `
+    <div class="node-card ${selectedNodes.has(cd.id)?'hl':''}" data-node-id="${cd.id}" onclick="cardClick('${cd.id}')">
+      <h4><span class="dot" style="background:${cd.color}"></span>${cd.title}</h4>
+      <div class="stats">${cardStats(cd.id)}</div>
+      <div class="deps">${cardDeps(cd.id)}</div>
+      <a class="source" href="${SRC()}" target="_blank" onclick="event.stopPropagation()">📎 ${cardNotes[cd.id]||''}</a>
+    </div>`).join('')}</div>`;
+}
+
+function cardClick(nodeId) {
+  if (selectedNodes.has(nodeId) && selectedNodes.size <= getConnected(nodeId).size + 1) clearSelection();
+  else selectByNodeId(nodeId);
+  renderCards(); // re-render card highlights
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SVG INJECTION & WIRING
+// ═══════════════════════════════════════════════════════════
+const SVG_RAW = `PLACEHOLDER`;
+
+async function injectSVG() {
+  const svgText = `
+
+<!-- Generated by graphviz version 2.43.0 (0)
+ -->
+<!-- Title: ai_compute_constraints Pages: 1 -->
+<svg width="1307pt" height="1216pt"
+ viewBox="0.00 0.00 1306.50 1216.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 1212)">
+<title>ai_compute_constraints</title>
+<polygon fill="#13151f" stroke="transparent" points="-4,4 -4,-1212 1302.5,-1212 1302.5,4 -4,4"/>
+<text text-anchor="start" x="472.25" y="-1193.8" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="14.00">AI Compute Scaling: Dependency Constraints</text>
+<text text-anchor="start" x="483.25" y="-1179.8" font-family="Inter,Helvetica,sans-serif" font-style="italic" font-size="14.00">Source: Dwarkesh Patel × Dylan Patel interview</text>
+<g id="clust1" class="cluster">
+<title>cluster_asml_supply</title>
+<polygon fill="#fff3e0" stroke="#e65100" points="466,-1050 466,-1164 1194,-1164 1194,-1050 466,-1050"/>
+<text text-anchor="start" x="733.5" y="-1152.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">ASML Sub&#45;supplier Bottlenecks</text>
+</g>
+<g id="clust2" class="cluster">
+<title>cluster_euv</title>
+<polygon fill="#e3f2fd" stroke="#0d47a1" points="806,-766 806,-1007 1004,-1007 1004,-766 806,-766"/>
+<text text-anchor="start" x="853.5" y="-995.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">EUV Lithography</text>
+</g>
+<g id="clust3" class="cluster">
+<title>cluster_fab</title>
+<polygon fill="#e8f5e9" stroke="#1b5e20" points="985,-433 985,-525 1288,-525 1288,-433 985,-433"/>
+<text text-anchor="start" x="1062" y="-513.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">TSMC Wafer Fabrication</text>
+</g>
+<g id="clust4" class="cluster">
+<title>cluster_memory</title>
+<polygon fill="#f3e5f5" stroke="#4a148c" points="8,-131 8,-526 226,-526 226,-131 8,-131"/>
+<text text-anchor="start" x="46" y="-514.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">Memory (HBM / DRAM)</text>
+</g>
+<g id="clust5" class="cluster">
+<title>cluster_chips</title>
+<polygon fill="#fff9c4" stroke="#f57f17" points="547,-283 547,-531 958,-531 958,-283 547,-283"/>
+<text text-anchor="start" x="679" y="-519.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">GPU / Accelerator Chips</text>
+</g>
+<g id="clust6" class="cluster">
+<title>cluster_power</title>
+<polygon fill="#efebe9" stroke="#3e2723" points="234,-432 234,-526 416,-526 416,-432 234,-432"/>
+<text text-anchor="start" x="260.5" y="-514.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">Power Infrastructure</text>
+</g>
+<g id="clust7" class="cluster">
+<title>cluster_dc</title>
+<polygon fill="#e0f7fa" stroke="#006064" points="375,-126 375,-230 557,-230 557,-126 375,-126"/>
+<text text-anchor="start" x="399.5" y="-218.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">Data Center Compute</text>
+</g>
+<g id="clust9" class="cluster">
+<title>cluster_china</title>
+<polygon fill="#f5f5f5" stroke="#616161" points="540,-608 540,-870 758,-870 758,-608 540,-608"/>
+<text text-anchor="start" x="583.5" y="-858.2" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="11.00">China Semiconductor</text>
+</g>
+<!-- cymer -->
+<g id="node1" class="node">
+<title>cymer</title>
+<polygon fill="#ffe0b2" stroke="#333333" points="676.5,-1106 473.5,-1106 473.5,-1068 676.5,-1068 676.5,-1106"/>
+<text text-anchor="start" x="522" y="-1095" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Cymer EUV Source</text>
+<text text-anchor="start" x="546" y="-1085" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(San Diego)</text>
+<text text-anchor="start" x="481.5" y="-1075" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Tin droplet + 3× laser → 13.5 nm light</text>
+</g>
+<!-- euv_assembly -->
+<g id="node6" class="node">
+<title>euv_assembly</title>
+<polygon fill="#bbdefb" stroke="#333333" points="995.5,-959 814.5,-959 814.5,-921 995.5,-921 995.5,-959"/>
+<text text-anchor="start" x="833.5" y="-948" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Assembly &amp; Qualification</text>
+<text text-anchor="start" x="850" y="-938" font-family="Inter,Helvetica,sans-serif" font-size="10.00">&quot;Many, many months&quot;</text>
+<text text-anchor="start" x="822.5" y="-928" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Deconstruct → ship → reassemble</text>
+</g>
+<!-- cymer&#45;&gt;euv_assembly -->
+<g id="edge1" class="edge">
+<title>cymer&#45;&gt;euv_assembly</title>
+<path fill="none" stroke="#555555" d="M616.13,-1067.93C676.56,-1041.37 789.25,-991.86 854.59,-963.15"/>
+<polygon fill="#555555" stroke="#555555" points="856.13,-966.3 863.87,-959.07 853.31,-959.89 856.13,-966.3"/>
+<text text-anchor="middle" x="757" y="-1017.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">light source</text>
+</g>
+<!-- zeiss -->
+<g id="node2" class="node">
+<title>zeiss</title>
+<polygon fill="#ffe0b2" stroke="#333333" points="888,-1116 720,-1116 720,-1058 888,-1058 888,-1116"/>
+<text text-anchor="start" x="755.5" y="-1105" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Carl Zeiss Optics</text>
+<text text-anchor="start" x="783" y="-1095" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(Europe)</text>
+<text text-anchor="start" x="741" y="-1085" font-family="Inter,Helvetica,sans-serif" font-size="10.00">18 multilayer mirrors/tool</text>
+<text text-anchor="start" x="728" y="-1075" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Mo&#45;Ru stacks, &lt;1 nm accuracy</text>
+<text text-anchor="start" x="758.5" y="-1065" font-family="Inter,Helvetica,sans-serif" font-size="10.00">&lt;1,000 specialists</text>
+</g>
+<!-- zeiss&#45;&gt;euv_assembly -->
+<g id="edge2" class="edge">
+<title>zeiss&#45;&gt;euv_assembly</title>
+<path fill="none" stroke="#555555" d="M823.71,-1057.7C841.89,-1031.6 868.68,-993.14 886.47,-967.6"/>
+<polygon fill="#555555" stroke="#555555" points="889.52,-969.35 892.36,-959.15 883.77,-965.35 889.52,-969.35"/>
+<text text-anchor="middle" x="889" y="-1017.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">projection optics</text>
+</g>
+<!-- reticle_stage -->
+<g id="node3" class="node">
+<title>reticle_stage</title>
+<polygon fill="#ffe0b2" stroke="#333333" points="1030.5,-1106 931.5,-1106 931.5,-1068 1030.5,-1068 1030.5,-1106"/>
+<text text-anchor="start" x="943" y="-1095" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Reticle Stage</text>
+<text text-anchor="start" x="939.5" y="-1085" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(Wilmington, CT)</text>
+<text text-anchor="start" x="948.5" y="-1075" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Moves at 9 G</text>
+</g>
+<!-- reticle_stage&#45;&gt;euv_assembly -->
+<g id="edge3" class="edge">
+<title>reticle_stage&#45;&gt;euv_assembly</title>
+<path fill="none" stroke="#555555" d="M971.53,-1067.93C958.44,-1042.96 934.72,-997.71 919.43,-968.53"/>
+<polygon fill="#555555" stroke="#555555" points="922.33,-966.53 914.59,-959.3 916.13,-969.78 922.33,-966.53"/>
+<text text-anchor="middle" x="978.5" y="-1017.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">reticle motion</text>
+</g>
+<!-- wafer_stage -->
+<g id="node4" class="node">
+<title>wafer_stage</title>
+<polygon fill="#ffe0b2" stroke="#333333" points="1186,-1106 1074,-1106 1074,-1068 1186,-1068 1186,-1106"/>
+<text text-anchor="start" x="1094.5" y="-1095" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Wafer Stage</text>
+<text text-anchor="start" x="1097.5" y="-1085" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Moves at 9 G</text>
+<text text-anchor="start" x="1082" y="-1075" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(opposite direction)</text>
+</g>
+<!-- wafer_stage&#45;&gt;euv_assembly -->
+<g id="edge4" class="edge">
+<title>wafer_stage&#45;&gt;euv_assembly</title>
+<path fill="none" stroke="#555555" d="M1101.96,-1067.9C1069.37,-1046.86 1020,-1015 1020,-1015 1020,-1015 975.49,-986.36 941.85,-964.71"/>
+<polygon fill="#555555" stroke="#555555" points="943.44,-961.57 933.13,-959.1 939.65,-967.46 943.44,-961.57"/>
+<text text-anchor="middle" x="1063" y="-1017.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">wafer motion</text>
+</g>
+<!-- euv_tools -->
+<g id="node5" class="node">
+<title>euv_tools</title>
+<polygon fill="#bbdefb" stroke="#333333" points="990.5,-832 819.5,-832 819.5,-774 990.5,-774 990.5,-832"/>
+<text text-anchor="start" x="860" y="-821" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">ASML EUV Tools</text>
+<text text-anchor="start" x="859.5" y="-811" font-family="Inter,Helvetica,sans-serif" font-size="10.00">2025: ~80 tools/yr</text>
+<text text-anchor="start" x="844.5" y="-801" font-family="Inter,Helvetica,sans-serif" font-size="10.00">2030: ~100 tools/yr max</text>
+<text text-anchor="start" x="827.5" y="-791" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Installed base 2030: ~700 tools</text>
+<text text-anchor="start" x="828" y="-781" font-family="Inter,Helvetica,sans-serif" font-size="10.00">10,000+ people in supply chain</text>
+</g>
+<!-- euv_per_gw -->
+<g id="node16" class="node">
+<title>euv_per_gw</title>
+<polygon fill="#b3e5fc" stroke="#333333" points="933,-688 770,-640 933,-592 1096,-640 933,-688"/>
+<text text-anchor="start" x="882" y="-653" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">EUV Tools per GW</text>
+<text text-anchor="start" x="901.5" y="-643" font-family="Inter,Helvetica,sans-serif" font-size="10.00">3.5 tools/GW</text>
+<text text-anchor="start" x="859.5" y="-633" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(@ 75 wafers/hr, 90% uptime)</text>
+<text text-anchor="start" x="871" y="-623" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Cost: $1.2 B vs. $50 B DC</text>
+</g>
+<!-- euv_tools&#45;&gt;euv_per_gw -->
+<g id="edge6" class="edge">
+<title>euv_tools&#45;&gt;euv_per_gw</title>
+<path fill="none" stroke="#555555" d="M909.88,-773.96C913.63,-752.39 918.93,-721.92 923.51,-695.59"/>
+<polygon fill="#555555" stroke="#555555" points="926.96,-696.18 925.22,-685.73 920.06,-694.98 926.96,-696.18"/>
+<text text-anchor="middle" x="940.5" y="-733.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">capacity</text>
+<text text-anchor="middle" x="940.5" y="-723.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">allocation</text>
+</g>
+<!-- china_euv -->
+<g id="node25" class="node">
+<title>china_euv</title>
+<polygon fill="#e0e0e0" stroke="#333333" points="726.5,-664 571.5,-664 571.5,-616 726.5,-616 726.5,-664"/>
+<text text-anchor="start" x="595" y="-653" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">China EUV Attempt</text>
+<text text-anchor="start" x="579.5" y="-643" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Prototypes possible by 2030</text>
+<text text-anchor="start" x="594" y="-633" font-family="Inter,Helvetica,sans-serif" font-size="10.00">HVM: 5–7 yr minimum</text>
+<text text-anchor="start" x="605.5" y="-623" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(ASML precedent)</text>
+</g>
+<!-- euv_tools&#45;&gt;china_euv -->
+<g id="edge29" class="edge">
+<title>euv_tools&#45;&gt;china_euv</title>
+<path fill="none" stroke="#d32f2f" stroke-dasharray="5,2" d="M860.41,-773.96C813.84,-744.67 741.19,-698.98 694.35,-669.52"/>
+<polygon fill="#d32f2f" stroke="#d32f2f" points="695.96,-666.4 685.63,-664.04 692.23,-672.32 695.96,-666.4"/>
+<text text-anchor="middle" x="829" y="-733.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">export</text>
+<text text-anchor="middle" x="829" y="-723.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">restricted</text>
+</g>
+<!-- euv_assembly&#45;&gt;euv_tools -->
+<g id="edge5" class="edge">
+<title>euv_assembly&#45;&gt;euv_tools</title>
+<path fill="none" stroke="#555555" d="M905,-920.79C905,-900.8 905,-868.13 905,-842.42"/>
+<polygon fill="#555555" stroke="#555555" points="908.5,-842.24 905,-832.24 901.5,-842.24 908.5,-842.24"/>
+<text text-anchor="middle" x="934.5" y="-880.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">qualified tool</text>
+</g>
+<!-- logic_3nm -->
+<g id="node7" class="node">
+<title>logic_3nm</title>
+<polygon fill="#c8e6c9" stroke="#333333" points="1115,-477 993,-477 993,-441 1115,-441 1115,-477"/>
+<text text-anchor="start" x="1001" y="-462" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">3 nm Logic Wafers</text>
+<text text-anchor="start" x="1009" y="-452" font-family="Inter,Helvetica,sans-serif" font-size="10.00">55,000 wafers/GW</text>
+</g>
+<!-- nvidia_gpu -->
+<g id="node13" class="node">
+<title>nvidia_gpu</title>
+<polygon fill="#fff59d" stroke="#333333" points="780.5,-339 589.5,-339 589.5,-291 780.5,-291 780.5,-339"/>
+<text text-anchor="start" x="649.5" y="-328" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Nvidia GPUs</text>
+<text text-anchor="start" x="616" y="-318" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Blackwell FP16: 1–2 PFLOPS</text>
+<text text-anchor="start" x="627.5" y="-308" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Rubin FP16: ~5 PFLOPS</text>
+<text text-anchor="start" x="597.5" y="-298" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Hopper→Blackwell: ~20× inference</text>
+</g>
+<!-- logic_3nm&#45;&gt;nvidia_gpu -->
+<g id="edge12" class="edge">
+<title>logic_3nm&#45;&gt;nvidia_gpu</title>
+<path fill="none" stroke="#555555" d="M1012.61,-440.8C952.2,-415.71 847,-372 847,-372 847,-372 803.31,-356.9 761.31,-342.38"/>
+<polygon fill="#555555" stroke="#555555" points="762.42,-339.06 751.83,-339.1 760.13,-345.68 762.42,-339.06"/>
+<text text-anchor="middle" x="934.5" y="-384.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">logic dies</text>
+</g>
+<!-- logic_5nm -->
+<g id="node8" class="node">
+<title>logic_5nm</title>
+<polygon fill="#c8e6c9" stroke="#333333" points="1280,-477 1158,-477 1158,-441 1280,-441 1280,-477"/>
+<text text-anchor="start" x="1166" y="-462" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">5 nm Logic Wafers</text>
+<text text-anchor="start" x="1177" y="-452" font-family="Inter,Helvetica,sans-serif" font-size="10.00">6,000 wafers/GW</text>
+</g>
+<!-- logic_5nm&#45;&gt;nvidia_gpu -->
+<g id="edge13" class="edge">
+<title>logic_5nm&#45;&gt;nvidia_gpu</title>
+<path fill="none" stroke="#555555" d="M1168.71,-440.91C1094.93,-415.83 966,-372 966,-372 966,-372 870.35,-352.94 790.65,-337.06"/>
+<polygon fill="#555555" stroke="#555555" points="791.02,-333.56 780.53,-335.04 789.65,-340.42 791.02,-333.56"/>
+<text text-anchor="middle" x="1064" y="-384.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">I/O dies</text>
+</g>
+<!-- tsmc_alloc -->
+<g id="node9" class="node">
+<title>tsmc_alloc</title>
+<polygon fill="#c8e6c9" stroke="#333333" points="1298.5,-664 1139.5,-664 1139.5,-616 1298.5,-616 1298.5,-664"/>
+<text text-anchor="start" x="1149.5" y="-653" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">TSMC Allocation Priority</text>
+<text text-anchor="start" x="1147.5" y="-643" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Apple → 2 nm (lower priority)</text>
+<text text-anchor="start" x="1155" y="-633" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Nvidia → majority of 3 nm</text>
+<text text-anchor="start" x="1149.5" y="-623" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Amazon/Google → CPUs first</text>
+</g>
+<!-- tsmc_alloc&#45;&gt;logic_3nm -->
+<g id="edge10" class="edge">
+<title>tsmc_alloc&#45;&gt;logic_3nm</title>
+<path fill="none" stroke="#555555" stroke-dasharray="5,2" d="M1197.77,-615.97C1166.66,-582.22 1108.94,-519.61 1076.91,-484.86"/>
+<polygon fill="#555555" stroke="#555555" points="1079.08,-482.05 1069.73,-477.07 1073.94,-486.79 1079.08,-482.05"/>
+<text text-anchor="middle" x="1157.5" y="-551.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">priority</text>
+<text text-anchor="middle" x="1157.5" y="-541.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">queue</text>
+</g>
+<!-- tsmc_alloc&#45;&gt;logic_5nm -->
+<g id="edge11" class="edge">
+<title>tsmc_alloc&#45;&gt;logic_5nm</title>
+<path fill="none" stroke="#555555" stroke-dasharray="5,2" d="M1219,-615.97C1219,-582.93 1219,-522.23 1219,-487.09"/>
+<polygon fill="#555555" stroke="#555555" points="1222.5,-487.07 1219,-477.07 1215.5,-487.07 1222.5,-487.07"/>
+</g>
+<!-- dram_wafers -->
+<g id="node10" class="node">
+<title>dram_wafers</title>
+<polygon fill="#e1bee7" stroke="#333333" points="196.5,-478 73.5,-478 73.5,-440 196.5,-440 196.5,-478"/>
+<text text-anchor="start" x="96.5" y="-467" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">DRAM Wafers</text>
+<text text-anchor="start" x="87" y="-457" font-family="Inter,Helvetica,sans-serif" font-size="10.00">170,000 wafers/GW</text>
+<text text-anchor="start" x="81.5" y="-447" font-family="Inter,Helvetica,sans-serif" font-size="10.00">~2 M EUV passes/GW</text>
+</g>
+<!-- hbm -->
+<g id="node11" class="node">
+<title>hbm</title>
+<polygon fill="#e1bee7" stroke="#333333" points="194.5,-334 69.5,-334 69.5,-296 194.5,-296 194.5,-334"/>
+<text text-anchor="start" x="92.5" y="-323" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">HBM Stacking</text>
+<text text-anchor="start" x="77.5" y="-313" font-family="Inter,Helvetica,sans-serif" font-size="10.00">3–4× fewer bits/wafer</text>
+<text text-anchor="start" x="85" y="-303" font-family="Inter,Helvetica,sans-serif" font-size="10.00">vs. standard DRAM</text>
+</g>
+<!-- dram_wafers&#45;&gt;hbm -->
+<g id="edge15" class="edge">
+<title>dram_wafers&#45;&gt;hbm</title>
+<path fill="none" stroke="#555555" d="M134.61,-439.73C134.1,-415.55 133.2,-372.69 132.6,-344.3"/>
+<polygon fill="#555555" stroke="#555555" points="136.1,-344.13 132.38,-334.2 129.1,-344.27 136.1,-344.13"/>
+<text text-anchor="middle" x="160" y="-389.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">3–4× wafer</text>
+<text text-anchor="middle" x="160" y="-379.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">penalty</text>
+</g>
+<!-- mem_cost -->
+<g id="node12" class="node">
+<title>mem_cost</title>
+<polygon fill="#e1bee7" stroke="#333333" points="217.5,-177 16.5,-177 16.5,-139 217.5,-139 217.5,-177"/>
+<text text-anchor="start" x="61" y="-166" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Memory Cost Surge</text>
+<text text-anchor="start" x="59.5" y="-156" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Prices doubling–tripling</text>
+<text text-anchor="start" x="24.5" y="-146" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Long&#45;term contracts at elevated rates</text>
+</g>
+<!-- hbm&#45;&gt;mem_cost -->
+<g id="edge16" class="edge">
+<title>hbm&#45;&gt;mem_cost</title>
+<path fill="none" stroke="#555555" d="M130.25,-295.92C127.67,-269.23 122.81,-219.04 119.75,-187.41"/>
+<polygon fill="#555555" stroke="#555555" points="123.23,-187.07 118.79,-177.45 116.27,-187.74 123.23,-187.07"/>
+<text text-anchor="middle" x="145.5" y="-250.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">supply</text>
+<text text-anchor="middle" x="145.5" y="-240.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">squeeze</text>
+</g>
+<!-- hbm&#45;&gt;nvidia_gpu -->
+<g id="edge14" class="edge">
+<title>hbm&#45;&gt;nvidia_gpu</title>
+<path fill="none" stroke="#555555" d="M194.8,-332.94C206.96,-336.42 216,-339 216,-339 216,-339 500,-387 500,-387 500,-387 538,-387 538,-387 538,-387 585.48,-363.74 626.48,-343.66"/>
+<polygon fill="#555555" stroke="#555555" points="628.2,-346.72 635.64,-339.18 625.12,-340.43 628.2,-346.72"/>
+<text text-anchor="middle" x="519" y="-389.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">stacked</text>
+<text text-anchor="middle" x="519" y="-379.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">memory</text>
+</g>
+<!-- dc -->
+<g id="node19" class="node">
+<title>dc</title>
+<polygon fill="#b2ebf2" stroke="#333333" points="549,-182 383,-182 383,-134 549,-134 549,-182"/>
+<text text-anchor="start" x="429" y="-171" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Data Centers</text>
+<text text-anchor="start" x="419" y="-161" font-family="Inter,Helvetica,sans-serif" font-size="10.00">CapEx: ~$50 B/GW</text>
+<text text-anchor="start" x="391" y="-151" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Big Tech 2026 CapEx: ~$600 B</text>
+<text text-anchor="start" x="404" y="-141" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Total supply chain: ~$1 T</text>
+</g>
+<!-- nvidia_gpu&#45;&gt;dc -->
+<g id="edge20" class="edge">
+<title>nvidia_gpu&#45;&gt;dc</title>
+<path fill="none" stroke="#555555" d="M652.21,-290.79C613.48,-263.38 549,-217.74 507,-188.02"/>
+<polygon fill="#555555" stroke="#555555" points="508.84,-185.03 498.65,-182.11 504.79,-190.74 508.84,-185.03"/>
+<text text-anchor="middle" x="613.5" y="-245.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">chips</text>
+</g>
+<!-- nvidia_contracts -->
+<g id="node14" class="node">
+<title>nvidia_contracts</title>
+<polygon fill="#fff59d" stroke="#333333" points="725,-483 555,-483 555,-435 725,-435 725,-483"/>
+<text text-anchor="start" x="592.5" y="-472" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Nvidia Contracts</text>
+<text text-anchor="start" x="563" y="-462" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Non&#45;cancelable, non&#45;returnable</text>
+<text text-anchor="start" x="580.5" y="-452" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Long&#45;term deposits with</text>
+<text text-anchor="start" x="588.5" y="-442" font-family="Inter,Helvetica,sans-serif" font-size="10.00">SK Hynix &amp; Samsung</text>
+</g>
+<!-- nvidia_contracts&#45;&gt;hbm -->
+<g id="edge18" class="edge">
+<title>nvidia_contracts&#45;&gt;hbm</title>
+<path fill="none" stroke="#555555" stroke-dasharray="5,2" d="M554.94,-436.35C493.03,-420.59 420,-402 420,-402 420,-402 368,-372 368,-372 368,-372 216,-339 216,-339 216,-339 211.53,-337.78 204.65,-335.89"/>
+<polygon fill="#555555" stroke="#555555" points="205.37,-332.46 194.8,-333.2 203.52,-339.21 205.37,-332.46"/>
+<text text-anchor="middle" x="455" y="-389.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">SK Hynix &amp;</text>
+<text text-anchor="middle" x="455" y="-379.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">Samsung deals</text>
+</g>
+<!-- nvidia_contracts&#45;&gt;nvidia_gpu -->
+<g id="edge17" class="edge">
+<title>nvidia_contracts&#45;&gt;nvidia_gpu</title>
+<path fill="none" stroke="#555555" stroke-dasharray="5,2" d="M647.33,-434.87C654.75,-411.45 666.29,-375.04 674.64,-348.68"/>
+<polygon fill="#555555" stroke="#555555" points="677.99,-349.71 677.67,-339.12 671.32,-347.6 677.99,-349.71"/>
+<text text-anchor="middle" x="684.5" y="-389.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">secured</text>
+<text text-anchor="middle" x="684.5" y="-379.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">supply</text>
+</g>
+<!-- comm_bandwidth -->
+<g id="node15" class="node">
+<title>comm_bandwidth</title>
+<polygon fill="#fff59d" stroke="#333333" points="949.5,-483 768.5,-483 768.5,-435 949.5,-435 949.5,-483"/>
+<text text-anchor="start" x="785.5" y="-472" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Communication Hierarchy</text>
+<text text-anchor="start" x="812" y="-462" font-family="Inter,Helvetica,sans-serif" font-size="10.00">On&#45;chip: ~10s TB/s</text>
+<text text-anchor="start" x="786.5" y="-452" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Intra&#45;rack: ~1 TB/s (10× loss)</text>
+<text text-anchor="start" x="776.5" y="-442" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Inter&#45;rack: ~100 GB/s (100× loss)</text>
+</g>
+<!-- comm_bandwidth&#45;&gt;nvidia_gpu -->
+<g id="edge19" class="edge">
+<title>comm_bandwidth&#45;&gt;nvidia_gpu</title>
+<path fill="none" stroke="#555555" stroke-dasharray="5,2" d="M822.72,-428.39C790.2,-401.85 743.16,-363.46 713.33,-339.12"/>
+<polygon fill="#555555" stroke="#555555" points="820.7,-431.26 830.66,-434.87 825.12,-425.83 820.7,-431.26"/>
+<text text-anchor="middle" x="812" y="-394.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">multi&#45;die</text>
+<text text-anchor="middle" x="812" y="-384.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">integration</text>
+<text text-anchor="middle" x="812" y="-374.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">(2→4 dies)</text>
+</g>
+<!-- euv_per_gw&#45;&gt;logic_3nm -->
+<g id="edge7" class="edge">
+<title>euv_per_gw&#45;&gt;logic_3nm</title>
+<path fill="none" stroke="#555555" d="M945.2,-595.43C952.75,-568.48 961,-539 961,-539 961,-539 998.67,-507 1026.06,-483.74"/>
+<polygon fill="#555555" stroke="#555555" points="1028.46,-486.28 1033.82,-477.14 1023.93,-480.95 1028.46,-486.28"/>
+<text text-anchor="middle" x="981" y="-551.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">3.5 tools</text>
+<text text-anchor="middle" x="981" y="-541.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">per GW</text>
+</g>
+<!-- euv_per_gw&#45;&gt;logic_5nm -->
+<g id="edge8" class="edge">
+<title>euv_per_gw&#45;&gt;logic_5nm</title>
+<path fill="none" stroke="#555555" d="M989.92,-608.73C1045.25,-579.29 1121,-539 1121,-539 1121,-539 1137,-531 1137,-531 1137,-531 1167.58,-504.52 1191.39,-483.91"/>
+<polygon fill="#555555" stroke="#555555" points="1193.88,-486.38 1199.15,-477.19 1189.3,-481.09 1193.88,-486.38"/>
+</g>
+<!-- euv_per_gw&#45;&gt;dram_wafers -->
+<g id="edge9" class="edge">
+<title>euv_per_gw&#45;&gt;dram_wafers</title>
+<path fill="none" stroke="#555555" d="M850.97,-615.91C808.73,-604.03 766,-592 766,-592 766,-592 224,-531 224,-531 224,-531 191.67,-505.21 165.98,-484.71"/>
+<polygon fill="#555555" stroke="#555555" points="167.92,-481.78 157.92,-478.28 163.55,-487.26 167.92,-481.78"/>
+<text text-anchor="middle" x="486.5" y="-551.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">~2 M EUV</text>
+<text text-anchor="middle" x="486.5" y="-541.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">passes/GW</text>
+</g>
+<!-- power_deploy -->
+<g id="node17" class="node">
+<title>power_deploy</title>
+<polygon fill="#d7ccc8" stroke="#333333" points="382,-339 238,-339 238,-291 382,-291 382,-339"/>
+<text text-anchor="start" x="246.5" y="-328" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">US Power Deployment</text>
+<text text-anchor="start" x="246" y="-318" font-family="Inter,Helvetica,sans-serif" font-size="10.00">~20 GW deployed in 2026</text>
+<text text-anchor="start" x="250.5" y="-308" font-family="Inter,Helvetica,sans-serif" font-size="10.00">0% → 2% annual growth</text>
+<text text-anchor="start" x="250" y="-298" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Build time: 8–12 months</text>
+</g>
+<!-- power_deploy&#45;&gt;dc -->
+<g id="edge21" class="edge">
+<title>power_deploy&#45;&gt;dc</title>
+<path fill="none" stroke="#555555" d="M333.35,-290.79C360.54,-263.78 405.54,-219.07 435.47,-189.33"/>
+<polygon fill="#555555" stroke="#555555" points="438.11,-191.64 442.74,-182.11 433.18,-186.68 438.11,-191.64"/>
+<text text-anchor="middle" x="403.5" y="-250.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">electrical</text>
+<text text-anchor="middle" x="403.5" y="-240.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">capacity</text>
+</g>
+<!-- turbines -->
+<g id="node18" class="node">
+<title>turbines</title>
+<polygon fill="#d7ccc8" stroke="#333333" points="408.5,-478 241.5,-478 241.5,-440 408.5,-440 408.5,-478"/>
+<text text-anchor="start" x="257.5" y="-467" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Turbine / Land Deposits</text>
+<text text-anchor="start" x="249.5" y="-457" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Deposits placed for 2028–2029</text>
+<text text-anchor="start" x="254" y="-447" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Google acquiring energy cos.</text>
+</g>
+<!-- turbines&#45;&gt;power_deploy -->
+<g id="edge22" class="edge">
+<title>turbines&#45;&gt;power_deploy</title>
+<path fill="none" stroke="#555555" d="M323.07,-439.73C320.67,-417.01 316.53,-377.8 313.55,-349.6"/>
+<polygon fill="#555555" stroke="#555555" points="317,-348.97 312.47,-339.39 310.04,-349.7 317,-348.97"/>
+<text text-anchor="middle" x="338.5" y="-389.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">future</text>
+<text text-anchor="middle" x="338.5" y="-379.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">capacity</text>
+</g>
+<!-- anthropic -->
+<g id="node21" class="node">
+<title>anthropic</title>
+<polygon fill="#f8bbd0" stroke="#333333" points="332,-48 198,-48 198,0 332,0 332,-48"/>
+<text text-anchor="start" x="237.5" y="-37" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">Anthropic</text>
+<text text-anchor="start" x="220.5" y="-27" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Current: 2–2.5 GW</text>
+<text text-anchor="start" x="206" y="-17" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Needed by EOY: 5–6 GW</text>
+<text text-anchor="start" x="211.5" y="-7" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Gross margins: &lt;50%</text>
+</g>
+<!-- dc&#45;&gt;anthropic -->
+<g id="edge24" class="edge">
+<title>dc&#45;&gt;anthropic</title>
+<path fill="none" stroke="#555555" d="M404.54,-133.9C363.49,-118.47 317,-101 317,-101 317,-101 300.91,-77.49 286.64,-56.62"/>
+<polygon fill="#555555" stroke="#555555" points="289.42,-54.49 280.88,-48.22 283.64,-58.44 289.42,-54.49"/>
+<text text-anchor="middle" x="341" y="-93.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">2.5→6 GW</text>
+<text text-anchor="middle" x="341" y="-83.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">needed</text>
+</g>
+<!-- openai -->
+<g id="node22" class="node">
+<title>openai</title>
+<polygon fill="#f8bbd0" stroke="#333333" points="515,-48 375,-48 375,0 515,0 515,-48"/>
+<text text-anchor="start" x="424.5" y="-37" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">OpenAI</text>
+<text text-anchor="start" x="389.5" y="-27" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Target: 52 GW by 2030</text>
+<text text-anchor="start" x="383" y="-17" font-family="Inter,Helvetica,sans-serif" font-size="10.00">= 25% of 700&#45;tool output</text>
+<text text-anchor="start" x="386" y="-7" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Multi&#45;provider contracts</text>
+</g>
+<!-- dc&#45;&gt;openai -->
+<g id="edge25" class="edge">
+<title>dc&#45;&gt;openai</title>
+<path fill="none" stroke="#555555" d="M462.29,-133.7C458.95,-112.69 454,-81.54 450.25,-57.97"/>
+<polygon fill="#555555" stroke="#555555" points="453.7,-57.39 448.67,-48.06 446.78,-58.49 453.7,-57.39"/>
+<text text-anchor="middle" x="475.5" y="-93.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">52 GW</text>
+<text text-anchor="middle" x="475.5" y="-83.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">by 2030</text>
+</g>
+<!-- dc_build -->
+<g id="node20" class="node">
+<title>dc_build</title>
+<polygon fill="#b2ebf2" stroke="#333333" points="538.5,-334 425.5,-334 425.5,-296 538.5,-296 538.5,-334"/>
+<text text-anchor="start" x="436.5" y="-323" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">DC Construction</text>
+<text text-anchor="start" x="433.5" y="-313" font-family="Inter,Helvetica,sans-serif" font-size="10.00">8 months – &lt;1 year</text>
+<text text-anchor="start" x="435" y="-303" font-family="Inter,Helvetica,sans-serif" font-size="10.00">(vs. fab: 2–3 years)</text>
+</g>
+<!-- dc_build&#45;&gt;dc -->
+<g id="edge23" class="edge">
+<title>dc_build&#45;&gt;dc</title>
+<path fill="none" stroke="#555555" d="M480.13,-295.92C477.52,-270.59 472.72,-224.1 469.45,-192.39"/>
+<polygon fill="#555555" stroke="#555555" points="472.91,-191.84 468.4,-182.26 465.95,-192.56 472.91,-191.84"/>
+<text text-anchor="middle" x="506.5" y="-250.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">physical</text>
+<text text-anchor="middle" x="506.5" y="-240.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">infrastructure</text>
+</g>
+<!-- h100_econ -->
+<g id="node23" class="node">
+<title>h100_econ</title>
+<polygon fill="#f8bbd0" stroke="#333333" points="787,-48 601,-48 601,0 787,0 787,-48"/>
+<text text-anchor="start" x="630" y="-37" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">H100 Token Economics</text>
+<text text-anchor="start" x="617" y="-27" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Mfg cost: ~$1.40/hr (5&#45;yr depr.)</text>
+<text text-anchor="start" x="646" y="-17" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Spot: up to $2.40/hr</text>
+<text text-anchor="start" x="609" y="-7" font-family="Inter,Helvetica,sans-serif" font-size="10.00">&quot;Worth more today than 3 yrs ago&quot;</text>
+</g>
+<!-- anthropic&#45;&gt;h100_econ -->
+<g id="edge26" class="edge">
+<title>anthropic&#45;&gt;h100_econ</title>
+<path fill="none" stroke="#555555" stroke-dasharray="1,5" d="M304.84,-48.01C336.15,-66.89 374.5,-90 374.5,-90 374.5,-90 417.5,-90 417.5,-90 417.5,-90 512.23,-67.39 590.79,-48.64"/>
+<polygon fill="#555555" stroke="#555555" points="591.86,-51.98 600.78,-46.25 590.24,-45.17 591.86,-51.98"/>
+<text text-anchor="middle" x="396" y="-93.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">inference</text>
+<text text-anchor="middle" x="396" y="-83.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">demand</text>
+</g>
+<!-- openai&#45;&gt;h100_econ -->
+<g id="edge27" class="edge">
+<title>openai&#45;&gt;h100_econ</title>
+<path fill="none" stroke="#555555" stroke-dasharray="1,5" d="M515.02,-24C538.52,-24 565.23,-24 590.72,-24"/>
+<polygon fill="#555555" stroke="#555555" points="590.8,-27.5 600.8,-24 590.8,-20.5 590.8,-27.5"/>
+<text text-anchor="middle" x="558" y="-39.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">inference</text>
+<text text-anchor="middle" x="558" y="-29.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">demand</text>
+</g>
+<!-- h100_econ&#45;&gt;nvidia_gpu -->
+<g id="edge28" class="edge">
+<title>h100_econ&#45;&gt;nvidia_gpu</title>
+<path fill="none" stroke="#555555" stroke-dasharray="1,5" d="M692.95,-58.59C691.11,-117.95 687.31,-239.9 685.72,-290.84"/>
+<polygon fill="#555555" stroke="#555555" points="696.46,-58.38 693.28,-48.27 689.47,-58.16 696.46,-58.38"/>
+<text text-anchor="middle" x="714" y="-160.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">rising chip</text>
+<text text-anchor="middle" x="714" y="-150.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">value</text>
+</g>
+<!-- china_duv -->
+<g id="node24" class="node">
+<title>china_duv</title>
+<polygon fill="#e0e0e0" stroke="#333333" points="749.5,-822 548.5,-822 548.5,-784 749.5,-784 749.5,-822"/>
+<text text-anchor="start" x="603" y="-811" font-family="Inter,Helvetica,sans-serif" font-weight="bold" font-size="10.00">China DUV Tools</text>
+<text text-anchor="start" x="580" y="-801" font-family="Inter,Helvetica,sans-serif" font-size="10.00">7 nm / 14 nm via ASML DUV</text>
+<text text-anchor="start" x="556.5" y="-791" font-family="Inter,Helvetica,sans-serif" font-size="10.00">Domestic DUV: ~100 tools/yr by 2030</text>
+</g>
+<!-- china_duv&#45;&gt;china_euv -->
+<g id="edge30" class="edge">
+<title>china_duv&#45;&gt;china_euv</title>
+<path fill="none" stroke="#555555" stroke-dasharray="1,5" d="M649,-783.84C649,-757.28 649,-707.37 649,-674.15"/>
+<polygon fill="#555555" stroke="#555555" points="652.5,-674 649,-664 645.5,-674 652.5,-674"/>
+<text text-anchor="middle" x="669" y="-733.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">stepping</text>
+<text text-anchor="middle" x="669" y="-723.8" font-family="Inter,Helvetica,sans-serif" font-size="9.00">stone</text>
+</g>
+</g>
+</svg>
+`;
+  document.getElementById('diagramWrap').innerHTML = svgText;
+
+  const svg = document.querySelector('#diagramWrap svg');
+  if (!svg) return;
+  svg.removeAttribute('width');
+  svg.removeAttribute('height');
+  svg.style.width = '100%';
+  svg.style.height = 'auto';
+  svg.style.minWidth = '1000px';
+
+  // Wire click handlers on SVG nodes
+  svg.querySelectorAll('.node').forEach(g => {
+    const title = g.querySelector('title');
+    if (!title) return;
+    const name = title.textContent.trim();
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (selectedNodes.has(name) && selectedNodes.size <= getConnected(name).size + 1) clearSelection();
+      else selectByNodeId(name);
+      renderCards();
+    });
+  });
+
+  // Wire click on clusters
+  svg.querySelectorAll('.cluster').forEach(g => {
+    const title = g.querySelector('title');
+    if (!title) return;
+    const clusterName = title.textContent.trim();
+    // find which section owns this cluster
+    for (const [sk,sec] of Object.entries(sections)) {
+      if ((sec.svgClusters||[]).includes(clusterName)) {
+        const poly = g.querySelector('polygon');
+        if (poly) {
+          poly.style.cursor = 'pointer';
+          poly.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (selectedSection === sk) clearSelection();
+            else selectBySection(sk);
+            renderCards();
+          });
+        }
+      }
+    }
+  });
+
+  // Click on background clears
+  svg.addEventListener('click', () => { clearSelection(); renderCards(); });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  SCENARIO
+// ═══════════════════════════════════════════════════════════
+function applyScenario(idx) {
+  activeScenario = idx;
+  for (const [k,v] of Object.entries(originals)) params[k].val = v;
+  for (const [k,v] of Object.entries(scenarios[idx].preset)) if (params[k]) params[k].val = v;
+  for (const [k,p] of Object.entries(params)) {
+    const sl = document.getElementById(`sl_${k}`);
+    const lbl = document.getElementById(`lbl_${k}`);
+    if (sl) sl.value = p.val;
+    if (lbl) lbl.textContent = fmt(p.val, p.unit);
+  }
+  renderAnalysis(); renderCards(); renderScenarios();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+document.getElementById('clearBtn').addEventListener('click', () => { clearSelection(); renderCards(); });
+
+renderSidebar();
+renderScenarios();
+renderLegend();
+renderAnalysis();
+renderCards();
+injectSVG();
+</script>
+</body>
+</html>
