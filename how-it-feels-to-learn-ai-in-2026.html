@@ -235,7 +235,7 @@ The following is inspired by <a href="https://hackernoon.com/how-it-feels-to-lea
 
 <p class="line speaker-user">OK, OK. Which one should I use?</p>
 
-<p class="line speaker-expert">-Well, it depends. Are you running locally or in the cloud? Do you need <a href="https://qdrant.tech/articles/hybrid-search/" target="_blank">hybrid search</a>? Multi-tenancy? What's your recall target? Are you planning to do <a href="https://arxiv.org/abs/2004.12832" target="_blank">late interaction with ColBERT</a> or just <a href="https://en.wikipedia.org/wiki/Cosine_similarity" target="_blank">cosine similarity</a> over dense embeddings?</p>
+<p class="line speaker-expert">-Well, it depends. Are you running locally or in the cloud? Do you need <a href="https://qdrant.tech/articles/hybrid-search/" target="_blank">hybrid search</a>? <a href="https://en.wikipedia.org/wiki/Multitenancy" target="_blank">Multi-tenancy</a>? What's your <a href="https://en.wikipedia.org/wiki/Precision_and_recall" target="_blank">recall</a> target? Are you planning to do <a href="https://arxiv.org/abs/2004.12832" target="_blank">late interaction with ColBERT</a> or just <a href="https://en.wikipedia.org/wiki/Cosine_similarity" target="_blank">cosine similarity</a> over <a href="https://en.wikipedia.org/wiki/Sentence_embedding" target="_blank">dense embeddings</a>?</p>
 
 <p class="line speaker-user">I just have like 50 internal docs.</p>
 
@@ -263,7 +263,7 @@ The following is inspired by <a href="https://hackernoon.com/how-it-feels-to-lea
 
 <p class="line speaker-user">Fine-tune?</p>
 
-<p class="line speaker-expert">-Yeah, take a base model and train it specifically on your docs. That way the knowledge is in the weights, not the <a href="https://en.wikipedia.org/wiki/Context_window" target="_blank">context window</a>.</p>
+<p class="line speaker-expert">-Yeah, take a <a href="https://en.wikipedia.org/wiki/Foundation_model" target="_blank">base model</a> and train it specifically on your docs. That way the knowledge is in the weights, not the <a href="https://en.wikipedia.org/wiki/Context_window" target="_blank">context window</a>.</p>
 
 <p class="line speaker-user">That sounds serious. How do I do that?</p>
 
@@ -291,7 +291,7 @@ The following is inspired by <a href="https://hackernoon.com/how-it-feels-to-lea
 
 <p class="line speaker-user">I don't need agents. I just want to answer questions about docs.</p>
 
-<p class="line speaker-expert">-You say that now, but what happens when a user asks a question that requires information from two different docs? Or when they ask a follow-up question that requires conversational memory? Or when they want to take an action based on the answer? You need <a href="https://en.wikipedia.org/wiki/AI_agent" target="_blank">agents</a>.</p>
+<p class="line speaker-expert">-You say that now, but what happens when a user asks a question that requires information from two different docs? Or when they ask a follow-up question that requires <a href="https://en.wikipedia.org/wiki/Conversation_threading" target="_blank">conversational memory</a>? Or when they want to take an action based on the answer? You need <a href="https://en.wikipedia.org/wiki/AI_agent" target="_blank">agents</a>.</p>
 
 <p class="line speaker-user">I really don't think I need agents.</p>
 
@@ -351,7 +351,7 @@ The following is inspired by <a href="https://hackernoon.com/how-it-feels-to-lea
 
 <p class="line speaker-user">Inference server?</p>
 
-<p class="line speaker-expert">-Yeah, like <a href="https://github.com/vllm-project/vllm" target="_blank">vLLM</a>, <a href="https://github.com/NVIDIA/TensorRT-LLM" target="_blank">TensorRT-LLM</a>, <a href="https://github.com/sgl-project/sglang" target="_blank">SGLang</a>, <a href="https://ollama.com/" target="_blank">Ollama</a>, or <a href="https://github.com/ggerganov/llama.cpp" target="_blank">llama.cpp</a> if you're feeling vintage. You'll need to think about <a href="https://huggingface.co/docs/optimum/en/concept_guides/quantization" target="_blank">quantization</a> too—<a href="https://github.com/AutoGPTQ/AutoGPTQ" target="_blank">GPTQ</a>, <a href="https://github.com/casper-hansen/AutoAWQ" target="_blank">AWQ</a>, <a href="https://huggingface.co/docs/hub/en/gguf" target="_blank">GGUF</a>, or maybe you want FP8 if you have the right hardware—</p>
+<p class="line speaker-expert">-Yeah, like <a href="https://github.com/vllm-project/vllm" target="_blank">vLLM</a>, <a href="https://github.com/NVIDIA/TensorRT-LLM" target="_blank">TensorRT-LLM</a>, <a href="https://github.com/sgl-project/sglang" target="_blank">SGLang</a>, <a href="https://ollama.com/" target="_blank">Ollama</a>, or <a href="https://github.com/ggerganov/llama.cpp" target="_blank">llama.cpp</a> if you're feeling vintage. You'll need to think about <a href="https://huggingface.co/docs/optimum/en/concept_guides/quantization" target="_blank">quantization</a> too—<a href="https://github.com/AutoGPTQ/AutoGPTQ" target="_blank">GPTQ</a>, <a href="https://github.com/casper-hansen/AutoAWQ" target="_blank">AWQ</a>, <a href="https://huggingface.co/docs/hub/en/gguf" target="_blank">GGUF</a>, or maybe you want <a href="https://arxiv.org/abs/2209.05433" target="_blank">FP8</a> if you have the right hardware—</p>
 
 <p class="line speaker-user">I don't have hardware. Can't I just call an API?</p>
 
@@ -403,7 +403,7 @@ The following is inspired by <a href="https://hackernoon.com/how-it-feels-to-lea
 
 <p class="line speaker-user">I was going to write a <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/system-prompts" target="_blank">system prompt</a> that says "you are a helpful assistant that answers questions about our company docs."</p>
 
-<p class="line speaker-expert">-...Are you serious? You need <a href="https://arxiv.org/abs/2201.11903" target="_blank">chain-of-thought prompting</a> at minimum. Or maybe <a href="https://arxiv.org/abs/2305.10601" target="_blank">tree-of-thought</a>. Or <a href="https://arxiv.org/abs/2210.03629" target="_blank">ReAct</a>. Or <a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a>. Or you could use <a href="https://dspy.ai/" target="_blank">DSPy</a> to automatically optimize your prompts. Have you looked into meta-prompting? Or prompt chaining with—</p>
+<p class="line speaker-expert">-...Are you serious? You need <a href="https://arxiv.org/abs/2201.11903" target="_blank">chain-of-thought prompting</a> at minimum. Or maybe <a href="https://arxiv.org/abs/2305.10601" target="_blank">tree-of-thought</a>. Or <a href="https://arxiv.org/abs/2210.03629" target="_blank">ReAct</a>. Or <a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a>. Or you could use <a href="https://dspy.ai/" target="_blank">DSPy</a> to automatically optimize your prompts. Have you looked into <a href="https://arxiv.org/abs/2401.12954" target="_blank">meta-prompting</a>? Or prompt chaining with—</p>
 
 <p class="line speaker-user">I'm going to write a sentence that tells the model what to do.</p>
 
