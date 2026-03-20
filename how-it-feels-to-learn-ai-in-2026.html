@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How it feels to learn AI in 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;1,400;1,600&family=JetBrains+Mono:wght@400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFDF7;
+    --text: #1a1a1a;
+    --text-secondary: #555;
+    --accent: #c03e2a;
+    --accent-hover: #a02e1a;
+    --link: #2563aa;
+    --link-hover: #1a4478;
+    --link-visited: #6b4c9a;
+    --expert-bg: #f3f1ec;
+    --expert-border: #d4cfc4;
+    --divider: #d4cfc4;
+    --italic-color: #333;
+    --max-w: 680px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    font-size: 18px;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    font-family: 'Newsreader', Georgia, serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.72;
+    padding: 0 1.5rem;
+  }
+
+  /* --- Header / Hero --- */
+  header {
+    max-width: var(--max-w);
+    margin: 5rem auto 0;
+    padding-bottom: 2.5rem;
+    border-bottom: 2px solid var(--text);
+  }
+
+  header .kicker {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  h1 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 2.8rem;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+
+  header .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  header .meta {
+    margin-top: 1.5rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* --- Article body --- */
+  article {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 2.5rem 0 5rem;
+  }
+
+  .epigraph {
+    font-style: italic;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    padding: 1.2rem 1.5rem;
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(90deg, rgba(192,62,42,0.04), transparent 60%);
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .epigraph a {
+    color: var(--link);
+  }
+
+  /* Dialogue lines */
+  .line {
+    margin-bottom: 1.1rem;
+  }
+
+  .line.speaker-user {
+    /* normal user text */
+  }
+
+  .line.speaker-expert {
+    font-style: italic;
+    color: var(--italic-color);
+    padding: 0.15rem 0 0.15rem 1.2rem;
+    border-left: 2.5px solid var(--expert-border);
+    margin-left: 0;
+  }
+
+  .line.speaker-expert .dash {
+    /* the leading dash */
+  }
+
+  /* links */
+  a {
+    color: var(--link);
+    text-decoration-color: rgba(37,99,170,0.3);
+    text-underline-offset: 2px;
+    transition: color 0.15s, text-decoration-color 0.15s;
+  }
+
+  a:visited {
+    color: var(--link-visited);
+    text-decoration-color: rgba(107,76,154,0.3);
+  }
+
+  a:hover {
+    color: var(--link-hover);
+    text-decoration-color: var(--link-hover);
+  }
+
+  .section-break {
+    text-align: center;
+    margin: 2.2rem 0;
+    color: var(--divider);
+    font-size: 1.4rem;
+    letter-spacing: 0.5em;
+    user-select: none;
+  }
+
+  /* Closing footnotes */
+  .closing {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 2px solid var(--text);
+    font-style: italic;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+
+  /* Footer */
+  footer {
+    max-width: var(--max-w);
+    margin: 0 auto 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--divider);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  /* Link density indicator — subtle count */
+  .link-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    margin-left: 0.15em;
+    vertical-align: super;
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    html { font-size: 16px; }
+    h1 { font-size: 2rem; }
+    header { margin-top: 3rem; }
+    .line.speaker-expert { padding-left: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">Satire · AI Engineering · 2026</div>
+  <h1>How it feels to learn AI in&nbsp;2026</h1>
+  <p class="subtitle">In which a simple chatbot project spirals into an existential crisis across 47 competing frameworks.</p>
+  <div class="meta">
+    <span>March 2026</span>
+    <span>·</span>
+    <span>12 min read</span>
+  </div>
+</header>
+
+<article>
+
+<div class="epigraph">
+No new AI frameworks were created during the writing of this article. Three existing ones were deprecated, though.<br><br>
+The following is inspired by <a href="https://hackernoon.com/how-it-feels-to-learn-javascript-in-2016-d3a717dd577f" target="_blank">"How it feels to learn JavaScript in 2016"</a> by Jose Aguinaga. This piece is just an opinion, and like any <a href="https://en.wikipedia.org/wiki/AI_agent" target="_blank">AI agent</a> framework, it shouldn't be taken too seriously.
+</div>
+
+<div class="section-break">···</div>
+
+<p class="line speaker-user">Hey, I got this new project, but to be honest I haven't done much with AI beyond using <a href="https://chat.openai.com" target="_blank">ChatGPT</a>, and I've heard the landscape changed a bit. You're the most up-to-date AI engineer around here, right?</p>
+
+<p class="line speaker-expert">-The actual term is AI Solutions Architect, but yeah, I'm the right guy. I do AI in 2026. <a href="https://en.wikipedia.org/wiki/Agentic_AI" target="_blank">Agentic workflows</a>, <a href="https://en.wikipedia.org/wiki/Multimodal_learning" target="_blank">multi-modal</a> pipelines, autonomous code generation, you name it. I just came back from <a href="https://neurips.cc/" target="_blank">NeurIPS</a> and the <a href="https://www.anthropic.com" target="_blank">Anthropic</a> developer summit, so I know the latest technologies to build AI applications.</p>
+
+<p class="line speaker-user">Cool. I need to build a chatbot that answers questions about our company's internal docs. So I figure I can just send the docs to the <a href="https://platform.openai.com/docs/api-reference" target="_blank">OpenAI API</a> with a prompt and have it answer questions?</p>
+
+<p class="line speaker-expert">-Oh my god no, no one just stuffs documents into a prompt anymore. You need to build a <a href="https://en.wikipedia.org/wiki/Retrieval-augmented_generation" target="_blank">RAG</a> pipeline. It's 2026.</p>
+
+<p class="line speaker-user">RAG?</p>
+
+<p class="line speaker-expert">-<a href="https://en.wikipedia.org/wiki/Retrieval-augmented_generation" target="_blank">Retrieval-Augmented Generation</a>. Basically you chunk your documents, embed them into <a href="https://en.wikipedia.org/wiki/Word_embedding" target="_blank">vectors</a>, store them in a <a href="https://en.wikipedia.org/wiki/Vector_database" target="_blank">vector database</a>, then at query time you retrieve the relevant chunks and pass them to the <a href="https://en.wikipedia.org/wiki/Large_language_model" target="_blank">LLM</a> as context.</p>
+
+<p class="line speaker-user">That sounds like a lot of steps just to ask questions about some PDFs. What's a vector database?</p>
+
+<p class="line speaker-expert">-It's a database optimized for <a href="https://en.wikipedia.org/wiki/Similarity_search" target="_blank">similarity search</a> over high-dimensional <a href="https://en.wikipedia.org/wiki/Word_embedding" target="_blank">embeddings</a>. You've got <a href="https://www.pinecone.io/" target="_blank">Pinecone</a>, <a href="https://weaviate.io/" target="_blank">Weaviate</a>, <a href="https://qdrant.tech/" target="_blank">Qdrant</a>, <a href="https://www.trychroma.com/" target="_blank">Chroma</a>, <a href="https://milvus.io/" target="_blank">Milvus</a>, <a href="https://github.com/pgvector/pgvector" target="_blank">pgvector</a>, <a href="https://turbopuffer.com/" target="_blank">Turbopuffer</a>—</p>
+
+<p class="line speaker-user">OK, OK. Which one should I use?</p>
+
+<p class="line speaker-expert">-Well, it depends. Are you running locally or in the cloud? Do you need <a href="https://qdrant.tech/articles/hybrid-search/" target="_blank">hybrid search</a>? Multi-tenancy? What's your recall target? Are you planning to do <a href="https://en.wikipedia.org/wiki/ColBERT" target="_blank">late interaction with ColBERT</a> or just <a href="https://en.wikipedia.org/wiki/Cosine_similarity" target="_blank">cosine similarity</a> over dense embeddings?</p>
+
+<p class="line speaker-user">I just have like 50 internal docs.</p>
+
+<p class="line speaker-expert">-Oh. You could probably just use a JSON file honestly.</p>
+
+<p class="line speaker-user">Then why did you—never mind. OK so I chunk the docs. How?</p>
+
+<p class="line speaker-expert">-Well there's your first real decision. Recursive character splitting, <a href="https://docs.llamaindex.ai/en/stable/module_guides/loading/node_parsers/modules/#semanticsplitternodeparser" target="_blank">semantic chunking</a>, sliding window, document-structure-aware parsing, agentic chunking—</p>
+
+<p class="line speaker-user">I'll just split them into paragraphs.</p>
+
+<p class="line speaker-expert">-I mean, you COULD, but you'll get terrible retrieval quality. You really should be using a late-chunking strategy with <a href="https://jina.ai/news/late-chunking-in-long-context-embedding-models/" target="_blank">contextual embeddings</a> that preserve document-level semantics. Or you could skip chunking entirely and use a <a href="https://en.wikipedia.org/wiki/Context_window" target="_blank">long-context model</a>.</p>
+
+<p class="line speaker-user">Long-context model?</p>
+
+<p class="line speaker-expert">-Yeah, some models now take 1 million, 2 million tokens. <a href="https://deepmind.google/technologies/gemini/" target="_blank">Gemini</a> does like 2 million. You could just dump everything in.</p>
+
+<p class="line speaker-user">So I don't need RAG at all? I can just stuff it all in the prompt?</p>
+
+<p class="line speaker-expert">-Oh god, no. Just because you CAN fit it all in doesn't mean the model will actually USE it all. There's the <a href="https://arxiv.org/abs/2307.03172" target="_blank">lost-in-the-middle problem</a>. And the cost. Do you know what 2 million input <a href="https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them" target="_blank">tokens</a> costs?</p>
+
+<p class="line speaker-user">So I DO need RAG.</p>
+
+<p class="line speaker-expert">-Or you could <a href="https://platform.openai.com/docs/guides/fine-tuning" target="_blank">fine-tune</a>.</p>
+
+<p class="line speaker-user">Fine-tune?</p>
+
+<p class="line speaker-expert">-Yeah, take a base model and train it specifically on your docs. That way the knowledge is in the weights, not the <a href="https://en.wikipedia.org/wiki/Context_window" target="_blank">context window</a>.</p>
+
+<p class="line speaker-user">That sounds serious. How do I do that?</p>
+
+<p class="line speaker-expert">-Well, you probably don't want full fine-tuning, that's expensive. You'd use <a href="https://arxiv.org/abs/2106.09685" target="_blank">LoRA</a>. Or <a href="https://arxiv.org/abs/2305.14314" target="_blank">QLoRA</a> if you want to do it on a single GPU. You'd need to format your docs as instruction-completion pairs, set up your training pipeline with <a href="https://github.com/OpenAccess-AI-Collective/axolotl" target="_blank">Axolotl</a> or <a href="https://github.com/unslothai/unsloth" target="_blank">Unsloth</a> or <a href="https://huggingface.co/docs/trl/index" target="_blank">TRL</a>—</p>
+
+<p class="line speaker-user">Wait, I just want a chatbot for internal docs. Do I really need to train a model?</p>
+
+<p class="line speaker-expert">-I mean, no. RAG is probably fine. Let's go back to RAG.</p>
+
+<p class="line speaker-user">Thank god.</p>
+
+<p class="line speaker-expert">-So you'll need an <a href="https://huggingface.co/blog/getting-started-with-embeddings" target="_blank">embedding model</a>. There's OpenAI's <a href="https://platform.openai.com/docs/guides/embeddings" target="_blank">text-embedding-3-large</a>, <a href="https://cohere.com/embed" target="_blank">Cohere's embed-v4</a>, <a href="https://www.voyageai.com/" target="_blank">Voyage AI</a>, or you can run an open-source one like <a href="https://huggingface.co/BAAI/bge-large-en-v1.5" target="_blank">BGE</a> or <a href="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5" target="_blank">Nomic</a>. Or <a href="https://huggingface.co/Alibaba-NLP/gte-Qwen2-7B-instruct" target="_blank">GTE-Qwen2</a>. Oh, and you should probably be using <a href="https://huggingface.co/blog/matryoshka" target="_blank">Matryoshka embeddings</a> so you can truncate dimensions at query time for efficiency.</p>
+
+<p class="line speaker-user">I don't know what any of those words mean. Can I just use whatever's default?</p>
+
+<p class="line speaker-expert">-I mean, I guess, but your retrieval quality—</p>
+
+<p class="line speaker-user">I don't care. What's next?</p>
+
+<p class="line speaker-expert">-OK so now you need an orchestration framework. You've got <a href="https://www.langchain.com/" target="_blank">LangChain</a>, <a href="https://www.llamaindex.ai/" target="_blank">LlamaIndex</a>, <a href="https://haystack.deepset.ai/" target="_blank">Haystack</a>, <a href="https://dspy.ai/" target="_blank">DSPy</a>, <a href="https://learn.microsoft.com/en-us/semantic-kernel/" target="_blank">Semantic Kernel</a>, <a href="https://docs.spring.io/spring-ai/reference/" target="_blank">Spring AI</a> if you're in Java, or you could go lighter with <a href="https://python.useinstructor.com/" target="_blank">Instructor</a> or <a href="https://mirascope.io/" target="_blank">Mirascope</a> or—</p>
+
+<p class="line speaker-user">I'll use LangChain, I've heard of that one.</p>
+
+<p class="line speaker-expert">-LangChain? Is this 2024? I mean, you COULD, but most people have moved on. The API surface was too large and it abstracted things in weird ways. Plus are you using LangChain or <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a>? Because LangChain is mostly for simple chains now and LangGraph is for agentic workflows.</p>
+
+<p class="line speaker-user">I don't need agents. I just want to answer questions about docs.</p>
+
+<p class="line speaker-expert">-You say that now, but what happens when a user asks a question that requires information from two different docs? Or when they ask a follow-up question that requires conversational memory? Or when they want to take an action based on the answer? You need <a href="https://en.wikipedia.org/wiki/AI_agent" target="_blank">agents</a>.</p>
+
+<p class="line speaker-user">I really don't think I need agents.</p>
+
+<p class="line speaker-expert">-Everyone needs agents. It's 2026. Single-shot prompt-response is dead. You need a <a href="https://arxiv.org/abs/2210.03629" target="_blank">reasoning loop</a> with <a href="https://platform.openai.com/docs/guides/function-calling" target="_blank">tool use</a>. An agent that can decide when to retrieve, when to search, when to ask clarifying questions, when to hand off to a sub-agent—</p>
+
+<p class="line speaker-user">Sub-agent?</p>
+
+<p class="line speaker-expert">-Yeah, <a href="https://en.wikipedia.org/wiki/Multi-agent_system" target="_blank">multi-agent systems</a>. You have a planner agent that breaks down the query, a retrieval agent that searches your docs, a critic agent that evaluates the answer, and a synthesis agent that combines everything into a response.</p>
+
+<p class="line speaker-user">I need FOUR agents to answer a question about our vacation policy?</p>
+
+<p class="line speaker-expert">-Well, you could also look at agent frameworks like <a href="https://www.crewai.com/" target="_blank">CrewAI</a>, <a href="https://github.com/microsoft/autogen" target="_blank">AutoGen</a>, <a href="https://openai.com/index/new-tools-for-building-agents/" target="_blank">OpenAI Agents SDK</a>, <a href="https://google.github.io/adk-docs/" target="_blank">Google ADK</a>, or LangGraph. Or <a href="https://www.agno.com/" target="_blank">Agno</a>. Or <a href="https://ai.pydantic.dev/" target="_blank">Pydantic AI</a>. Or—</p>
+
+<p class="line speaker-user">How many agent frameworks are there?</p>
+
+<p class="line speaker-expert">-It's AI. There has to be hundreds of frameworks that all do the same thing. We know frameworks. In fact, we have the best frameworks. Our frameworks are huuuge.</p>
+
+<p class="line speaker-user">OK. Let's say I build this thing. Which model do I actually use?</p>
+
+<p class="line speaker-expert">-Which model? Well, what's your <a href="https://en.wikipedia.org/wiki/Latency_(engineering)" target="_blank">latency</a> budget? Cost per query? Do you need <a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use#json-output" target="_blank">structured output</a>? <a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use" target="_blank">Tool calling</a>? Do you care about the license? Are you operating in the <a href="https://artificialintelligenceact.eu/" target="_blank">EU</a>?</p>
+
+<p class="line speaker-user">I just want it to be good at answering questions.</p>
+
+<p class="line speaker-expert">-Define "good."</p>
+
+<p class="line speaker-user">It gives the right answer?</p>
+
+<p class="line speaker-expert">-You need <a href="https://hamel.dev/blog/posts/evals/" target="_blank">evals</a>.</p>
+
+<p class="line speaker-user">Evals?</p>
+
+<p class="line speaker-expert">-Evaluations. You can't just <a href="https://en.wiktionary.org/wiki/vibe_check" target="_blank">vibe check</a> your AI application. You need systematic, automated evaluation. There's <a href="https://docs.ragas.io/" target="_blank">RAGAS</a> for RAG-specific metrics, or you can use an <a href="https://arxiv.org/abs/2306.05685" target="_blank">LLM-as-a-judge</a> framework. Are you doing pairwise evaluation or pointwise scoring? What about faithfulness, answer relevancy, context precision, context recall—</p>
+
+<p class="line speaker-user">I'll ask Susan in accounting if it gets her questions right.</p>
+
+<p class="line speaker-expert">-That's... I mean, you also need <a href="https://en.wikipedia.org/wiki/Guardrails_(artificial_intelligence)" target="_blank">guardrails</a>.</p>
+
+<p class="line speaker-user">Guardrails?</p>
+
+<p class="line speaker-expert">-Yeah, you need to make sure the model doesn't <a href="https://en.wikipedia.org/wiki/Hallucination_(artificial_intelligence)" target="_blank">hallucinate</a>, doesn't leak sensitive information from your docs, doesn't go off-topic, doesn't output harmful content. You can use <a href="https://docs.nvidia.com/nemo/guardrails/latest/index.html" target="_blank">NeMo Guardrails</a>, <a href="https://www.guardrailsai.com/" target="_blank">Guardrails AI</a>, <a href="https://www.lakera.ai/" target="_blank">Lakera</a>, or roll your own with a <a href="https://arxiv.org/abs/2212.08073" target="_blank">constitutional AI</a>-style approach using a secondary model—</p>
+
+<p class="line speaker-user">A secondary model to watch the first model?</p>
+
+<p class="line speaker-expert">-Obviously. <a href="https://en.wikipedia.org/wiki/Quis_custodiet_ipsos_custodes%3F" target="_blank">Who watches the watchmen?</a> Another LLM.</p>
+
+<p class="line speaker-user">And who watches THAT model?</p>
+
+<p class="line speaker-expert">-Look, you're overthinking it. Let's talk about deployment.</p>
+
+<p class="line speaker-user">Please, yes. How do I deploy this.</p>
+
+<p class="line speaker-expert">-Well, are you running a proprietary model or <a href="https://opensource.org/ai/open-source-ai-definition" target="_blank">open-source</a>?</p>
+
+<p class="line speaker-user">What's the difference at this point?</p>
+
+<p class="line speaker-expert">-If you're using <a href="https://www.anthropic.com/claude" target="_blank">Claude</a> or <a href="https://openai.com/gpt-4" target="_blank">GPT</a>, you're just hitting an API so deployment is pretty straightforward. But if you want to run open-source—say <a href="https://llama.meta.com/" target="_blank">Llama 4</a>, <a href="https://mistral.ai/" target="_blank">Mistral Large</a>, <a href="https://www.deepseek.com/" target="_blank">DeepSeek-V4</a>, or <a href="https://huggingface.co/Qwen" target="_blank">Qwen 3</a>—you need an inference server.</p>
+
+<p class="line speaker-user">Inference server?</p>
+
+<p class="line speaker-expert">-Yeah, like <a href="https://github.com/vllm-project/vllm" target="_blank">vLLM</a>, <a href="https://github.com/NVIDIA/TensorRT-LLM" target="_blank">TensorRT-LLM</a>, <a href="https://github.com/sgl-project/sglang" target="_blank">SGLang</a>, <a href="https://ollama.com/" target="_blank">Ollama</a>, or <a href="https://github.com/ggerganov/llama.cpp" target="_blank">llama.cpp</a> if you're feeling vintage. You'll need to think about <a href="https://huggingface.co/docs/optimum/en/concept_guides/quantization" target="_blank">quantization</a> too—<a href="https://github.com/AutoGPTQ/AutoGPTQ" target="_blank">GPTQ</a>, <a href="https://github.com/casper-hansen/AutoAWQ" target="_blank">AWQ</a>, <a href="https://huggingface.co/docs/hub/en/gguf" target="_blank">GGUF</a>, or maybe you want FP8 if you have the right hardware—</p>
+
+<p class="line speaker-user">I don't have hardware. Can't I just call an API?</p>
+
+<p class="line speaker-expert">-I mean, sure, but then you're locked into a provider. What about <a href="https://en.wikipedia.org/wiki/Vendor_lock-in" target="_blank">vendor lock-in</a>? What about when OpenAI changes their pricing again? What about <a href="https://en.wikipedia.org/wiki/Data_sovereignty" target="_blank">data sovereignty</a>?</p>
+
+<p class="line speaker-user">I'm building a chatbot for 50 internal docs for a company of 200 people.</p>
+
+<p class="line speaker-expert">-Right, right. OK. So just use an API. But you should use a gateway.</p>
+
+<p class="line speaker-user">A gateway?</p>
+
+<p class="line speaker-expert">-An AI gateway. It sits between your app and the model providers and handles rate limiting, fallbacks, caching, load balancing across providers. There's <a href="https://github.com/BerriAI/litellm" target="_blank">LiteLLM</a>, <a href="https://portkey.ai/" target="_blank">Portkey</a>, <a href="https://www.martian.ai/" target="_blank">Martian</a>, <a href="https://www.helicone.ai/" target="_blank">Helicone</a>—or you could use your cloud provider's gateway, <a href="https://aws.amazon.com/bedrock/" target="_blank">AWS Bedrock</a> or <a href="https://azure.microsoft.com/en-us/products/ai-services/openai-service" target="_blank">Azure AI</a> or <a href="https://cloud.google.com/vertex-ai" target="_blank">Google Vertex</a>—</p>
+
+<p class="line speaker-user">Can't I just... call the API directly?</p>
+
+<p class="line speaker-expert">-I mean, sure, if you like living dangerously.</p>
+
+<p class="line speaker-user">OK fine. I call the API. I get the response. I show it to the user. We're done?</p>
+
+<p class="line speaker-expert">-What about <a href="https://en.wikipedia.org/wiki/Observability_(software)" target="_blank">observability</a>?</p>
+
+<p class="line speaker-user">What about it?</p>
+
+<p class="line speaker-expert">-You need to trace your LLM calls. Latency per step, token usage, cost tracking, <a href="https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/#prompt-management" target="_blank">prompt versioning</a>, retrieval quality metrics. There's <a href="https://www.langchain.com/langsmith" target="_blank">LangSmith</a>, <a href="https://langfuse.com/" target="_blank">Langfuse</a>, <a href="https://phoenix.arize.com/" target="_blank">Arize Phoenix</a>, <a href="https://wandb.ai/site/weave" target="_blank">Weights &amp; Biases Weave</a>, <a href="https://www.braintrust.dev/" target="_blank">Braintrust</a>, <a href="https://www.honeyhive.ai/" target="_blank">HoneyHive</a>—</p>
+
+<p class="line speaker-user">I feel like we're really far from "chatbot that answers questions about docs."</p>
+
+<p class="line speaker-expert">-And you still haven't set up your <a href="https://modelcontextprotocol.io/" target="_blank">MCP server</a>.</p>
+
+<p class="line speaker-user">MCP?</p>
+
+<p class="line speaker-expert">-<a href="https://modelcontextprotocol.io/" target="_blank">Model Context Protocol</a>. It's a standard for connecting AI models to external tools and data sources. Anthropic created it but now everyone supports it. Your chatbot should expose your doc search as an MCP tool so any AI client can connect to it.</p>
+
+<p class="line speaker-user">Why would I do that? I'm building a chatbot, not a tool server.</p>
+
+<p class="line speaker-expert">-It's 2026. Everything is a tool now. Every API, every database, every internal service—they all need MCP interfaces. And then there's <a href="https://google.github.io/A2A/" target="_blank">A2A</a>.</p>
+
+<p class="line speaker-user">A2A?</p>
+
+<p class="line speaker-expert">-<a href="https://google.github.io/A2A/" target="_blank">Agent-to-Agent protocol</a>. Google released it. It's for agents that need to talk to other agents. Your doc chatbot might need to talk to the calendar agent, which talks to the email agent, which talks to the <a href="https://slack.com" target="_blank">Slack</a> agent—</p>
+
+<p class="line speaker-user">My chatbot doesn't need to talk to other agents. It needs to answer questions. About documents. That we wrote. In English.</p>
+
+<p class="line speaker-expert">-Sure, sure. But what happens in 6 months when your PM says "can the chatbot also schedule meetings based on the policy docs?" Then you'll wish you had A2A set up.</p>
+
+<p class="line speaker-user">I'll deal with that in 6 months.</p>
+
+<p class="line speaker-expert">-Famous last words. Oh, and have you thought about which <a href="https://www.promptingguide.ai/" target="_blank">prompt technique</a> you're using?</p>
+
+<p class="line speaker-user">I was going to write a <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/system-prompts" target="_blank">system prompt</a> that says "you are a helpful assistant that answers questions about our company docs."</p>
+
+<p class="line speaker-expert">-...Are you serious? You need <a href="https://arxiv.org/abs/2201.11903" target="_blank">chain-of-thought prompting</a> at minimum. Or maybe <a href="https://arxiv.org/abs/2305.10601" target="_blank">tree-of-thought</a>. Or <a href="https://arxiv.org/abs/2210.03629" target="_blank">ReAct</a>. Or <a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a>. Or you could use <a href="https://dspy.ai/" target="_blank">DSPy</a> to automatically optimize your prompts. Have you looked into meta-prompting? Or prompt chaining with—</p>
+
+<p class="line speaker-user">I'm going to write a sentence that tells the model what to do.</p>
+
+<p class="line speaker-expert">-You know what, maybe you should just use a no-code platform. There's <a href="https://flowiseai.com/" target="_blank">Flowise</a>, <a href="https://www.langflow.org/" target="_blank">Langflow</a>, <a href="https://dify.ai/" target="_blank">Dify</a>, <a href="https://www.stack-ai.com/" target="_blank">Stack AI</a>, <a href="https://relevanceai.com/" target="_blank">Relevance AI</a>—you just drag and drop nodes to build your pipeline.</p>
+
+<p class="line speaker-user">No-code? That actually sounds nice.</p>
+
+<p class="line speaker-expert">-I mean, it's fine for prototyping, but eventually you'll hit limitations. You won't be able to customize your chunking strategy, your retrieval is a black box, you can't do custom evals, and forget about running your own models—</p>
+
+<p class="line speaker-user">You just told me I didn't need to run my own models!</p>
+
+<p class="line speaker-expert">-You don't. Right now. But what about when you want to <a href="https://arxiv.org/abs/2503.01067" target="_blank">distill</a> a bigger model's outputs into a smaller, faster model for production? Or when you need to do <a href="https://huggingface.co/blog/continuous-pretraining" target="_blank">continued pre-training</a> on your domain data? Or—</p>
+
+<p class="line speaker-user">OK. I'm going to stop you there. All I need is a chatbot. That answers questions. About 50 documents. Written by humans. In a company of 200 people. I have been hearing about vector databases, embedding models, chunking strategies, fine-tuning, LoRA, QLoRA, agents, multi-agent systems, sub-agents, orchestration frameworks, inference servers, quantization formats, AI gateways, observability platforms, MCP servers, agent-to-agent protocols, prompt optimization frameworks, guardrail systems, evaluation pipelines, and no-code builders, and I STILL have not answered a single question about our vacation policy.</p>
+
+<p class="line speaker-expert">-...Have you considered just putting all the docs in a <a href="https://support.anthropic.com/en/articles/9517075-what-are-projects" target="_blank">Claude Project</a> and telling people to ask it questions there?</p>
+
+<p class="line speaker-user">THAT'S WHAT I SAID IN THE BEGINNING.</p>
+
+<p class="line speaker-expert">-Yeah, but it doesn't scale.</p>
+
+<p class="line speaker-user">You know what. I think we're done here. Actually, I think I'm done. I'm done with AI. I'm done with agents. I'm done with RAG and vectors and embeddings and evals.</p>
+
+<p class="line speaker-expert">-That's fine, in a few years we'll all just be telling the AI to build the AI app for us.</p>
+
+<p class="line speaker-user">I'm just going to put the docs in a shared folder and let people use Ctrl+F.</p>
+
+<p class="line speaker-expert">-I hear you. You should try the <a href="https://en.wikipedia.org/wiki/Robotics" target="_blank">robotics</a> community then.</p>
+
+<p class="line speaker-user">Why?</p>
+
+<p class="line speaker-expert">-Ever heard of the <a href="https://en.wikipedia.org/wiki/Sim-to-real" target="_blank">Sim-to-Real gap</a>?</p>
+
+<div class="closing">
+No new AI frameworks were deprecated during the editing of this article. Five new ones were announced, though. Two of them are just wrappers around the other three.
+</div>
+
+</article>
+
+<footer>
+  Inspired by <a href="https://hackernoon.com/how-it-feels-to-learn-javascript-in-2016-d3a717dd577f" target="_blank">"How it feels to learn JavaScript in 2016"</a> by Jose Aguinaga &nbsp;·&nbsp; March 2026
+</footer>
+
+</body>
+</html>
