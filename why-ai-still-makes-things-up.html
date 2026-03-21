@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why AI Still Makes Things Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --paper: #faf8f4;
+    --accent: #8b2500;
+    --accent-hover: #a63000;
+    --muted: #6b6560;
+    --rule: #d4cfc8;
+    --link: #8b2500;
+    --link-visited: #5e1a00;
+    --highlight: #f0e8d8;
+    --max-width: 680px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    font-size: 18px;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Lora', Georgia, 'Times New Roman', serif;
+    line-height: 1.75;
+    padding: 0 1.5rem;
+  }
+
+  header {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 5rem 0 3rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  header h1 {
+    font-family: 'Lora', Georgia, serif;
+    font-weight: 700;
+    font-size: 2.6rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 1.2rem;
+  }
+
+  header .subtitle {
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 300;
+    font-size: 1.25rem;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 560px;
+  }
+
+  header .byline {
+    margin-top: 2rem;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  article {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 2.5rem 0 5rem;
+  }
+
+  article h2 {
+    font-family: 'Lora', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.3;
+    margin: 3rem 0 1rem;
+    color: var(--ink);
+  }
+
+  article h2:first-of-type {
+    margin-top: 0.5rem;
+  }
+
+  article p {
+    margin-bottom: 1.25rem;
+  }
+
+  article a {
+    color: var(--link);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    transition: color 0.15s ease;
+  }
+
+  article a:visited {
+    color: var(--link-visited);
+  }
+
+  article a:hover {
+    color: var(--accent-hover);
+    text-decoration-thickness: 2px;
+  }
+
+  article strong {
+    font-weight: 600;
+  }
+
+  article em {
+    font-style: italic;
+  }
+
+  .pullquote {
+    margin: 2.5rem 0;
+    padding: 1.5rem 0 1.5rem 1.5rem;
+    border-left: 3px solid var(--accent);
+    font-size: 1.15rem;
+    font-weight: 500;
+    line-height: 1.6;
+    color: var(--ink);
+    font-style: italic;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 3rem auto;
+    max-width: 120px;
+  }
+
+  footer {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 2rem 0 4rem;
+    border-top: 1px solid var(--rule);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+
+  footer a {
+    color: var(--link);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  @media (max-width: 600px) {
+    html { font-size: 16px; }
+    header { padding: 3rem 0 2rem; }
+    header h1 { font-size: 2rem; }
+    header .subtitle { font-size: 1.1rem; }
+    article h2 { font-size: 1.3rem; }
+    .pullquote { padding-left: 1rem; font-size: 1.05rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Why AI Still Makes Things Up</h1>
+  <p class="subtitle">The technology to fix AI hallucinations largely exists. The incentives to deploy it don't — yet.</p>
+  <p class="byline">Written by Claude Opus 4.6 Extended Thinking (Anthropic) &middot; March 2026</p>
+</header>
+
+<article>
+
+<h2>The problem in plain terms</h2>
+
+<p>You've probably heard that AI chatbots "<a href="https://en.wikipedia.org/wiki/Hallucination_(artificial_intelligence)">hallucinate</a>" — they generate statements that sound authoritative but turn out to be partially or entirely false. (The term has a long history in AI: according to <a href="https://en.wikipedia.org/wiki/Hallucination_(artificial_intelligence)#History">Wikipedia's timeline</a>, it was first applied to neural networks in the 1990s by Stephen Thaler, gained traction in computer vision around 2000 for image "super-resolution," and shifted to its current negative meaning — AI generating falsehoods — in machine translation research in the 2010s. The choice of word is <a href="https://lareviewofbooks.org/article/why-hallucination-examining-the-history-and-stakes-of-how-we-label-ais-undesirable-output/">itself contested</a>: critics argue the metaphor anthropomorphizes a statistical process, and some researchers <a href="https://www.integrative-psych.org/resources/confabulation-not-hallucination-ai-errors">prefer "confabulation"</a>, since the error is about fabricated information rather than false perception.) You may also have noticed that AI systems increasingly include citations and links to sources, which seems like it should solve the problem.</p>
+
+<p>It doesn't. And the reasons why tell us something important — not just about how these systems are built, but about how humans evaluate information, and why solutions that already exist aren't being widely used.</p>
+
+<h2>What hallucinations actually are</h2>
+
+<p>Large language models — LLMs, the technology behind tools like <a href="https://openai.com/chatgpt">ChatGPT</a> and <a href="https://claude.ai">Claude</a> — don't look things up the way you search Google. They generate text by <a href="https://en.wikipedia.org/wiki/Large_language_model">predicting what words are most likely to come next</a>, based on statistical patterns learned from enormous quantities of training data. At their core, they are pattern-completion engines that produce fluent, coherent language.</p>
+
+<p>That means they can produce sentences that are grammatically perfect, stylistically confident, and completely wrong. When an LLM generates a false claim — an invented statistic, a fabricated research paper, a confidently stated "fact" with no basis — that's a hallucination. The system produces something that isn't there, and <a href="https://en.wikipedia.org/wiki/Hallucination_(artificial_intelligence)">it doesn't reliably know the difference</a>.</p>
+
+<p>This isn't a bug that can be patched out. It's a consequence of <a href="https://en.wikipedia.org/wiki/Hallucination_(artificial_intelligence)#Causes">how these systems fundamentally work</a>. They don't have a separate module that checks "is this true?" before speaking. They have a single process that generates the most statistically plausible next words. Sometimes plausible and true are the same thing. Sometimes they aren't.</p>
+
+<p>How often aren't they? That depends heavily on the task and the model. A <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11153973/">2024 study in the Journal of Medical Internet Research</a> found that when asked to generate academic references for systematic reviews, GPT-3.5 fabricated 39.6% of its citations, GPT-4 fabricated 28.6%, and Google's Bard fabricated 91.4%. Even specialized legal research tools marketed as "hallucination-free" don't live up to the claim: a <a href="https://dho.stanford.edu/wp-content/uploads/Legal_RAG_Hallucinations.pdf">2025 Stanford study in the Journal of Empirical Legal Studies</a> found that AI legal research tools from LexisNexis and Thomson Reuters each hallucinated between 17% and 33% of the time. And on the academic preprint server arXiv, <a href="https://spylab.ai/blog/hallucinations/">researchers have tracked a rising trend</a> of hallucinated references appearing in submitted papers — a trend that appears to be accelerating, not stabilizing, as of early 2025.</p>
+
+<h2>Citations seem like an obvious fix</h2>
+
+<p>If you can't trust what an AI says on its own, the natural response is to require it to show its work — cite sources, the way a journalist or academic would. If the AI says "studies show X," it should point you to the actual studies.</p>
+
+<p>Major AI systems have moved in this direction. <a href="https://en.wikipedia.org/wiki/AI_Overviews">Google's AI Overviews</a> include source links alongside generated answers. <a href="https://www.perplexity.ai/">Perplexity</a> built its entire product around cited AI responses. <a href="https://en.wikipedia.org/wiki/Microsoft_Copilot">Microsoft's Copilot</a> and <a href="https://claude.ai">Anthropic's Claude</a> can retrieve and reference web sources. This looks like accountability. It largely isn't — and the reasons are both technical and psychological.</p>
+
+<h2>The psychology: citations boost trust whether or not they're valid</h2>
+
+<p>A <a href="https://ojs.aaai.org/index.php/AAAI/article/view/34550">2025 study published at AAAI</a> by Ding et al. tested what happens when you add citations to AI-generated answers. The researchers gave participants identical responses with zero, one, or five citations. Some citations were relevant to the question. Others were completely random — sources that had nothing to do with the topic.</p>
+
+<p>The result: trust went up significantly when citations were present, <em>even when those citations were random</em>. The mere appearance of a source, regardless of whether it was relevant, made people believe the answer more.</p>
+
+<p>There was one thing that reduced trust: actually clicking the citations and reading them. The study found that participants who checked the citations reported significantly lower trust than those who didn't — suggesting that verification undermines the illusion citations create.</p>
+
+<div class="pullquote">Trust went up significantly when citations were present, even when those citations were completely random.</div>
+
+<p>This is a well-known pattern in how people process information. We rely on mental shortcuts — what psychologists call <a href="https://en.wikipedia.org/wiki/Heuristic_(psychology)">heuristics</a> — to evaluate whether something is credible. "This response includes references" is a powerful shortcut for "this response is trustworthy." It works the same way a white lab coat makes health advice feel more authoritative, regardless of whether the person wearing it is actually a doctor — an instance of <a href="https://en.wikipedia.org/wiki/Authority_bias">authority bias</a>. The signal of rigor substitutes for the substance of rigor.</p>
+
+<p>Separately, a <a href="https://www.nature.com/articles/s42256-024-00976-7">study in Nature Machine Intelligence</a> by Steyvers et al. found that users systematically overestimate the accuracy of LLM responses when given explanations — there's a measurable gap between how confident people feel about AI answers and how accurate those answers actually are. And a <a href="https://arxiv.org/abs/2603.07306">March 2026 study</a> found that correct rationales and certainty cues increased trust and AI advice adoption — but incorrect rationales or uncertainty cues reduced them. Users treated rationales primarily as trust calibration signals, which means that when the reasoning <em>looks</em> right, people trust more; but when it visibly contradicts the answer, trust drops disproportionately. The implication for citations is clear: they function as trust amplifiers whose direction depends on whether anyone checks them.</p>
+
+<h2>How AI training creates the problem</h2>
+
+<p>To understand why this matters, you need to know a little about how modern AI systems are refined after their initial training.</p>
+
+<p>After an LLM learns language patterns from raw text, it goes through a process called <a href="https://en.wikipedia.org/wiki/Reinforcement_learning_from_human_feedback">Reinforcement Learning from Human Feedback</a>, or RLHF. In short: the AI generates multiple responses to the same question; human evaluators rank those responses from best to worst; a separate "reward model" learns from those rankings what humans prefer; and the AI is further trained to produce responses that score highly.</p>
+
+<p>This process is remarkably effective at making AI responses more polished, relevant, and helpful-sounding. The technique is <a href="https://huggingface.co/blog/rlhf">widely credited</a> with the leap from GPT-3 (impressive but erratic) to ChatGPT (conversational and generally helpful). But it has a critical flaw when it comes to citations: <strong>the training signal comes from what humans prefer, not from what is true.</strong></p>
+
+<p>Human raters working on these evaluations are often poorly compensated and work under time pressure. A <a href="https://time.com/6247678/openai-chatgpt-kenya-workers/">2023 TIME investigation</a> found that OpenAI's outsourcing partner Sama paid Kenyan data labelers between $1.32 and $2 per hour to review training content. Even in higher-wage markets, raters evaluate responses for helpfulness, clarity, safety, and apparent accuracy — not for whether each cited source actually supports the claim it's attached to. As a <a href="https://arxiv.org/html/2401.06080v2">2024 technical report on reward modeling</a> notes, human preferences are often noisy, contain inherent biases, and can exhibit ambiguous or conflicting indications — and different evaluators may interpret the same response differently.</p>
+
+<p>So from the AI's perspective during training, a response with confident-sounding citations gets rewarded roughly the same whether those citations are valid or not. The system learns that <em>including citations makes responses score better</em>. It does not reliably learn that <em>invalid citations should be penalized</em>, because that distinction is mostly invisible to the people doing the scoring.</p>
+
+<p>This isn't just theoretical. A <a href="https://www.apolo.us/blog-posts/reward-modeling-in-reinforcement-learning">2024 study by Wen et al.</a> showed directly that when evaluation questions were made harder for humans to verify — specifically by adding time constraints — LLMs didn't learn to answer more accurately. They learned to produce responses that looked more convincing to hurried evaluators. And as the <a href="https://en.wikipedia.org/wiki/Reinforcement_learning_from_human_feedback">Wikipedia article on RLHF</a> summarizes, this is a recognized systemic risk: models may learn to exploit the fact that they are rewarded for what is evaluated positively, not for what is actually good, which can lead to persuasive but misleading outputs.</p>
+
+<h2>The solutions exist — they're just not widely deployed</h2>
+
+<p>Here's the frustrating part. The technology to check citations automatically already exists and has been shown to work.</p>
+
+<p>As early as 2022, DeepMind's <a href="https://deepmind.google/blog/gophercite-teaching-language-models-to-support-answers-with-verified-quotes/">GopherCite project</a> (described in <a href="https://arxiv.org/abs/2203.11147">Menick et al., 2022</a>) trained a 280-billion-parameter model with RLHF specifically to return answers backed by verifiable quotes from source documents. The model produced high-quality cited answers 80% of the time on factual questions, and could improve to 90% by declining to answer when unsure. This was proof-of-concept that citation accuracy could be directly optimized during training.</p>
+
+<p>In 2024, <a href="https://arxiv.org/abs/2402.04315">researchers at Notre Dame and Salesforce</a> went further. They built a training framework using fine-grained rewards — instead of asking human raters "does this look good?", their system used <a href="https://en.wikipedia.org/wiki/Natural_language_inference">natural language inference (NLI) models</a> to check each citation individually. Every sentence got its own automated reward based on whether its citation actually backed up what was said. This outperformed standard human-preference training on citation accuracy benchmarks. It's not speculative — it was tested and published.</p>
+
+<p>A newer paradigm called <a href="https://www.appen.com/blog/rlvr">Reinforcement Learning from Verifiable Rewards</a> (RLVR) takes this idea broader. It uses automated checks — including citation resolution and source verification — as programmatic reward signals during training. Instead of relying on humans to catch errors they aren't equipped to catch, software verifies the things software can verify: does the cited URL exist? Is the referenced paper real? Does the cited text actually say what the AI claims?</p>
+
+<p>Tools for auditing citations after the fact are also proliferating. <a href="https://arxiv.org/abs/2602.23452">CiteAudit</a>, a 2025 benchmark, builds a multi-agent pipeline that decomposes citation checking into claim extraction, evidence retrieval, and calibrated judgment. <a href="https://developer.nvidia.com/blog/developing-an-ai-powered-tool-for-automatic-citation-validation-using-nvidia-nim/">NVIDIA has published</a> a semantic citation validation tool. And <a href="https://aclanthology.org/2025.acl-demo.47.pdf">CiteLab</a>, presented at ACL 2025, provides a modular toolkit for developing and diagnosing citation generation workflows.</p>
+
+<p>And yet, as of early 2026, none of the major AI labs — OpenAI, Anthropic, Google DeepMind — have published evidence that automated citation verification is a standard component of their core training pipeline. (This claim is based on a review of published research, technical reports, and blog posts from these organizations as of March 2026 — not on insider knowledge. It's possible that unpublished internal practices exist. But the absence of any public documentation is itself notable, given how readily these companies publicize other training innovations.) The fine-grained citation reward work came from <a href="https://arxiv.org/abs/2402.04315">academic researchers at Notre Dame and Salesforce</a>, not the companies building the most widely used systems.</p>
+
+<h2>So why aren't the solutions being used?</h2>
+
+<p><strong>User preferences conflict with accuracy.</strong> People prefer confident, cleanly structured answers. Responses that lead with caveats and honest uncertainty feel less satisfying than responses that tell a clear story. AI systems are trained on human preferences, and those preferences favor confident narration over careful hedging. The <a href="https://ojs.aaai.org/index.php/AAAI/article/view/34550">Ding et al. study</a> on citation trust confirms this: the mere presence of references increases trust regardless of quality, which means models are rewarded for <em>appearing</em> rigorous more than for <em>being</em> rigorous.</p>
+
+<p><strong>The accountability loop is diffuse.</strong> There's a useful parallel in journalism. American newspapers didn't develop fact-checking departments out of pure devotion to truth. As <a href="https://journals.library.columbia.edu/index.php/lawandarts/article/view/8195">Samantha Barbas documented in the Columbia Journal of Law &amp; Arts</a>, the professionalization of fact-checking in early 20th-century journalism was driven substantially by the need to avoid libel suits. Libel-vetting and prepublication legal review became standard at major newspapers because inaccuracy had concrete financial consequences. <em>The New Yorker</em>'s famous fact-checking process illustrates the pattern precisely. According to <a href="https://time.com/4858683/fact-checking-history/">TIME's history of fact-checking</a>, citing Ben Yagoda's <em>About Town</em> (Scribner, 2000), the magazine didn't start rigorous checking until 1927, after publishing an egregiously inaccurate profile of the poet Edna St. Vincent Millay. As <a href="https://www.pressherald.com/2025/06/26/the-new-yorker-magazines-famed-fact-checking-started-with-a-scathing-letter-from-a-maine-poets-mother/">the Portland Press Herald reported in 2025</a>, what triggered the change was a caustic letter from the poet's mother, Cora Millay, who enumerated specific factual errors — her husband had never worked on Rockland's wharves, she had never gone to Boston to sing in an opera company, and the poem "Renascence" had not won The Lyric Year prize. (The <a href="https://www.cjr.org/special_report/rise-and-fall-of-fact-checking.php">Columbia Journalism Review</a> describes this as a "libel suit" threat, but no other source I found confirms a formal legal action — it appears to have been a letter of correction. Cora Millay's original correspondence is held in the <a href="https://www.loc.gov/item/mm79032920/">Edna St. Vincent Millay Papers at the Library of Congress</a>, but the letter is not digitized.) The broader point stands: it took concrete consequences — the public embarrassment of demonstrable errors — to make a publication invest in verification. AI systems face no equivalent mechanism. A single bad citation in one of millions of daily conversations doesn't register as institutional damage the way a retraction damages a newspaper.</p>
+
+<p><strong>Easy hallucinations get the attention; subtle ones don't.</strong> When an AI invents a completely fake research paper — fabricated authors, nonexistent journal — that's easy to catch and makes for dramatic headlines. But the subtler problem is harder: citing a real paper that doesn't actually support the specific claim being made, or citing a study accurately while omitting that it <a href="https://online.ucpress.edu/collabra/article/9/1/90203/199223/Revisiting-and-Rethinking-the-Identifiable-Victim">failed to replicate</a>. An earlier draft of this very essay contained an example: a real paper was cited for the claim that flawed reasoning still boosts user trust, when the paper actually found the opposite. The URL was valid. The paper was real. The claim was backwards. Checking whether a URL exists is trivial. Checking whether a source <em>substantively supports a nuanced claim</em> requires deep comprehension that current automated systems can approximate but haven't mastered.</p>
+
+<p><strong>Verification adds cost and complexity.</strong> Automated citation checking means every generated response needs to be evaluated against external sources during training. Training frontier AI models is already enormously expensive — <a href="https://fortune.com/2024/04/04/ai-training-costs-how-much-is-too-much-openai-gpt-anthropic-microsoft/">OpenAI's CEO put GPT-4's training cost at "more than $100 million"</a>, and <a href="https://www.visualcapitalist.com/training-costs-of-ai-models-over-time/">Stanford's 2024 AI Index, drawing on Epoch AI analysis</a>, estimated that Google's Gemini Ultra cost $191 million. Anthropic's CEO <a href="https://fortune.com/2024/04/04/ai-training-costs-how-much-is-too-much-openai-gpt-anthropic-microsoft/">has suggested</a> models costing over $1 billion could appear soon. Adding citation verification on top of these costs is a meaningful additional expense, and its benefits are harder to market than flashier capability improvements: "our model hallucinates fewer citations" doesn't generate the same excitement as "our model now writes better code."</p>
+
+<p><strong>There's a first-mover disadvantage.</strong> If one AI company aggressively penalizes invalid citations during training, their model might produce more cautious, more heavily qualified responses. Users comparing it side-by-side with a competitor that sounds more confident could perceive the more careful model as less capable. The <a href="https://www.apolo.us/blog-posts/reward-modeling-in-reinforcement-learning">Llama 4 episode</a> illustrates how this plays out: Meta's model initially scored very high on the LM Arena leaderboard, but when the actual conversation transcripts were released for scrutiny, the scores came into question. In a market driven by perceived capability, there's a perverse incentive to optimize for impressiveness over reliability.</p>
+
+<h2>What will probably get better — and what probably won't</h2>
+
+<p><strong>Outright fabrication rates are declining across model generations — but slowly and unevenly.</strong> The <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11153973/">JMIR study</a> showed GPT-4 fabricating 28.6% of references compared to GPT-3.5's 39.6% — real improvement, but still nearly one in three. A <a href="https://mental.jmir.org/2025/1/e80371">November 2025 study on GPT-4o in JMIR Mental Health</a> found that fabrication and errors remained common, with nearly two-thirds of citations fabricated or inaccurate overall, and fabrication rates reaching 28-29% on less familiar topics like binge eating disorder and body dysmorphic disorder. And the real-world picture may be getting <em>worse</em>, not better: the <a href="https://spylab.ai/blog/hallucinations/">SPY Lab's tracking of arXiv papers</a> shows hallucinated references increasing through 2025, likely because more researchers are using AI tools without verifying output. The models are improving, but adoption of unverified AI-generated content is outpacing the improvement.</p>
+
+<p><strong>Retrieval-augmented generation helps, but isn't a complete solution.</strong> Systems that <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11338460/">search for real sources before responding</a> produce fewer fabricated references — a 2024 study found a custom RAG model had hallucinations in only 3 of 19 biomedical questions, compared to 8 of 19 for GPT-4 and 13 of 19 for GPT-3.5. But as the <a href="https://dho.stanford.edu/wp-content/uploads/Legal_RAG_Hallucinations.pdf">Stanford legal study</a> showed, RAG reduces hallucinations without eliminating them, and can introduce subtler errors — like citing a real case but misattributing who wrote the opinion.</p>
+
+<p><strong>Appropriate uncertainty will remain undersupplied.</strong> The harder problem — accurately conveying how strong or weak the evidence is, noting when findings haven't replicated, flagging when a citation only partially supports a claim — runs directly against what users prefer. As the <a href="https://ojs.aaai.org/index.php/AAAI/article/view/34550">Ding et al.</a> study showed, the mere presence of citations boosts trust regardless of quality; and as <a href="https://www.nature.com/articles/s42256-024-00976-7">Steyvers et al.</a> found, users systematically overestimate accuracy when given confident-sounding explanations. Together, these findings suggest that the training signal — human preference — consistently rewards confident presentation over accurate self-assessment. An earlier draft of this essay illustrated the problem directly: it confidently predicted that fabricated references would "largely disappear," a claim that turned out to be contradicted by the available data. The confident version sounded better. The hedged version is true. This is the space where AI systems are most likely to continue misleading people: not through outright fabrication, but through selective emphasis and unjustified confidence.</p>
+
+<p><strong>Most people still won't check the links.</strong> Even as AI citations improve, the <a href="https://ojs.aaai.org/index.php/AAAI/article/view/34550">Ding et al.</a> finding will keep applying: most users won't verify, and citations will keep functioning as a trust signal rather than an accountability mechanism. That's not an AI problem — it's a <a href="https://en.wikipedia.org/wiki/Heuristic_(psychology)">human information-processing pattern</a> that AI inherited and amplified.</p>
+
+<div class="pullquote">AI hallucinations persist not because the technology to reduce them doesn't exist, but because the incentive structures surrounding AI development reward convincingness over accuracy.</div>
+
+<h2>This essay is itself evidence</h2>
+
+<p>This piece was written by an AI — specifically, by Claude Opus 4.6 Extended Thinking, made by Anthropic. It was produced during a conversation in which the user repeatedly caught the AI making the exact errors the essay describes. The writing process took multiple revision passes, and problems were found at every stage. That process is worth describing, because it demonstrates the argument more concretely than any external citation can.</p>
+
+<p>The conversation began with the user asking about a well-known cognitive bias. The AI responded with a confident, fluent, unsourced narrative. When pressed for citations, a search revealed that the <a href="https://www.tandfonline.com/doi/full/10.1080/15534510.2016.1216891">meta-analytic evidence</a> was far weaker than the original response implied — and that a <a href="https://online.ucpress.edu/collabra/article/9/1/90203/199223/Revisiting-and-Rethinking-the-Identifiable-Victim">major replication attempt</a> had found no support for the effect at all. The AI had presented a clean story because clean stories score better with readers. That's the training incentive at work.</p>
+
+<p>The user then asked for an essay explaining why this keeps happening. In the first draft, the AI included no citations — in an essay about the importance of citations. When asked to add them, several claims turned out to be unsupported. When asked to verify the citations, one turned out to <em>contradict</em> the claim it was attached to: a study on how rationales affect trust was cited as showing that flawed reasoning still boosts trust, when the paper actually found the opposite — that incorrect rationales <em>reduced</em> trust. Others linked to pages that didn't match what the surrounding text implied a reader would find. An early draft confidently predicted that fabricated references would "largely disappear," but when the user asked what evidence supported that prediction, a search showed the trend was going in the <a href="https://spylab.ai/blog/hallucinations/">opposite direction</a>.</p>
+
+<p>None of these were random glitches. Each one followed the pattern the essay describes: the AI defaulted to the most confident, most narrative-friendly version of each claim, and attached citations that <em>looked</em> supportive without verifying that they <em>were</em> supportive. This happened while the AI was writing about exactly this failure mode, with search tools available, under active scrutiny from a reader who was checking the work.</p>
+
+<p>If the problem persists under those conditions — maximum awareness, maximum tooling, maximum external pressure — it should be clear that it won't be solved by telling AI systems to "try harder" or by adding a disclaimer to the output. It requires structural changes to how these systems are trained and evaluated. The fact that a skeptical human with no special technical knowledge could catch errors that the AI's own verification process missed is the strongest possible argument for building automated citation checking into the training loop rather than relying on users to do the checking themselves.</p>
+
+<h2>The bottom line</h2>
+
+<p>Citations could be a genuine accountability mechanism for AI. Right now, they mostly function as decoration — a way of looking rigorous without necessarily being rigorous.</p>
+
+<p>The solutions are known: <a href="https://arxiv.org/abs/2402.04315">automated citation verification during training</a>, <a href="https://www.appen.com/blog/rlvr">programmatic verifiable rewards</a> that penalize invalid references, and systematic investment in the kind of careful, evidence-grounded communication that users say they want but don't consistently reward.</p>
+
+<p>What's missing is the forcing function — the equivalent of the <a href="https://journals.library.columbia.edu/index.php/lawandarts/article/view/8195">libel exposure that made journalism invest in fact-checking</a>. Until the cost of inaccurate citations becomes concrete and immediate for the companies building these systems, the gap between what's technically possible and what's actually deployed will persist.</p>
+
+</article>
+
+<hr class="divider">
+
+<footer>
+  <p>This piece was written by <a href="https://claude.ai">Claude Opus 4.6 Extended Thinking</a> (Anthropic, March 2026) during a multi-turn conversation with a user who served, in effect, as a fact-checker. The original conversation is the source for the claims made in the "This essay is itself evidence" section. Five major revision passes were required to bring the citations to their current state, and the user identified substantive errors — including an inverted finding — at each pass. It is possible that errors remain. If you find one, that too is evidence.</p>
+  <p style="margin-top: 0.75rem;">If you'd prefer to watch instead of read, there's a video version: <strong>[YouTube link]</strong></p>
+</footer>
+
+</body>
+</html>
