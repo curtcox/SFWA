@@ -62,6 +62,7 @@
                   radial-gradient(900px 500px at 40% 80%, rgba(120, 219, 169, 0.10), transparent 60%),
                   var(--panel2);
       position: relative;
+      overflow: hidden;
     }
     .editorBar {
       padding: 10px 12px; display: flex; gap: 8px; align-items: center;
@@ -160,6 +161,29 @@
     }
     .legend b { color: var(--text); }
     .legend .row { margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .canvasControls {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 2;
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 8px;
+      backdrop-filter: blur(6px);
+    }
+    .canvasControls .btn {
+      min-width: 40px;
+      padding: 7px 12px;
+    }
+    .svgWrap.panning {
+      cursor: grabbing;
+    }
+    .svgWrap.panning svg {
+      cursor: grabbing;
+    }
     .kbd {
       font-family: var(--mono);
       padding: 1px 6px;
@@ -273,6 +297,10 @@
     </div>
 
     <div class="right">
+      <div class="canvasControls">
+        <button class="btn" id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
+        <button class="btn" id="btnZoomIn" type="button" aria-label="Zoom in">+</button>
+      </div>
       <div class="svgWrap">
         <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram"></svg>
       </div>
@@ -319,6 +347,9 @@
   const $parseStatus = document.getElementById("parseStatus");
   const $hashStatus = document.getElementById("hashStatus");
   const $errorBox = document.getElementById("errorBox");
+  const $svgWrap = document.querySelector(".svgWrap");
+  const $btnZoomOut = document.getElementById("btnZoomOut");
+  const $btnZoomIn = document.getElementById("btnZoomIn");
 
   const $app = document.querySelector(".app");
   const $btnViewSource = document.getElementById("btnViewSource");
@@ -798,6 +829,37 @@
     }
   }
 
+  const ZOOM_MIN = 0.4;
+  const ZOOM_MAX = 2.5;
+  const ZOOM_STEP = 1.2;
+  let viewport = { scale: 1, tx: 0, ty: 0 };
+  let viewportGroup = null;
+
+  function clamp(n, min, max) {
+    return Math.min(max, Math.max(min, n));
+  }
+
+  function applyViewportTransform() {
+    if (!viewportGroup) return;
+    viewportGroup.setAttribute("transform", `translate(${viewport.tx} ${viewport.ty}) scale(${viewport.scale})`);
+  }
+
+  function zoomAt(factor, centerX, centerY) {
+    const nextScale = clamp(viewport.scale * factor, ZOOM_MIN, ZOOM_MAX);
+    if (nextScale === viewport.scale) return;
+    const worldX = (centerX - viewport.tx) / viewport.scale;
+    const worldY = (centerY - viewport.ty) / viewport.scale;
+    viewport.scale = nextScale;
+    viewport.tx = centerX - worldX * viewport.scale;
+    viewport.ty = centerY - worldY * viewport.scale;
+    applyViewportTransform();
+  }
+
+  function zoomFromCenter(factor) {
+    const rect = $svg.getBoundingClientRect();
+    zoomAt(factor, Math.max(0, rect.width) / 2, Math.max(0, rect.height) / 2);
+  }
+
   function prunePositions(diagram) {
     const live = new Set(diagram.nodes.keys());
     for (const id of Object.keys(state.pos)) {
@@ -814,6 +876,14 @@
     const inv = ctm.inverse();
     const p = pt.matrixTransform(inv);
     return { x: p.x, y: p.y };
+  }
+
+  function diagramPointFromEvent(evt) {
+    const p = svgPointFromEvent(evt);
+    return {
+      x: (p.x - viewport.tx) / viewport.scale,
+      y: (p.y - viewport.ty) / viewport.scale,
+    };
   }
 
   function applyEdgeStyle(style, colorName) {
@@ -895,6 +965,7 @@
     const H = Math.max(300, rect.height);
 
     $svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    $svg.style.touchAction = "none";
     $svg.innerHTML = "";
 
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -906,13 +977,18 @@
     bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
     bg.setAttribute("width", W); bg.setAttribute("height", H);
     bg.setAttribute("fill", "transparent");
+    bg.style.cursor = "grab";
+    bg.addEventListener("pointerdown", (ev) => startPan(ev));
     $svg.appendChild(bg);
 
     // Draw edges under nodes
+    viewportGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    $svg.appendChild(edgeLayer);
-    $svg.appendChild(nodeLayer);
+    viewportGroup.appendChild(edgeLayer);
+    viewportGroup.appendChild(nodeLayer);
+    $svg.appendChild(viewportGroup);
+    applyViewportTransform();
 
     // Edge rendering
     for (const e of diagram.edges) {
@@ -1159,13 +1235,14 @@
   let dragMoved = false;
   let dragRaf = 0;
   let dragHashTimer = 0;
+  let panning = null;
 
   function startDrag(ev, id) {
     // Only left click / primary pointer
     if (ev.button !== 0) return;
     ev.preventDefault();
     ev.stopPropagation();
-    const p = svgPointFromEvent(ev);
+    const p = diagramPointFromEvent(ev);
     const cur = state.pos[id] || [p.x, p.y];
     dragging = {
       id,
@@ -1181,7 +1258,7 @@
 
   function moveDrag(ev) {
     if (!dragging) return;
-    const p = svgPointFromEvent(ev);
+    const p = diagramPointFromEvent(ev);
     const nx = Math.round(p.x + dragging.dx);
     const ny = Math.round(p.y + dragging.dy);
     const id = dragging.id;
@@ -1204,6 +1281,36 @@
     dragHashTimer = setTimeout(() => syncHash({ replace: true }), 120);
   }
 
+  function startPan(ev) {
+    if (ev.button !== 0 || dragging) return;
+    ev.preventDefault();
+    const p = svgPointFromEvent(ev);
+    panning = {
+      pointerId: ev.pointerId,
+      startX: p.x,
+      startY: p.y,
+      tx: viewport.tx,
+      ty: viewport.ty,
+    };
+    $svgWrap.classList.add("panning");
+    $svg.setPointerCapture(ev.pointerId);
+  }
+
+  function movePan(ev) {
+    if (!panning) return;
+    const p = svgPointFromEvent(ev);
+    viewport.tx = panning.tx + (p.x - panning.startX);
+    viewport.ty = panning.ty + (p.y - panning.startY);
+    applyViewportTransform();
+  }
+
+  function endPan() {
+    if (!panning) return;
+    try { $svg.releasePointerCapture(panning.pointerId); } catch {}
+    panning = null;
+    $svgWrap.classList.remove("panning");
+  }
+
   function endDrag(ev) {
     if (!dragging) return;
     const finishedId = dragging.id;
@@ -1218,9 +1325,21 @@
     }
   }
 
-  $svg.addEventListener("pointermove", (ev) => moveDrag(ev));
-  $svg.addEventListener("pointerup", (ev) => endDrag(ev));
-  $svg.addEventListener("pointercancel", (ev) => endDrag(ev));
+  $svg.addEventListener("pointermove", (ev) => {
+    moveDrag(ev);
+    movePan(ev);
+  });
+  $svg.addEventListener("pointerup", (ev) => {
+    endDrag(ev);
+    endPan();
+  });
+  $svg.addEventListener("pointercancel", (ev) => {
+    endDrag(ev);
+    endPan();
+  });
+
+  $btnZoomOut.addEventListener("click", () => zoomFromCenter(1 / ZOOM_STEP));
+  $btnZoomIn.addEventListener("click", () => zoomFromCenter(ZOOM_STEP));
 
   // -----------------------------
   // App state + rendering loop
