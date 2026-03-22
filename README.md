@@ -1054,6 +1054,8 @@ python -m http.server
 ```
 
 # See Also
+- [Site](https://curtcox.github.io/SFWA/)
+- [Site Index](https://curtcox.github.io/SFWA/site-index.html)
 - [Gwtar: a static efficient single-file HTML format](https://gwern.net/gwtar)
 - [256t](https://curtcox.github.io/256t.org/)
 
