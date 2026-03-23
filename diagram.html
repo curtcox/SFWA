@@ -249,11 +249,11 @@
           </div>
           <div style="margin-top:6px;">
             <b>Edge line</b>:
-            <code>a -> b (-> c ...)  [lineStyle] [color] [url] [text...]</code>
+            <code>a -> b (-> c ...)  [size] [lineStyle] [color] [url] [text...]</code>
           </div>
           <div style="margin-top:8px;">
             Attribute order is fixed:
-            <code>style, color, URL fragment, text</code>
+            <code>size, style, color, URL fragment, text</code>
             — but any can be omitted.
           </div>
           <div style="margin-top:8px;">
@@ -647,8 +647,13 @@
         if (tokens[i] && NODE_SHAPES.includes(tokens[i])) {
           style = tokens[i++]; // shape
         }
-      } else if (kind === "edge" && EDGE_STYLES.includes(tokens[i])) {
-        style = tokens[i++]; // line style
+      } else if (kind === "edge") {
+        if (NODE_SIZES.includes(tokens[i])) {
+          size = tokens[i++];
+        }
+        if (tokens[i] && EDGE_STYLES.includes(tokens[i])) {
+          style = tokens[i++]; // line style
+        }
       }
     }
 
@@ -669,7 +674,7 @@
 
   function parseSource(src) {
     const nodes = new Map(); // id -> {id, size, shape, color, url, text}
-    const edges = [];        // {from,to, style,color,url,text, key}
+    const edges = [];        // {from,to, size,style,color,url,text, key}
 
     const errors = [];
     const lines = src.split(/\r?\n/);
@@ -735,6 +740,7 @@
 
           edges.push({
             from, to,
+            size: attrs.size || "normal",
             style: attrs.style || "solid",
             color: attrs.color || "gray",
             url: attrs.url || "",
@@ -1038,6 +1044,7 @@
       if (e.text) {
         const mx = (x1 + x2) / 2;
         const my = (y1 + y2) / 2;
+        const edgeTextScale = nodeScale(e.size || "normal");
         // Offset label slightly perpendicular
         const px = -uy, py = ux;
         const tx = mx + px * 10;
@@ -1049,7 +1056,7 @@
         label.setAttribute("text-anchor", "middle");
         label.setAttribute("dominant-baseline", "middle");
         label.setAttribute("font-family", "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial");
-        label.setAttribute("font-size", "12");
+        label.setAttribute("font-size", String(Math.max(10, Math.round(12 * edgeTextScale))));
         label.setAttribute("fill", "rgba(232,237,243,0.85)");
         label.setAttribute("paint-order", "stroke");
         label.setAttribute("stroke", "rgba(0,0,0,0.6)");
@@ -1358,9 +1365,9 @@
         "m circle blue /wikipedia.org Node M",
         "t triangle green /example.com Triangle",
         "",
-        "# edges (a -> b (-> c...)  [lineStyle] [color] [url] [text...])",
+        "# edges (a -> b (-> c...)  [size] [lineStyle] [color] [url] [text...])",
         "n -> m solid purple /news.ycombinator.com N to M",
-        "m -> t dotted teal /slashdot.org Dotted link",
+        "m -> t small dotted teal /slashdot.org Dotted link",
         "t -> n dashed orange /github.com Back edge",
         "",
         "# you can define nodes implicitly by referencing them in edges:",
