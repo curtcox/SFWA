@@ -260,6 +260,9 @@
             URL token: <code>/example.com</code> becomes <code>https://example.com</code>.
             You can also use <code>https://...</code> directly.
           </div>
+          <div style="margin-top:8px;">
+            A line containing only a supported color name sets the diagram background color.
+          </div>
         </div>
 
         <h3>Reserved words</h3>
@@ -675,6 +678,7 @@
   function parseSource(src) {
     const nodes = new Map(); // id -> {id, size, shape, color, url, text}
     const edges = [];        // {from,to, size,style,color,url,text, key}
+    let background = "";
 
     const errors = [];
     const lines = src.split(/\r?\n/);
@@ -697,6 +701,12 @@
       const raw = lines[lineNo];
       const line = stripInlineComment(raw);
       if (!line.trim()) continue;
+
+      const trimmed = line.trim();
+      if (Object.prototype.hasOwnProperty.call(COLORS, trimmed)) {
+        background = trimmed;
+        continue;
+      }
 
       if (line.includes("->")) {
         // Edge line (possibly chain)
@@ -769,7 +779,7 @@
 
     // Prune accidental empty duplicates? We'll just keep as parsed.
 
-    return { nodes, edges, errors };
+    return { nodes, edges, background, errors };
   }
 
   // -----------------------------
@@ -982,7 +992,7 @@
     const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
     bg.setAttribute("width", W); bg.setAttribute("height", H);
-    bg.setAttribute("fill", "transparent");
+    bg.setAttribute("fill", diagram.background ? COLORS[diagram.background] || "transparent" : "transparent");
     bg.style.cursor = "grab";
     bg.addEventListener("pointerdown", (ev) => startPan(ev));
     $svg.appendChild(bg);
@@ -1406,7 +1416,7 @@
       $errorBox.textContent = "";
     }
 
-    diagram = { nodes: parsed.nodes, edges: parsed.edges };
+    diagram = { nodes: parsed.nodes, edges: parsed.edges, background: parsed.background };
 
     ensurePositions(diagram);
     prunePositions(diagram);
