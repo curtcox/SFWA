@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Single-File URL-State Bouncing Balls</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #374151;
+      --accent: #38bdf8;
+      --danger: #fb7185;
+      --good: #34d399;
+      --warn: #fbbf24;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      background: radial-gradient(circle at top left, #1e293b, var(--bg) 55%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    .stage-wrap {
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #020617;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    canvas {
+      display: block;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        #020617;
+      background-size: 32px 32px;
+    }
+
+    aside {
+      min-height: 100vh;
+      overflow: auto;
+      border-left: 1px solid var(--line);
+      background: rgba(17, 24, 39, 0.96);
+      padding: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      line-height: 1.15;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .toolbar, .section, .ball-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(31, 41, 55, 0.72);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0f172a;
+      color: var(--text);
+      padding: 9px 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button.primary { background: #075985; border-color: #0284c7; }
+    button.danger { background: #881337; border-color: #be123c; }
+    button.good { background: #064e3b; border-color: #059669; }
+
+    label {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    input[type="number"], input[type="range"] {
+      width: 100%;
+    }
+
+    input[type="number"] {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #020617;
+      color: var(--text);
+      padding: 8px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .ball-card {
+      position: relative;
+    }
+
+    .ball-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .ball-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.55);
+      box-shadow: inset 0 0 10px rgba(255,255,255,0.18);
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .url-box {
+      user-select: all;
+      word-break: break-all;
+      max-height: 96px;
+      overflow: auto;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #020617;
+      color: #bae6fd;
+      font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    @media (max-width: 920px) {
+      body { grid-template-columns: 1fr; }
+      aside { min-height: auto; border-left: 0; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="stage-wrap">
+      <canvas id="stage" width="720" height="480" aria-label="Bouncing balls simulation"></canvas>
+    </div>
+  </main>
+
+  <aside>
+    <h1>URL-State Bouncing Balls</h1>
+    <p>Everything needed to recreate the current toy is encoded after the <strong>#</strong> in the URL. Copy the URL into another browser tab to restore the same screen size, balls, positions, sizes, and direction vectors.</p>
+
+    <div class="toolbar">
+      <button id="pauseBtn" class="primary">Pause</button>
+      <button id="addBtn" class="good">Add ball</button>
+      <button id="copyBtn">Copy URL</button>
+      <button id="resetBtn" class="danger">Reset</button>
+    </div>
+
+    <section class="section">
+      <div class="grid-2">
+        <label>Screen width
+          <input id="screenW" type="number" min="240" max="1600" step="10" />
+        </label>
+        <label>Screen height
+          <input id="screenH" type="number" min="180" max="1000" step="10" />
+        </label>
+      </div>
+      <p class="small">The canvas size is part of the URL state. Resizing clamps balls inside the new walls.</p>
+    </section>
+
+    <section class="section">
+      <div class="small" id="stats"></div>
+      <div class="url-box" id="urlPreview"></div>
+    </section>
+
+    <section id="ballControls"></section>
+  </aside>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d");
+      const controls = document.getElementById("ballControls");
+      const stats = document.getElementById("stats");
+      const urlPreview = document.getElementById("urlPreview");
+      const screenW = document.getElementById("screenW");
+      const screenH = document.getElementById("screenH");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const addBtn = document.getElementById("addBtn");
+      const copyBtn = document.getElementById("copyBtn");
+      const resetBtn = document.getElementById("resetBtn");
+
+      const VERSION = 1;
+      const MIN_RADIUS = 6;
+      const MAX_RADIUS = 80;
+      const MAX_SPEED = 420;
+      const URL_UPDATE_MS = 80;
+      const RESTITUTION = 1;
+      const POSITIONAL_CORRECTION = 0.86;
+      const SLOP = 0.01;
+
+      let audioContext = null;
+      let lastTimestamp = performance.now();
+      let lastUrlWrite = 0;
+      let suppressHashRead = false;
+
+      const colors = [
+        "#38bdf8", "#34d399", "#fbbf24", "#fb7185", "#c084fc",
+        "#f97316", "#22c55e", "#60a5fa", "#f472b6", "#a3e635"
+      ];
+
+      const defaultState = () => ({
+        v: VERSION,
+        screen: { w: 720, h: 480 },
+        paused: false,
+        balls: [
+          { x: 160, y: 120, r: 24, vx: 170, vy: 115, color: colors[0] },
+          { x: 455, y: 200, r: 36, vx: -105, vy: 80, color: colors[1] },
+          { x: 335, y: 360, r: 18, vx: 90, vy: -155, color: colors[2] }
+        ]
+      });
+
+      let state = readHashState() || defaultState();
+      normalizeState(state);
+      applyScreenSize();
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function round(value, places = 2) {
+        const factor = 10 ** places;
+        return Math.round(value * factor) / factor;
+      }
+
+      function ballMass(ball) {
+        // Drawn as a circle, but treated as a sphere for mass.
+        // Density is constant, so mass is proportional to volume: r^3.
+        return Math.max(1, ball.r ** 3);
+      }
+
+      function speed(ball) {
+        return Math.hypot(ball.vx, ball.vy);
+      }
+
+      function kineticEnergy() {
+        return state.balls.reduce((sum, b) => sum + 0.5 * ballMass(b) * (b.vx * b.vx + b.vy * b.vy), 0);
+      }
+
+      function momentum() {
+        return state.balls.reduce((p, b) => {
+          const m = ballMass(b);
+          p.x += m * b.vx;
+          p.y += m * b.vy;
+          return p;
+        }, { x: 0, y: 0 });
+      }
+
+      function compactForUrl(s) {
+        return {
+          v: VERSION,
+          screen: { w: Math.round(s.screen.w), h: Math.round(s.screen.h) },
+          paused: !!s.paused,
+          balls: s.balls.map(b => ({
+            x: round(b.x),
+            y: round(b.y),
+            r: round(b.r),
+            vx: round(b.vx),
+            vy: round(b.vy),
+            color: b.color
+          }))
+        };
+      }
+
+      function encodeState(s) {
+        const json = JSON.stringify(compactForUrl(s));
+        return encodeURIComponent(json);
+      }
+
+      function decodeState(fragment) {
+        if (!fragment) return null;
+        const raw = fragment.startsWith("#") ? fragment.slice(1) : fragment;
+        if (!raw) return null;
+        try {
+          const parsed = JSON.parse(decodeURIComponent(raw));
+          normalizeState(parsed);
+          return parsed;
+        } catch (err) {
+          console.warn("Could not decode URL state:", err);
+          return null;
+        }
+      }
+
+      function readHashState() {
+        return decodeState(location.hash);
+      }
+
+      function writeHash({ force = false, push = false } = {}) {
+        const now = performance.now();
+        if (!force && now - lastUrlWrite < URL_UPDATE_MS) return;
+        lastUrlWrite = now;
+
+        const hash = "#" + encodeState(state);
+        if (location.hash === hash) return;
+
+        suppressHashRead = true;
+        if (push) history.pushState(null, "", hash);
+        else history.replaceState(null, "", hash);
+        urlPreview.textContent = location.href;
+        requestAnimationFrame(() => { suppressHashRead = false; });
+      }
+
+      function normalizeState(s) {
+        s.v = VERSION;
+        s.screen = s.screen || {};
+        s.screen.w = clamp(Number(s.screen.w) || 720, 240, 1600);
+        s.screen.h = clamp(Number(s.screen.h) || 480, 180, 1000);
+        s.paused = !!s.paused;
+        s.balls = Array.isArray(s.balls) ? s.balls : [];
+
+        s.balls = s.balls.slice(0, 50).map((b, index) => {
+          const r = clamp(Number(b.r) || 20, MIN_RADIUS, MAX_RADIUS);
+          return {
+            x: clamp(Number(b.x) || r + 2, r, s.screen.w - r),
+            y: clamp(Number(b.y) || r + 2, r, s.screen.h - r),
+            r,
+            vx: clamp(Number(b.vx) || 0, -MAX_SPEED, MAX_SPEED),
+            vy: clamp(Number(b.vy) || 0, -MAX_SPEED, MAX_SPEED),
+            color: /^#[0-9a-f]{6}$/i.test(b.color || "") ? b.color : colors[index % colors.length]
+          };
+        });
+
+        // Avoid impossible starting overlaps where feasible.
+        for (let i = 0; i < s.balls.length; i++) {
+          keepInsideWalls(s.balls[i]);
+        }
+      }
+
+      function applyScreenSize() {
+        canvas.width = Math.round(state.screen.w);
+        canvas.height = Math.round(state.screen.h);
+        canvas.style.width = `${state.screen.w}px`;
+        canvas.style.height = `${state.screen.h}px`;
+        for (const ball of state.balls) keepInsideWalls(ball);
+        screenW.value = Math.round(state.screen.w);
+        screenH.value = Math.round(state.screen.h);
+      }
+
+      function keepInsideWalls(ball) {
+        ball.x = clamp(ball.x, ball.r, state.screen.w - ball.r);
+        ball.y = clamp(ball.y, ball.r, state.screen.h - ball.r);
+      }
+
+      function addBall() {
+        const radius = 14 + Math.random() * 26;
+        const ball = {
+          x: radius + Math.random() * Math.max(1, state.screen.w - 2 * radius),
+          y: radius + Math.random() * Math.max(1, state.screen.h - 2 * radius),
+          r: radius,
+          vx: -180 + Math.random() * 360,
+          vy: -180 + Math.random() * 360,
+          color: colors[state.balls.length % colors.length]
+        };
+
+        for (let tries = 0; tries < 200; tries++) {
+          let overlaps = false;
+          for (const other of state.balls) {
+            if (Math.hypot(ball.x - other.x, ball.y - other.y) < ball.r + other.r + 2) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (!overlaps) break;
+          ball.x = ball.r + Math.random() * Math.max(1, state.screen.w - 2 * ball.r);
+          ball.y = ball.r + Math.random() * Math.max(1, state.screen.h - 2 * ball.r);
+        }
+
+        state.balls.push(ball);
+        renderControls();
+        writeHash({ force: true, push: true });
+      }
+
+      function removeBall(index) {
+        state.balls.splice(index, 1);
+        renderControls();
+        writeHash({ force: true, push: true });
+      }
+
+      function resizeBall(index, radius) {
+        const ball = state.balls[index];
+        if (!ball) return;
+        ball.r = clamp(Number(radius), MIN_RADIUS, MAX_RADIUS);
+        keepInsideWalls(ball);
+        renderControls();
+        writeHash({ force: true });
+      }
+
+      function changeVelocity(index, axis, value) {
+        const ball = state.balls[index];
+        if (!ball) return;
+        ball[axis] = clamp(Number(value), -MAX_SPEED, MAX_SPEED);
+        renderControls();
+        writeHash({ force: true });
+      }
+
+      function playCollisionSound(intensity = 1) {
+        try {
+          audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+          if (audioContext.state === "suspended") audioContext.resume();
+
+          const now = audioContext.currentTime;
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const freq = 160 + clamp(intensity, 0, 6) * 70;
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(Math.max(80, freq * 0.55), now + 0.055);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.035 * clamp(intensity, 0.25, 2.5), now + 0.006);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+          osc.connect(gain).connect(audioContext.destination);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        } catch {
+          // Audio is best-effort; browsers may block it until user interaction.
+        }
+      }
+
+      function step(dt) {
+        // Cap large tab-resume jumps to keep collision resolution stable.
+        dt = Math.min(dt, 1 / 30);
+
+        for (const ball of state.balls) {
+          ball.x += ball.vx * dt;
+          ball.y += ball.vy * dt;
+          collideWithWalls(ball);
+        }
+
+        // Multiple passes handle clusters better while remaining simple.
+        for (let pass = 0; pass < 3; pass++) {
+          for (let i = 0; i < state.balls.length; i++) {
+            for (let j = i + 1; j < state.balls.length; j++) {
+              collideBalls(state.balls[i], state.balls[j]);
+            }
+          }
+        }
+      }
+
+      function collideWithWalls(ball) {
+        let hit = false;
+        if (ball.x - ball.r < 0) {
+          ball.x = ball.r;
+          ball.vx = Math.abs(ball.vx) * RESTITUTION;
+          hit = true;
+        } else if (ball.x + ball.r > state.screen.w) {
+          ball.x = state.screen.w - ball.r;
+          ball.vx = -Math.abs(ball.vx) * RESTITUTION;
+          hit = true;
+        }
+
+        if (ball.y - ball.r < 0) {
+          ball.y = ball.r;
+          ball.vy = Math.abs(ball.vy) * RESTITUTION;
+          hit = true;
+        } else if (ball.y + ball.r > state.screen.h) {
+          ball.y = state.screen.h - ball.r;
+          ball.vy = -Math.abs(ball.vy) * RESTITUTION;
+          hit = true;
+        }
+
+        if (hit && speed(ball) > 18) playCollisionSound(speed(ball) / 260);
+      }
+
+      function collideBalls(a, b) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        let dist = Math.hypot(dx, dy);
+        const minDist = a.r + b.r;
+
+        if (dist >= minDist || dist === 0) return;
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const tx = -ny;
+        const ty = nx;
+
+        const m1 = ballMass(a);
+        const m2 = ballMass(b);
+
+        // Separate overlap proportionally by inverse mass.
+        const penetration = minDist - dist;
+        const inv1 = 1 / m1;
+        const inv2 = 1 / m2;
+        const correction = Math.max(penetration - SLOP, 0) / (inv1 + inv2) * POSITIONAL_CORRECTION;
+        a.x -= correction * inv1 * nx;
+        a.y -= correction * inv1 * ny;
+        b.x += correction * inv2 * nx;
+        b.y += correction * inv2 * ny;
+        keepInsideWalls(a);
+        keepInsideWalls(b);
+
+        // Resolve only if balls are moving toward each other along the collision normal.
+        const rvx = b.vx - a.vx;
+        const rvy = b.vy - a.vy;
+        const velAlongNormal = rvx * nx + rvy * ny;
+        if (velAlongNormal > 0) return;
+
+        // 1D perfectly elastic collision on the normal axis, tangential components unchanged.
+        const aNormal = a.vx * nx + a.vy * ny;
+        const aTangent = a.vx * tx + a.vy * ty;
+        const bNormal = b.vx * nx + b.vy * ny;
+        const bTangent = b.vx * tx + b.vy * ty;
+
+        const aNormalAfter = ((m1 - m2) * aNormal + 2 * m2 * bNormal) / (m1 + m2);
+        const bNormalAfter = ((m2 - m1) * bNormal + 2 * m1 * aNormal) / (m1 + m2);
+
+        a.vx = aNormalAfter * nx + aTangent * tx;
+        a.vy = aNormalAfter * ny + aTangent * ty;
+        b.vx = bNormalAfter * nx + bTangent * tx;
+        b.vy = bNormalAfter * ny + bTangent * ty;
+
+        const impulse = Math.abs(bNormalAfter - bNormal) + Math.abs(aNormalAfter - aNormal);
+        if (impulse > 20) playCollisionSound(impulse / 260);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(226, 232, 240, 0.35)";
+        ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3);
+        ctx.restore();
+
+        for (let i = 0; i < state.balls.length; i++) {
+          const b = state.balls[i];
+          const grad = ctx.createRadialGradient(b.x - b.r * 0.35, b.y - b.r * 0.45, 2, b.x, b.y, b.r);
+          grad.addColorStop(0, "rgba(255,255,255,0.85)");
+          grad.addColorStop(0.22, b.color);
+          grad.addColorStop(1, "rgba(0,0,0,0.55)");
+
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(255,255,255,0.45)";
+          ctx.stroke();
+
+          // Direction vector arrow.
+          const len = Math.min(56, Math.max(18, speed(b) / 4));
+          const mag = speed(b) || 1;
+          const ax = b.x + (b.vx / mag) * len;
+          const ay = b.y + (b.vy / mag) * len;
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(ax, ay);
+          ctx.strokeStyle = "rgba(255,255,255,0.72)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(2, 6, 23, 0.75)";
+          ctx.font = "700 12px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(i + 1), b.x, b.y);
+        }
+      }
+
+      function renderStats() {
+        const p = momentum();
+        stats.innerHTML = `
+          Balls: <strong>${state.balls.length}</strong><br>
+          Kinetic energy: <strong>${kineticEnergy().toExponential(3)}</strong><br>
+          Momentum: <strong>(${round(p.x, 1)}, ${round(p.y, 1)})</strong><br>
+          ${state.paused ? "Paused" : "Running"}
+        `;
+        pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+        pauseBtn.className = state.paused ? "good" : "primary";
+        urlPreview.textContent = location.href;
+      }
+
+      function renderControls() {
+        screenW.value = Math.round(state.screen.w);
+        screenH.value = Math.round(state.screen.h);
+
+        controls.innerHTML = "";
+        state.balls.forEach((ball, index) => {
+          const card = document.createElement("div");
+          card.className = "ball-card";
+          card.innerHTML = `
+            <div class="ball-head">
+              <div class="ball-title"><span class="swatch" style="background:${ball.color}"></span> Ball ${index + 1}</div>
+              <button class="danger" data-action="remove" data-index="${index}">Remove</button>
+            </div>
+            <label>Size / radius: <strong>${round(ball.r, 1)}</strong>
+              <input type="range" min="${MIN_RADIUS}" max="${MAX_RADIUS}" step="1" value="${round(ball.r, 0)}" data-action="radius" data-index="${index}">
+            </label>
+            <div class="grid-2">
+              <label>Direction X / vx
+                <input type="number" min="-${MAX_SPEED}" max="${MAX_SPEED}" step="5" value="${round(ball.vx, 1)}" data-action="vx" data-index="${index}">
+              </label>
+              <label>Direction Y / vy
+                <input type="number" min="-${MAX_SPEED}" max="${MAX_SPEED}" step="5" value="${round(ball.vy, 1)}" data-action="vy" data-index="${index}">
+              </label>
+            </div>
+            <div class="small">Position: (${round(ball.x, 1)}, ${round(ball.y, 1)}) · Mass ∝ r³ = ${round(ballMass(ball), 0)}</div>
+          `;
+          controls.appendChild(card);
+        });
+        renderStats();
+      }
+
+      function frame(timestamp) {
+        const dt = (timestamp - lastTimestamp) / 1000;
+        lastTimestamp = timestamp;
+
+        if (!state.paused) {
+          step(dt);
+          writeHash();
+        }
+
+        draw();
+        renderStats();
+        requestAnimationFrame(frame);
+      }
+
+      pauseBtn.addEventListener("click", () => {
+        state.paused = !state.paused;
+        lastTimestamp = performance.now();
+        renderControls();
+        writeHash({ force: true, push: true });
+      });
+
+      addBtn.addEventListener("click", addBall);
+
+      copyBtn.addEventListener("click", async () => {
+        writeHash({ force: true });
+        try {
+          await navigator.clipboard.writeText(location.href);
+          copyBtn.textContent = "Copied";
+          setTimeout(() => { copyBtn.textContent = "Copy URL"; }, 900);
+        } catch {
+          urlPreview.focus();
+        }
+      });
+
+      resetBtn.addEventListener("click", () => {
+        state = defaultState();
+        applyScreenSize();
+        renderControls();
+        writeHash({ force: true, push: true });
+      });
+
+      screenW.addEventListener("change", () => {
+        state.screen.w = clamp(Number(screenW.value), 240, 1600);
+        applyScreenSize();
+        renderControls();
+        writeHash({ force: true, push: true });
+      });
+
+      screenH.addEventListener("change", () => {
+        state.screen.h = clamp(Number(screenH.value), 180, 1000);
+        applyScreenSize();
+        renderControls();
+        writeHash({ force: true, push: true });
+      });
+
+      controls.addEventListener("input", event => {
+        const target = event.target;
+        const index = Number(target.dataset.index);
+        const action = target.dataset.action;
+        if (action === "radius") resizeBall(index, target.value);
+        if (action === "vx" || action === "vy") changeVelocity(index, action, target.value);
+      });
+
+      controls.addEventListener("click", event => {
+        const target = event.target;
+        if (target.dataset.action === "remove") {
+          removeBall(Number(target.dataset.index));
+        }
+      });
+
+      window.addEventListener("hashchange", () => {
+        if (suppressHashRead) return;
+        const next = readHashState();
+        if (!next) return;
+        state = next;
+        applyScreenSize();
+        renderControls();
+        lastTimestamp = performance.now();
+      });
+
+      window.addEventListener("pointerdown", () => {
+        // Unlock sound after a user gesture, where required by the browser.
+        try {
+          audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+          if (audioContext.state === "suspended") audioContext.resume();
+        } catch {}
+      }, { once: true });
+
+      writeHash({ force: true });
+      renderControls();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
